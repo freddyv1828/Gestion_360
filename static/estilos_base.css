@@ -1,0 +1,78 @@
+*{
+    margin: 0;
+    padding: 0;
+}
+
+body{
+    
+    background-image: linear-gradient(rgba(0,0,0,0.5),rgba(220,220,220,0.5));
+    width: 100%;
+    height: 100vh;
+
+}
+
+nav{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 20px;
+    padding-left: 5%;
+    padding-right: 5%;
+    font-weight: bold;
+}
+h1{
+    color: white;
+    font-size: 45px;
+}
+
+
+ul li{
+    list-style: none;
+    display: inline-block;
+    padding: 0px 20px;
+}
+
+a{
+    color: white;
+    text-decoration: none;
+}
+
+a:hover{
+    color: aqua;
+}
+
+#index-content{
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#login-content{
+    width: 50vh;
+    height: 100vh;
+}
+
+.register-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin-top: 50px; /* Ajusta la distancia desde el nav */
+}
+
+#message-error {
+    display: flex;
+    flex-direction: column;
+    color: rgb(85, 8, 8);
+    font-weight: bold;
+    align-items: center;
+}
+
+#bienvenido-ppal {
+    display: flex;
+    flex-direction: column;
+    color: rgb(51, 7, 155);
+    font-weight: bold;
+    align-items: center;
+}

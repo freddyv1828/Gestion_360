@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="notification is-danger" id="message-error">
+                {{ messages[0] }}
+            </div>
+        {% endif %}
+        {% endwith %}
+
+        <h2 id="bienvenido-ppal">Administración princupal de Lacteos San Luis</h2>
+
+
+
+
+
+{% endblock %}

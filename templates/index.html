@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+
+    <div id="index-content">
+        <div id="login-content">
+            <h1>Iniciar sesión</h1>
+            <form  method="post">
+                <input type="text" name="username" placeholder="Nombre de usuario">
+                <br>
+                <br>
+                <input type="password" name="password" placeholder="Contraseña">
+                <br>
+                <br>
+                <select name="rol">
+                <option value="administrador">Administrador</option>
+                <option value="vendedor">Vendedor</option>
+                </select>
+                <br>
+                <br>
+                <input type="submit" value="Iniciar sesión">
+                <input type="reset" value="Limpiar">
+            </form>
+            {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="notification is-danger" id="message-error">
+                    {{ messages[0] }}
+                </div>
+            {% endif %}
+            {% endwith %}
+        </div>    
+    </div>
+ 
+
+{% endblock %}
