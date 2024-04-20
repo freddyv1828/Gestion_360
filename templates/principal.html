@@ -10,8 +10,41 @@
         {% endif %}
         {% endwith %}
 
-        <h2 id="bienvenido-ppal">Administración princupal de Lacteos San Luis</h2>
 
+        {% if 'usuario' in session %}
+            {% set usuario = session['nombre'] %}
+        {% endif %}
+
+        <h2 id="bienvenido-ppal">Hola {{ usuario }} bienvenido a la administración principal de Lacteos San Luis</h2>
+
+
+
+            <table class="variables">
+                <thead>
+                    <tr>
+                        <th>Iva</th>
+                        <th>Igtf</th>
+                        <th>Dolar paralelo</th>
+                        <th>Dolar oficial</th>
+                        <th>Fecha</th>
+                        <th>Hora</th>
+                        <th>Usuario</th>
+                    </tr>
+                </thead>
+                <tbody>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                </tbody>
+            </table>
+
+       
 
 
 
