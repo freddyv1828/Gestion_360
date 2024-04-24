@@ -2,7 +2,9 @@ import requests
 from bs4 import BeautifulSoup
 
 
-def obtener_valor_dolar(url):
+def obtener_valor_dolar():
+  
+  url = "https://www.bcv.org.ve/" 
 
 
   try:
@@ -18,6 +20,9 @@ def obtener_valor_dolar(url):
     
     # Extrae el valor del dólar como texto
     valor_dolar_texto = valor_dolar_element.find('strong').text.strip()
+    valor_dolar_texto = valor_dolar_texto.replace(',', '.')
+    valor_dolar_texto = float(valor_dolar_texto)
+    valor_dolar_texto = round(valor_dolar_texto, 2)
 
     return valor_dolar_texto
 
@@ -26,15 +31,7 @@ def obtener_valor_dolar(url):
   
   return None
 
-# Reemplaza con la URL real de la página web
-url = "https://www.bcv.org.ve/"  # Actualiza con la URL correcta
 
-valor_dolar = obtener_valor_dolar(url)
-
-if valor_dolar:
-  print( valor_dolar)
-else:
-  print("Valor del dólar no encontrado en la página web.")
 
   
   

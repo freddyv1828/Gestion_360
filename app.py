@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, flash, redirect, url_for, session
-from bd.db import create_admin, search_clave, login, datos_register, obtener_variables
+from bd.db import create_admin, search_clave, login, datos_register, obtener_iva, obtener_igtf, obtener_igtf_especial
+from scrapper.scrapping import obtener_valor_dolar
 
 
 
@@ -30,7 +31,17 @@ def index():
                 logged = login(username, password)
                 if logged != False:
                     session = logged
-                    return render_template('principal.html', session= session)
+                    iva = obtener_iva()
+                    igtf = obtener_igtf()
+                    dolar = obtener_valor_dolar()
+                    igtf_especial = obtener_igtf_especial()
+                    context = {
+                        'iva': iva,
+                        'igtf': igtf,
+                        'dolar': dolar,
+                        'igtf_especial': igtf_especial
+                    } 
+                    return render_template('principal.html', session= session, context=context)
                 else:
                     flash('Usuario o conytraseña incorrecta', 'error')
                     return render_template('index.html')
@@ -83,10 +94,9 @@ def register():
             return render_template('register.html') 
 
 # Ruta principal
-@app.route('/principal', methods = ['GET', 'POST'])
+@app.route('/prueba.html', methods = ['GET', 'POST'])
 def principal():
     if request.method == 'GET':
-        variable_actual = obtener_variables()
         
         
         return render_template('principal.html')

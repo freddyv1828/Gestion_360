@@ -15,38 +15,38 @@
             {% set usuario = session['nombre'] %}
         {% endif %}
 
-        <h2 id="bienvenido-ppal">Hola {{ usuario }} bienvenido a la administración principal de Lacteos San Luis</h2>
+        {% if 'iva' in context %}
+            {% set iva = context['iva'] %}
+            {% set igtf = context['igtf'] %}
+            {% set dolar = context['dolar'] %}
+            {% set igtf_especial = context['igtf_especial'] %}
+        {% endif %}
 
+        <p id="bienvenido-ppal">Hola {{ usuario }} bienvenido a la administración principal de Lacteos San Luis</p>
 
+        <div class="navigation-pricipal">
+            <nav class="navigation">
+                <ul>
+                <li><a >Facturación</a></li>
+                <li><a >Inventarios</a></li>
+                <li><a >Configuración</a></li>
+                <li><a >Control de Personal</a></li>
+                </ul>
+            </nav>
+        </div>
 
-            <table class="variables">
-                <thead>
-                    <tr>
-                        <th>Iva</th>
-                        <th>Igtf</th>
-                        <th>Dolar paralelo</th>
-                        <th>Dolar oficial</th>
-                        <th>Fecha</th>
-                        <th>Hora</th>
-                        <th>Usuario</th>
-                    </tr>
-                </thead>
-                <tbody>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                </tbody>
-            </table>
-
-       
-
-
-
+        <br>
+        <br>
+        <div class="card-header">IVA: {{ iva }} %</div>
+        <br>
+        <br>
+        <div class="card-header">Retención: {{ igtf }} %</div>
+        <br>
+        <br>
+        <div class="card-header">IGTF: {{ igtf_especial }} %</div>
+        <br>
+        <br>
+        <div class="card-header">$ USD: {{ dolar }} Bs</div>
+        
 
 {% endblock %}

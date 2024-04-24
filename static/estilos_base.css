@@ -72,23 +72,24 @@ a:hover{
 #bienvenido-ppal {
     display: flex;
     flex-direction: column;
-    color: rgb(51, 7, 155);
+    color: rgb(241, 238, 250);
     font-weight: bold;
+    align-items: left;
+}
+
+
+
+.navigation-pricipal {
+    display: flex;
     align-items: center;
+    justify-content: center;
 }
-
-.variables {
-    margin-top: 10px;
-    margin: 0 5px;
-    padding: 10px;
-    text-align: center;
-    border: 1px solid black;
-    background-color: #ccc;
-    font-size: 16px;
+  
+.card-header {
+    display: inline-block;
+    background-color: rgba(176, 222, 235, 0.622);
     font-weight: bold;
-}
-
-.variables th {
-    margin: 0 5px;
-    padding: 10px;
-}
+    padding: 15px;
+    
+  }
+  

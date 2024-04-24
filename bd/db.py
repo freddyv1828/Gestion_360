@@ -119,14 +119,29 @@ def create_variables(iva, igtf, dolar_p, dolar_o, user):
 
 # Obtener variables
 
-def obtener_variables():
-    var = db.collection('variables').stream()
-    variables_lista = []
-    for i in var:
+def obtener_iva():
+    iva = db.collection('variables').stream()
+    for i in iva:
         data = i.to_dict()
-        variables_lista.append(data)
-    return variables_lista
+    return data['iva']
 
+def obtener_igtf():
+    igtf = db.collection('variables').stream()
+    for i in igtf:
+        data = i.to_dict()
+    if data:   
+        return data['igtf_2']
+    else:
+        return 0.0
+
+def obtener_igtf_especial():
+    igtf = db.collection('variables').stream()
+    for i in igtf:
+        data = i.to_dict()
+    if data:
+        return data['igtf']
+    else:
+        return 0.0
     
 
 
