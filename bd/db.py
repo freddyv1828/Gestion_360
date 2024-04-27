@@ -78,44 +78,6 @@ def datos_register(username, email, dni):
     return True
 
 
-# Crear Variables
-def create_variables(iva, igtf, dolar_p, dolar_o, user):
-    # Crear refetencia de la coleccion
-    var = db.collection('variables')
-    
-    # Crear documento con id automatico
-    var_document = var.document()
-    
-    # Tomar datos para crear documento y hora de venezuela
-    
-    # Zona horaria
-    venezuela_tz = timezone('America/Caracas')
-    
-    # Fecha y hora
-    now_venezuela = datetime.now(venezuela_tz)
-    
-    # Obtener la fecha
-    fecha_venezuela = now_venezuela.date()
-
-    # Obtener la hora
-    hora_venezuela = now_venezuela.time()
-    
-    fecha_str = fecha_venezuela.strftime('%Y-%m-%d')
-    hora_str = hora_venezuela.strftime('%H:%M:%S')
-    
-    data = {
-        'iva': iva,
-        'igtf': igtf,
-        'dolar_p': dolar_p,
-        'dolar_o': dolar_o,
-        'fecha': fecha_str,
-        'hora': hora_str,
-        'usurario': user,
-    }
-    
-    # Crear documento
-    var_document.create(data)
-    
 
 # Obtener variables
 
@@ -144,4 +106,74 @@ def obtener_igtf_especial():
         return 0.0
     
 
+# # # Vendedores
 
+#Obtener Vendedor
+def traer_vendedor():
+    vend = db.collection('personal').stream()
+    vendedores = []
+    for i in vend:
+        data = i.to_dict()
+        vendedores.append(data)
+    return vendedores
+
+# Crear vendedor
+def alta_vend(name, lastname, dni, email, phone, username, password):
+    
+    vend = db.collection('personal')
+    
+    try:
+        # Intenta obtener la coleccion desde la base de datos
+        vend.get()
+    except  (firebase_admin.exceptions.NotFound, ValueError):
+        vend.create()
+        vend.create_idex(['usuario'], unique = True)
+        vend.create_index(['cedula'], unique = True)
+    
+    # Crear documento xon id automatico
+    vend_document = vend.document()
+    
+    # Tomar los datos para el documento
+    data = {
+        'nombre': name,
+        'apellido': lastname,
+        'cedula': dni,
+        'correo': email,
+        'telefono': phone,
+        'usuario': username,
+        'contraseña': password,
+    }
+    
+    # Creamos el documento
+    vend_document.create(data)
+    
+    
+# Eliminar vendedor
+def eliminar_vend(vend_name):
+    query = db.collection('personal').where('usuario', '==', vend_name).get()
+    
+    for doc in query:
+        doc.reference.delete()
+        
+# Eliminar Vendedor
+def update_vend(vend_name, name, lastname, dni, email,phone, username, password):
+    query = db.collection('personal').where('usuario', '==', vend_name).get()
+    
+    for doc in query:
+        doc.reference.update({
+            'nombre': name,
+            'apellido': lastname,
+            'cedula': dni,
+            'correo': email,
+            'telefono': phone,
+            'usuario': username,
+            'contraseña': password,
+        })
+        
+
+
+        
+    
+    
+
+    

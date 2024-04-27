@@ -25,12 +25,12 @@
         <p id="bienvenido-ppal">Hola {{ usuario }} bienvenido a la administración principal de Lacteos San Luis</p>
 
         <div class="navigation-pricipal">
-            <nav class="navigation">
+            <nav class="navigation-princi">
                 <ul>
-                <li><a >Facturación</a></li>
-                <li><a >Inventarios</a></li>
-                <li><a >Configuración</a></li>
-                <li><a >Control de Personal</a></li>
+                <li><a>Facturación</a></li>
+                <li><a>Inventarios</a></li>
+                <li><a>Configuración</a></li>
+                <li><a href="{{ url_for('control_personal') }}">Control de Personal</a></li>
                 </ul>
             </nav>
         </div>
@@ -40,10 +40,10 @@
         <div class="card-header">IVA: {{ iva }} %</div>
         <br>
         <br>
-        <div class="card-header">Retención: {{ igtf }} %</div>
-        <br>
-        <br>
         <div class="card-header">IGTF: {{ igtf_especial }} %</div>
+        <br>
+        <br>
+        <div class="card-header">Retención: {{ igtf }} %</div>
         <br>
         <br>
         <div class="card-header">$ USD: {{ dolar }} Bs</div>

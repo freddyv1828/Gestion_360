@@ -5,7 +5,7 @@
 
 body{
     
-    background-image: linear-gradient(rgba(0, 0, 0, 0.752),rgba(220, 220, 220, 0));
+    background: rgb(150, 141, 141);
     width: 100%;
     height: 100vh;
 
@@ -21,8 +21,9 @@ nav{
     font-weight: bold;
 }
 h1{
-    color: rgb(12, 1, 1);
+    color: rgb(4, 4, 4);
     font-size: 45px;
+    justify-content: center;
 }
 
 
@@ -33,12 +34,12 @@ ul li{
 }
 
 a{
-    color: white;
+    color: rgb(6, 5, 5);
     text-decoration: none;
 }
 
 a:hover{
-    color: aqua;
+    color: white;
 }
 
 #index-content{
@@ -72,7 +73,7 @@ a:hover{
 #bienvenido-ppal {
     display: flex;
     flex-direction: column;
-    color: rgb(241, 238, 250);
+    color: rgb(10, 10, 10);
     font-weight: bold;
     align-items: left;
 }
@@ -83,13 +84,40 @@ a:hover{
     display: flex;
     align-items: center;
     justify-content: center;
+    
+}
+
+.navigation-princi {
+    font-weight: bold;
+    background-color: rgb(64, 145, 243);
 }
   
 .card-header {
     display: inline-block;
-    background-color: rgba(176, 222, 235, 0.622);
+    background-color: rgb(64, 145, 243);
     font-weight: bold;
     padding: 15px;
     
   }
   
+.tabla-centrada {
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.encabezado-personal th {
+    padding: 10px 20px;
+    margin: 0 15px;
+    border: 1px solid #ccc;
+}
+
+
+#registrar-personal-header {
+    background-color: rgb(64, 145, 243);
+}
+
+#form-registro-personal input {
+    background-color: rgb(219, 212, 212);
+}

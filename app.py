@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, flash, redirect, url_for, session
-from bd.db import create_admin, search_clave, login, datos_register, obtener_iva, obtener_igtf, obtener_igtf_especial
+from bd.db import create_admin, search_clave, login, datos_register, obtener_iva, obtener_igtf, obtener_igtf_especial, traer_vendedor, alta_vend, eliminar_vend, update_vend
 from scrapper.scrapping import obtener_valor_dolar
 
 
@@ -94,12 +94,78 @@ def register():
             return render_template('register.html') 
 
 # Ruta principal
-@app.route('/prueba.html', methods = ['GET', 'POST'])
+@app.route('/principal.html', methods = ['GET', 'POST'])
 def principal():
     if request.method == 'GET':
         
+        iva = obtener_iva()
+        igtf = obtener_igtf()
+        dolar = obtener_valor_dolar()
+        igtf_especial = obtener_igtf_especial()
+        context = {
+            'iva': iva,
+            'igtf': igtf,
+            'dolar': dolar,
+            'igtf_especial': igtf_especial
+        } 
+        return render_template('principal.html', context = context)
+    
+# Ruta control de personal
+@app.route('/control.html', methods = ['GET', 'POST'])
+def control_personal():
+    if request.method == 'GET':
+        vend = traer_vendedor()
+
+        return render_template('control.html', vend=vend)
+    
+    if request.method == 'POST':
+        # Toma los valores del formularo
+        name = request.form['name']
+        lastname = request.form['lastname']
+        dni = request.form['dni']
+        email = request.form['email']
+        phone = request.form['phone']
+        username = request.form['username']
+        password = request.form['password']
         
-        return render_template('principal.html')
+        if name != '' and lastname != '' and dni != '' and email != '' and phone != '' and username != '' and password != '':
+            alta_vend(name, lastname, dni, email, phone, username, password)
+            flash('Vendedor registrado exitosamente', 'success')
+            return redirect('control.html')
+        else:
+            flash('Todos los campos deben ser completados', 'error')
+            return redirect('control.html')
+        
+# Ruta para aliminar personal
+@app.route('/delete_vend/<string:vend_name>')
+def delete_vend(vend_name):
+    eliminar_vend(vend_name)
+    vend = traer_vendedor()
+    return render_template('control.html', vend=vend)
+
+# Ruta para editar personal
+@app.route('/edit_vend/<string:vend_name>', methods= ['POST'])
+def edit_vend(vend_name):
+        ven = vend_name
+        name = request.form['name']
+        lastname = request.form['lastname']
+        dni = request.form['dni']
+        email = request.form['email']
+        phone = request.form['phone']
+        username = request.form['username']
+        password = request.form['password']
+        
+        if name != '' and lastname != '' and dni != '' and email != '' and phone != '' and username != '' and password != '':
+            update_vend(ven, name, lastname, dni, email, phone, username, password)
+            vend = traer_vendedor()
+            return render_template('control.html', vend=vend)
+        else:
+            flash('Todos los campos deben ser completados', 'error')
+            return render_template('control.html')
+    
+    
+            
+        
         
     
     

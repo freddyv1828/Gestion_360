@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+
+
+
+    <div class="navigation-pricipal">
+        <nav class="navigation-princi">
+            <ul>
+            <li><a>Facturación</a></li>
+            <li><a>Inventarios</a></li>
+            <li><a>Configuración</a></li>
+            <li><a href="{{ url_for('principal') }}">Principal</a></li>
+            </ul>
+        </nav>
+    </div>
+
+    <br>
+
+    <div class="container">
+        <h3 class="text-center mt-5 mb-5">Control de personal</h3>
+    </div>
+
+    <div><div class="container">
+        <div class="row row-col-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-2">
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header" id="registrar-personal-header">
+                        <h5 class="text-center">Registrar Vendedor</h5>
+                    </div>
+                    <div class="card-body">
+                        <form action="/control.html" method="POST" id="form-registro-personal">
+                            <label>Nombre:</label>
+                            <input type="text" class="form-control mb-3" name="name">
+                            <label>Apellido:</label>
+                            <input type="text" class="form-control mb-3" name="lastname">
+                            <label>Dni:</label>
+                            <input type="text" class="form-control mb-3" name="dni">
+                            <label>Email:</label>
+                            <input type="email" class="form-control mb-3" name="email">
+                            <label>Teléfono:</label>
+                            <input type="number" class="form-control mb-3" name="phone">
+                            <label>Usuario:</label>
+                            <input type="text" class="form-control mb-3" name="username">
+                            <label>Contraseña:</label>
+                            <input type="password" class="form-control mb-3" name="password">
+                            <button class="btn btn-primary" type="submit">Registrar</button>
+                            <button class="btn btn-primary" type="reset">Limpiar</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header" id="registrar-personal-header">
+                        <h5 class="text-center">Vendedores</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group">
+                            <div class="row row-col-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-3">
+                                {% for person in vend %}
+                                    <div class="col">
+                                        <li class="list-group-item mb-3">
+                                            <form action="/edit_vend/{{person.usuario}}" method="POST">
+                                                <small>Nombre:</small>
+                                                <input type="text" class="form-control" value="{{person.nombre}}" name="name">
+                                                <small>Apellido:</small>
+                                                <input type="text" class="form-control" value="{{person.apellido}}" name="lastname">
+                                                <small>Dni:</small>
+                                                <input type="number" class="form-control" value="{{person.cedula}}" name="dni">
+                                                <small>Email:</small>
+                                                <input type="text" class="form-control" value="{{person.correo}}" name="email">
+                                                <small>Teléfono:</small>
+                                                <input type="number" class="form-control" value="{{person.telefono}}" name="phone">
+                                                <small>Usuario:</small>
+                                                <input type="text" class="form-control" value="{{person.usuario}}" name="username">
+                                                <small>Contraseña:</small>
+                                                <input type="password" class="form-control" value="{{person.Contraseña}}" name="password">
+                                                <button class="btn btn-primary btn-sm" type="submit">Editar</button>
+                                                <a href="{{url_for('delete_vend', vend_name = person.usuario)}}" class="btn btn-danger btn-sm">Eliminar</a>
+                                            </form>
+                                        </li>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            ...
+            {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="notification is-danger" id="message-error">
+                    {{ messages[0] }}
+                </div>
+            {% endif %}
+            {% endwith %}
+            <form method="POST" action="/control.html">
+        </div>
+    </div></div>
+
+
+
+{% endblock %}
