@@ -121,3 +121,12 @@ a:hover{
 #form-registro-personal input {
     background-color: rgb(219, 212, 212);
 }
+
+.product-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin-top: 50px; /* Ajusta la distancia desde el nav */
+}
+

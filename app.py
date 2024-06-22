@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, flash, redirect, url_for, session
-from bd.db import create_admin, search_clave, login, datos_register, obtener_iva, obtener_igtf, obtener_igtf_especial, traer_vendedor, alta_vend, eliminar_vend, update_vend
+from bd.db import create_admin, search_clave, login, datos_register, obtener_iva, obtener_igtf, obtener_igtf_especial, traer_vendedor, alta_vend, eliminar_vend, update_vend, create_product, obtener_productos
 from scrapper.scrapping import obtener_valor_dolar
 
 
@@ -115,8 +115,10 @@ def principal():
 def control_personal():
     if request.method == 'GET':
         vend = traer_vendedor()
+        print(vend)
 
         return render_template('control.html', vend=vend)
+    
     
     if request.method == 'POST':
         # Toma los valores del formularo
@@ -131,11 +133,15 @@ def control_personal():
         if name != '' and lastname != '' and dni != '' and email != '' and phone != '' and username != '' and password != '':
             alta_vend(name, lastname, dni, email, phone, username, password)
             flash('Vendedor registrado exitosamente', 'success')
+            vend = traer_vendedor()
             return redirect('control.html')
         else:
             flash('Todos los campos deben ser completados', 'error')
             return redirect('control.html')
-        
+    
+    
+
+
 # Ruta para aliminar personal
 @app.route('/delete_vend/<string:vend_name>')
 def delete_vend(vend_name):
@@ -153,20 +159,52 @@ def edit_vend(vend_name):
         email = request.form['email']
         phone = request.form['phone']
         username = request.form['username']
-        password = request.form['password']
         
-        if name != '' and lastname != '' and dni != '' and email != '' and phone != '' and username != '' and password != '':
-            update_vend(ven, name, lastname, dni, email, phone, username, password)
+        if name != '' and lastname != '' and dni != '' and email != '' and phone != '' and username != '':
+            update_vend(ven, name, lastname, dni, email, phone, username)
             vend = traer_vendedor()
             return render_template('control.html', vend=vend)
         else:
             flash('Todos los campos deben ser completados', 'error')
             return render_template('control.html')
+        
+# Ruta inventario
+@app.route('/inventario.html', methods = ['GET', 'POST'])
+def inventario():
     
+    if request.method == 'GET':
+        
+        products = obtener_productos()
+        
+        return render_template('inventario.html', products = products)
     
+
+# Ruta Crear productos
+@app.route('/crear_product.html', methods = ['GET', 'POST'])
+def crear_product():
+    
+    if request.method == 'GET':
+        
+        return render_template('crear_product.html')
+    
+    if request.method == 'POST':
+        product = request.form['product']
+        prove = request.form['prov']
+        tipo = request.form['tipo']
+        unidad = request.form['unid']
+        kilos = request.form['kil']
+        precio_comp = request.form['precio_comp']
+        precio_vent = request.form['precio_vent']
+        obser = request.form['obser']
+        
+        if product != "" and prove != "" and tipo != "" and unidad != "" and kilos != "" and precio_comp != "" and precio_vent != "":
+            create_product(product, prove, tipo, unidad, kilos, precio_comp, precio_vent, obser)
+            products = obtener_productos()
+            return render_template('inventario.html', products = products)
+        else:
+            flash('Los campos que estan marcados com * son obligatorios', 'error')
+            return render_template('crear_product.html')
             
-        
-        
     
     
         

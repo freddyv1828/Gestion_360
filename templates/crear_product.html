@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+
+<a href="{{ url_for('inventario') }}" class=" btn btn-danger">Volver al inventario</a>
+
+
+<div class="product-container">
+
+    <h3>Registrar Un producto</h3>
+
+    <form action="crear_product.html" method="post">
+        <input type="text" name="product" placeholder="Producto *">
+        <br>
+        <br>
+        <input type="text" name="prov" placeholder="Proveedor *">
+        <br><br>
+        <input type="text" name="tipo" placeholder="Tipo *">
+        <br><br>
+        <input type="text" name="unid" placeholder="Unidad *">
+        <br><br>
+        <input type="text" name="kil" placeholder="Kilos *">
+        <br><br>
+        <input type="number" name="precio_comp" placeholder="Precio de compra *">
+        <br></br>
+        <input type="text" name="precio_vent" placeholder="Precio de venta *">
+        <br><br>
+        <textarea name="obser" placeholder="Observaciones"></textarea>
+        <br><br>
+        <input type="submit" value="Crear">
+        <input type="reset" value="Limpiar">
+    </form>
+
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+        <div class="notification is-danger" id="message-error">
+            {{ messages[0] }}
+        </div>
+    {% endif %}
+    {% endwith %}
+</div>
+
+{% endblock %}

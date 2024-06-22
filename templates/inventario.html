@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="navigation-pricipal">
+    <nav class="navigation-princi">
+        <ul>
+        <li><a>Facturación</a></li>
+        <li><a href="{{ url_for('control_personal') }}">Control de Personal</a></li>
+        <li><a>Configuración</a></li>
+        <li><a href="{{ url_for('principal') }}">Principal</a></li>
+        </ul>
+    </nav>
+</div>
+
+<div class="container">
+    <h3 class="text-center mt-5 mb-5">Inventario</h3>
+    
+</div>
+
+<a href="{{ url_for('crear_product') }}">Registrar producto</a>
+
+
+
+
+<div class="row">
+    {% for product in products %}
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">{{ product.producto }}</h5>
+                    <p class="card-text">{{ product.tipo }}</p>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Proveedor: {{ product.proveedor }}</small>
+                        <small class="text-muted">Unidad: {{ product.unidad }}</small>
+                        <small class="text-muted">Kilos: {{ product.kilos }}</small>
+                        <small class="text-muted">Precio Compra: {{ product.precio_comp }}</small>
+                        <small class="text-muted">Precio Venta: {{ product.precio_vent }}</small>
+                        <small class="text-muted">Observaciones: {{ product.observaciones }}</small>
+                        <a href="#" class="btn btn-primary btn-sm">Editar</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

@@ -75,8 +75,6 @@
                                                 <input type="number" class="form-control" value="{{person.telefono}}" name="phone">
                                                 <small>Usuario:</small>
                                                 <input type="text" class="form-control" value="{{person.usuario}}" name="username">
-                                                <small>Contraseña:</small>
-                                                <input type="password" class="form-control" value="{{person.Contraseña}}" name="password">
                                                 <button class="btn btn-primary btn-sm" type="submit">Editar</button>
                                                 <a href="{{url_for('delete_vend', vend_name = person.usuario)}}" class="btn btn-danger btn-sm">Eliminar</a>
                                             </form>

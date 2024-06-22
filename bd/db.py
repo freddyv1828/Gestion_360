@@ -1,5 +1,6 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
+from firebase_admin import auth
 from pytz import timezone
 from datetime import datetime
 
@@ -38,10 +39,16 @@ def create_admin(name, lastname, dni, email, phone, username, password):
         'telefono': phone,
         'usuario': username,
         'contraseña': password,
+        'uid': None
     }
     
     # Crear documento en la colecion administrador
     admin_document.create(data)
+    
+    # Crear admin en firebase authentication
+    user = auth.create_user(email= email, password = password, display_name = name+""+lastname, disabled= False)
+    
+    admin_document.update({'uid': user.uid})
     
 
 # Buscar clave de activacion 
@@ -52,12 +59,18 @@ def search_clave():
     return data['clave']
 
 # Validacion de entrada o login
-def login(username, password):
-    doc = db.collection('administrador').stream()
+def login(email, password):
+    user = auth.get_user_by_email(email)
+    uid = user.uid
+    
+    doc = db.collection('administrador').get()
     for i in doc:
-        data = i.to_dict()
-        if username == data['usuario'] and password == data['contraseña']:
-            return data
+        print(i)
+        clave = i.to_dict()
+        print(clave)
+        if uid == clave['uid']:
+            if clave['contraseña'] == password:
+                return clave
     
     return False
 
@@ -110,7 +123,7 @@ def obtener_igtf_especial():
 
 #Obtener Vendedor
 def traer_vendedor():
-    vend = db.collection('personal').stream()
+    vend = db.collection('vendedor').stream()
     vendedores = []
     for i in vend:
         data = i.to_dict()
@@ -120,7 +133,7 @@ def traer_vendedor():
 # Crear vendedor
 def alta_vend(name, lastname, dni, email, phone, username, password):
     
-    vend = db.collection('personal')
+    vend = db.collection('vendedor')
     
     try:
         # Intenta obtener la coleccion desde la base de datos
@@ -141,7 +154,7 @@ def alta_vend(name, lastname, dni, email, phone, username, password):
         'correo': email,
         'telefono': phone,
         'usuario': username,
-        'contraseña': password,
+        'contraseña': password
     }
     
     # Creamos el documento
@@ -150,14 +163,14 @@ def alta_vend(name, lastname, dni, email, phone, username, password):
     
 # Eliminar vendedor
 def eliminar_vend(vend_name):
-    query = db.collection('personal').where('usuario', '==', vend_name).get()
+    query = db.collection('vendedor').where('usuario', '==', vend_name).get()
     
     for doc in query:
         doc.reference.delete()
         
-# Eliminar Vendedor
-def update_vend(vend_name, name, lastname, dni, email,phone, username, password):
-    query = db.collection('personal').where('usuario', '==', vend_name).get()
+# Modificar Vendedor
+def update_vend(vend_name, name, lastname, dni, email,phone, username):
+    query = db.collection('vendedor').where('usuario', '==', vend_name).get()
     
     for doc in query:
         doc.reference.update({
@@ -167,13 +180,59 @@ def update_vend(vend_name, name, lastname, dni, email,phone, username, password)
             'correo': email,
             'telefono': phone,
             'usuario': username,
-            'contraseña': password,
         })
-        
+
+
+
+# Crear productos
+def create_product(producto, proveedor, tipo, unidad, kilos, precio_comp, precio_vent, observaciones):
+    
+    inv = db.collection('inventario')
+    
+    try:
+        # Intenta obtener la coleccion desde la base de datos
+        inv.get()
+    except  (firebase_admin.exceptions.NotFound, ValueError):
+        inv.create()
+        inv.create_idex(['id'], unique = True)
+    
+    product_document = inv.document()
+    
+    data = {
+        'producto': producto,
+        'proveedor': proveedor,
+        'tipo': tipo,
+        'unidad': unidad,
+        'kilos': kilos,
+        'precio_comp': precio_comp,
+        'precio_vent': precio_vent,
+        'observaciones': observaciones,
+        'id_product': None,
+    }
+    
+    product_id = product_document.id
+    
+    data['id_product'] = product_id
+    
+    product_document.create(data)
+    
+    
+# Obtener productos
+def obtener_productos():
+    product = db.collection('inventario').stream()
+    
+    productos = []
+    
+    for i in product:
+        data = i.to_dict()
+        productos.append(data)
+    return productos    
+
+
+    
+    
+            
 
 
         
-    
-    
 
-    
