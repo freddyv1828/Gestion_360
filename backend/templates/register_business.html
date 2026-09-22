@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión 360 - Onboarding Comercial</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 py-12 px-4">
+
+    <div class="max-w-2xl mx-auto bg-white text-slate-900 p-8 rounded-2xl shadow-2xl">
+        <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
+            <h1 class="text-xl font-bold text-slate-900">Onboarding Comercial - Registro de Empresa</h1>
+            <a href="/" class="text-sm text-emerald-600 hover:underline font-semibold">← Volver al Login</a>
+        </div>
+
+        <form id="registrationForm" class="space-y-4" onsubmit="submitRegistration(event)">
+            <div>
+                <label class="block text-sm font-semibold mb-1">Clave de Activación / Licencia</label>
+                <input type="text" id="activationToken" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. GESTION360-xxxx">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold mb-1">Nombre Comercial de la Empresa</label>
+                <input type="text" id="name" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. Alpinca">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1">RIF</label>
+                    <input type="text" id="rif" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. J-63426-9">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Zona Fiscal (Tax Right)</label>
+                    <input type="text" id="taxRight" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. Trocal 5 Barinas">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold mb-1">Dirección Comercial</label>
+                <input type="text" id="commercialDirection" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. C.C. Palma de Oro">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Correo del Dueño (Owner Email)</label>
+                    <input type="email" id="ownerEmail" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="alpinca.123@gmail.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Plan de Contratación</label>
+                    <select id="planType" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm">
+                        <option value="free">Plan Free (Demo)</option>
+                        <option value="pro">Plan Pro (Avanzado)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-200">
+                <h3 class="font-bold text-sm mb-1">Documentación Legal Obligatoria (Solo PDF)</h3>
+                <p class="text-xs text-slate-500 mb-4">Cargue en formato digital PDF los documentos corporativos.</p>
+                
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between bg-slate-50 p-3 border border-slate-300 rounded-lg">
+                        <span class="text-xs font-semibold">1. RIF de la Empresa</span>
+                        <input type="file" id="rifFile" accept="application/pdf" required class="text-xs">
+                    </div>
+                    <div class="flex items-center justify-between bg-slate-50 p-3 border border-slate-300 rounded-lg">
+                        <span class="text-xs font-semibold">2. Acta Constitutiva</span>
+                        <input type="file" id="actaFile" accept="application/pdf" required class="text-xs">
+                    </div>
+                    <div class="flex items-center justify-between bg-slate-50 p-3 border border-slate-300 rounded-lg">
+                        <span class="text-xs font-semibold">3. Registro Mercantil</span>
+                        <input type="file" id="mercantilFile" accept="application/pdf" required class="text-xs">
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition duration-200 mt-6">
+                Completar Registro Corporativo
+            </button>
+        </form>
+    </div>
+
+    <script>
+        async function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        async function submitRegistration(event) {
+            event.preventDefault();
+
+            const rifInput = document.getElementById('rifFile').files[0];
+            const actaInput = document.getElementById('actaFile').files[0];
+            const mercantilInput = document.getElementById('mercantilFile').files[0];
+
+            try {
+                const payload = {
+                    activationToken: document.getElementById('activationToken').value.trim(),
+                    name: document.getElementById('name').value.trim(),
+                    rif: document.getElementById('rif').value.trim(),
+                    taxRight: document.getElementById('taxRight').value.trim(),
+                    commercialDirection: document.getElementById('commercialDirection').value.trim(),
+                    ownerEmail: document.getElementById('ownerEmail').value.trim(),
+                    planType: document.getElementById('planType').value,
+                    documents: {
+                        rifFile: { filename: rifInput.name, base64: await fileToBase64(rifInput) },
+                        actaFile: { filename: actaInput.name, base64: await fileToBase64(actaInput) },
+                        mercantilFile: { filename: mercantilInput.name, base64: await fileToBase64(mercantilInput) }
+                    }
+                };
+
+                const response = await fetch('/register-business', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    alert('¡Empresa registrada con éxito! Redirigiendo...');
+                    window.location.href = '/';
+                } else {
+                    alert('Error: ' + (result.error || 'No se pudo completar el registro.'));
+                }
+            } catch (err) {
+                alert('Error de conexión con el servidor: ' + err);
+            }
+        }
+    </script>
+</body>
+</html>

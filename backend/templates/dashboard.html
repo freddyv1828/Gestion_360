@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión 360 - Backoffice Administrativo</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Alpine.js para interactividad ligera -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans antialiased">
+
+    <div class="flex h-screen overflow-hidden" x-data="{ sidebarOpen: true }">
+        
+        <!-- Sidebar de Navegación -->
+        <aside class="bg-slate-800 border-r border-slate-700 w-64 flex flex-col transition-all duration-300">
+            <div class="p-6 text-xl font-bold tracking-wider text-emerald-400 border-b border-slate-700">
+                GESTIÓN 360 <span class="text-xs block text-slate-400 font-normal">Panel Administrativo</span>
+            </div>
+            <nav class="flex-1 p-4 space-y-2">
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-medium">📊 Dashboard General</a>
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-700 text-slate-300">🏢 Onboarding Empresas</a>
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-700 text-slate-300">🚚 Logística y Rutas</a>
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-slate-700 text-slate-300">💰 Facturación y Fiscal</a>
+            </nav>
+        </aside>
+
+        <!-- Contenido Principal -->
+        <div class="flex-1 flex flex-col overflow-y-auto">
+            <!-- Header Superior -->
+            <header class="bg-slate-800 border-b border-slate-700 h-16 flex items-center justify-between px-8">
+                <h1 class="text-lg font-semibold text-slate-200">Panel de Control y Analítica</h1>
+                <div class="flex items-center gap-4">
+                    <span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full">Sistema Activo</span>
+                </div>
+            </header>
+
+            <!-- Área de Dashboards Interactivos -->
+            <main class="p-8 space-y-6">
+                <!-- Tarjetas de Métricas -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
+                        <p class="text-sm text-slate-400">Empresas Registradas</p>
+                        <h3 class="text-2xl font-bold mt-2 text-emerald-400">24</h3>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
+                        <p class="text-sm text-slate-400">Envíos Logísticos Activos</p>
+                        <h3 class="text-2xl font-bold mt-2 text-blue-400">12</h3>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
+                        <p class="text-sm text-slate-400">Facturación del Mes</p>
+                        <h3 class="text-2xl font-bold mt-2 text-purple-400">$14,250.00</h3>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
+                        <p class="text-sm text-slate-400">Alertas Fiscales (Tax Right)</p>
+                        <h3 class="text-2xl font-bold mt-2 text-amber-400">0</h3>
+                    </div>
+                </div>
+
+                <!-- Sección de Gráficos / Tablas Dinámicas -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl h-80 flex flex-col justify-center items-center">
+                        <p class="text-slate-400 font-medium">[ Gráfico de Rendimiento de Facturación ]</p>
+                        <span class="text-xs text-slate-500 mt-2">Integración lista para ApexCharts.js</span>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl h-80 flex flex-col justify-center items-center">
+                        <p class="text-slate-400 font-medium">[ Gráfico de Analítica Logística ]</p>
+                        <span class="text-xs text-slate-500 mt-2">Monitoreo de despachos en vivo</span>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+</body>
+</html>

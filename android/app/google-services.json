@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "454557283675",
+    "project_id": "gestion360-e1070",
+    "storage_bucket": "gestion360-e1070.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:454557283675:android:d9a90de9e7c1bdb8bbd67e",
+        "android_client_info": {
+          "package_name": "com.alpinca.gestion_360"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "454557283675-qepfmaio840kog76ta92d8ana51ks0tj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALzsmDRCRlBo10iXOzfHTuu-5_Tt4tNkw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "454557283675-qepfmaio840kog76ta92d8ana51ks0tj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
