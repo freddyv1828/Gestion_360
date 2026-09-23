@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión 360 - Control de Personal{% endblock %}
+{% block header_title %}Administración y Control de Personal - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Mensajes Flash de Notificación -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="space-y-2">
+          {% for category, message in messages %}
+            <div class="p-4 rounded-lg border text-sm flex items-center justify-between {{ 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' if category == 'success' else 'bg-rose-500/10 border-rose-500/30 text-rose-300' }}" role="alert">
+              <span>{{ message }}</span>
+              <button type="button" onclick="this.parentElement.remove()" class="text-xs font-bold uppercase opacity-70 hover:opacity-100">Cerrar</button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Formulario de Registro con Archivos Opcionales -->
+    <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
+        <h3 class="text-xl font-bold text-emerald-400 mb-4">Registro de Nuevo Personal y Expediente Digital</h3>
+        <form action="/personal/api/create" method="POST" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Nombre Completo</label>
+                <input type="text" name="name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="Ej. Juan Pérez">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico</label>
+                <input type="email" name="email" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="jperez@yahoo.com">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Teléfono</label>
+                <input type="text" name="phone" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="8298927527">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Cédula / DNI</label>
+                <input type="text" name="dni" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="284792865">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Rol Corporativo</label>
+                <select name="role" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500">
+                    <option value="" disabled selected>Selecciona un rol...</option>
+                    <optgroup label="Administración">
+                        <option value="Admin">Admin (Dueño / Back-office)</option>
+                        <option value="Gerente">Gerente</option>
+                        <option value="RRHH">Recursos Humanos</option>
+                    </optgroup>
+                    <optgroup label="Ventas">
+                        <option value="seller">Vendedor (App Móvil)</option>
+                        <option value="Gerente de Ventas">Gerente de Ventas</option>
+                    </optgroup>
+                    <optgroup label="Caja y Finanzas">
+                        <option value="cashier">Facturador / Cajero</option>
+                        <option value="Tesorería">Tesorería</option>
+                        <option value="Cobranza">Cobranza</option>
+                    </optgroup>
+                    <optgroup label="Logística y Almacén">
+                        <option value="Coordinador de Logística">Coordinador de Logística</option>
+                        <option value="Supervisor de Almacén">Supervisor de Almacén</option>
+                        <option value="Almacenista">Almacenista</option>
+                        <option value="Chofer">Chofer</option>
+                    </optgroup>
+                    <optgroup label="Soporte">
+                        <option value="Soporte Técnico">Soporte Técnico</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Contraseña Temporal</label>
+                <input type="password" name="password" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="••••••••">
+            </div>
+
+            <!-- Archivos Opcionales (Expediente Digital) -->
+            <div class="md:col-span-3 border-t border-slate-700 pt-4 mt-2">
+                <h4 class="text-sm font-semibold text-emerald-400 mb-3">Documentos y Expediente (Opcional)</h4>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Foto Personal</label>
+                        <input type="file" name="photo" accept="image/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-emerald-400 hover:file:bg-slate-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Cédula / DNI (PDF/Img)</label>
+                        <input type="file" name="dni_doc" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-emerald-400 hover:file:bg-slate-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">RIF (PDF/Img)</label>
+                        <input type="file" name="rif_doc" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-emerald-400 hover:file:bg-slate-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Currículum (CV)</label>
+                        <input type="file" name="cv_doc" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-emerald-400 hover:file:bg-slate-600">
+                    </div>
+                </div>
+            </div>
+
+            <div class="md:col-span-3 pt-4">
+                <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-lg transition duration-200">
+                    Registrar Personal y Guardar Expediente
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tabla de Personal Activo -->
+    <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
+        <h4 class="text-lg font-semibold text-slate-200 mb-4">Personal Activo y Auditoría</h4>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-700 text-slate-400 text-sm">
+                        <th class="py-3 px-4">Personal</th>
+                        <th class="py-3 px-4">Contacto / DNI</th>
+                        <th class="py-3 px-4">Rol</th>
+                        <th class="py-3 px-4">Expediente / Archivos (R2)</th>
+                        <th class="py-3 px-4">Auditoría</th>
+                        <th class="py-3 px-4 text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="text-slate-300 text-sm">
+                    {% for member in staff_members %}
+                    <tr class="border-b border-slate-700/50">
+                        <td class="py-3 px-4 font-medium text-white flex items-center gap-3">
+                            {% if member.photo %}
+                                <img src="/personal/download-doc?key={{ member.photo }}" class="w-8 h-8 rounded-full object-cover border border-slate-600">
+                            {% else %}
+                                <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs text-emerald-400 font-bold">
+                                    {{ member.name[:2] | upper }}
+                                </div>
+                            {% endif %}
+                            {{ member.name }}
+                        </td>
+                        <td class="py-3 px-4">
+                            <div>{{ member.email }}</div>
+                            <div class="text-xs text-slate-400">Tel: {{ member.phone or 'N/A' }} | DNI: {{ member.dni }}</div>
+                        </td>
+                        <td class="py-3 px-4">
+                            <span class="bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded text-xs border border-emerald-500/20 font-medium">
+                                {{ member.role }}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-xs">
+                            <div class="flex flex-col gap-1.5">
+                                {% if member.photo %}
+                                    <a href="/personal/download-doc?key={{ member.photo }}" target="_blank" class="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium">
+                                        🖼️ Ver Foto Personal
+                                    </a>
+                                {% endif %}
+                                {% if member.dni_doc %}
+                                    <a href="/personal/download-doc?key={{ member.dni_doc }}" target="_blank" class="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium">
+                                        📄 Ver Cédula / DNI
+                                    </a>
+                                {% endif %}
+                                {% if member.rif_doc %}
+                                    <a href="/personal/download-doc?key={{ member.rif_doc }}" target="_blank" class="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium">
+                                        📄 Ver RIF
+                                    </a>
+                                {% endif %}
+                                {% if member.cv_doc %}
+                                    <a href="/personal/download-doc?key={{ member.cv_doc }}" target="_blank" class="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium">
+                                        📑 Ver Currículum (CV)
+                                    </a>
+                                {% endif %}
+                                {% if not member.photo and not member.dni_doc and not member.rif_doc and not member.cv_doc %}
+                                    <span class="text-slate-500 italic">Sin documentos adjuntos</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="py-3 px-4 text-xs">
+                            <div class="font-semibold text-slate-200">
+                                Creado por: {{ member.creator_name or member.created_by }}
+                            </div>
+                            <div class="text-slate-400">{{ member.created_at }}</div>
+                        </td>
+                        <td class="py-3 px-4 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <!-- Botón Modificar -->
+                                <button type="button" data-member='{{ member | tojson | forceescape }}' onclick="openEditModal(JSON.parse(this.dataset.member))" class="text-xs bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 px-3 py-1.5 rounded-lg border border-amber-500/20 font-medium inline-flex items-center gap-1 transition">
+                                    ✏️ Modificar
+                                </button>
+                                
+                                <!-- Botón Eliminar -->
+                                <form action="/personal/api/delete/{{ member.id }}" method="POST" onsubmit="return confirm('⚠️ ¿Estás totalmente seguro de que deseas eliminar a {{ member.name }}? Esta acción no se puede deshacer.');" class="inline">
+                                    <button type="submit" class="text-xs bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg border border-rose-500/20 font-medium inline-flex items-center gap-1 transition">
+                                        🗑️ Eliminar
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="py-6 text-center text-slate-500">
+                            No hay personal registrado.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Edición de Personal -->
+<div id="editModal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50 p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <h3 class="text-xl font-bold text-amber-400 mb-4">Modificar Expediente de Personal</h3>
+        
+        <form id="editForm" method="POST" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-2 gap-4" onsubmit="return confirmUpdate(event)">
+            <input type="hidden" id="edit_user_id" name="user_id">
+            
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Nombre Completo</label>
+                <input type="text" id="edit_name" name="name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico</label>
+                <input type="email" id="edit_email" name="email" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Teléfono</label>
+                <input type="text" id="edit_phone" name="phone" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Cédula / DNI</label>
+                <input type="text" id="edit_dni" name="dni" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Rol Corporativo</label>
+                <select id="edit_role" name="role" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500">
+                    <option value="Admin">Admin (Dueño / Back-office)</option>
+                    <option value="Gerente">Gerente</option>
+                    <option value="RRHH">Recursos Humanos</option>
+                    <option value="seller">Vendedor (App Móvil)</option>
+                    <option value="Gerente de Ventas">Gerente de Ventas</option>
+                    <option value="cashier">Facturador / Cajero</option>
+                    <option value="Tesorería">Tesorería</option>
+                    <option value="Cobranza">Cobranza</option>
+                    <option value="Coordinador de Logística">Coordinador de Logística</option>
+                    <option value="Supervisor de Almacén">Supervisor de Almacén</option>
+                    <option value="Almacenista">Almacenista</option>
+                    <option value="Chofer">Chofer</option>
+                    <option value="Soporte Técnico">Soporte Técnico</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Nueva Contraseña (Opcional)</label>
+                <input type="password" name="password" placeholder="Dejar en blanco para no cambiar" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500">
+            </div>
+
+            <!-- Archivos de actualización opcionales -->
+            <div class="md:col-span-2 border-t border-slate-700 pt-3 mt-2">
+                <h4 class="text-xs font-semibold text-amber-400 mb-2">Actualizar Archivos (Opcional - Reemplazará al anterior si se selecciona uno nuevo)</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <label class="text-slate-400 block mb-1">Nueva Foto</label>
+                        <input type="file" name="photo" accept="image/*" class="w-full text-slate-400">
+                    </div>
+                    <div>
+                        <label class="text-slate-400 block mb-1">Nueva Cédula/DNI</label>
+                        <input type="file" name="dni_doc" class="w-full text-slate-400">
+                    </div>
+                </div>
+            </div>
+
+            <div class="md:col-span-2 flex justify-end gap-3 pt-4 border-t border-slate-700 mt-2">
+                <button type="button" onclick="closeEditModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm transition">Cancelar</button>
+                <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-5 py-2 rounded-lg text-sm transition">Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditModal(member) {
+    document.getElementById('editForm').action = `/personal/api/update/${member.id}`;
+    document.getElementById('edit_user_id').value = member.id;
+    document.getElementById('edit_name').value = member.name || '';
+    document.getElementById('edit_email').value = member.email || '';
+    document.getElementById('edit_phone').value = member.phone || '';
+    document.getElementById('edit_dni').value = member.dni || '';
+    document.getElementById('edit_role').value = member.role || '';
+    
+    document.getElementById('editModal').classList.remove('hidden');
+    document.getElementById('editModal').classList.add('flex');
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').classList.remove('flex');
+    document.getElementById('editModal').classList.add('hidden');
+}
+
+function confirmUpdate(event) {
+    const confirmation = confirm("⚠️ ¿Estás seguro de que deseas modificar este registro de personal? Esta acción quedará registrada en la auditoría.");
+    if (!confirmation) {
+        event.preventDefault();
+        return false;
+    }
+    return true;
+}
+</script>
+{% endblock %}

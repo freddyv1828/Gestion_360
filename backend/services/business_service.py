@@ -75,12 +75,11 @@ def register_business_logic(data):
             connection.close()
             return {"error": "Ya existe una empresa registrada con este RIF."}, 400
 
-        # --- SUBIDA DE ARCHIVOS A CLOUDFLARE R2 ---
+        # --- SUBIDA DE ARCHIVOS A CLOUDFLARE R2 ORDENADOS POR RIF ---
         s3 = get_r2_client()
         documents = data.get("documents", {})
         saved_file_urls = {}
 
-        safe_rif_prefix = rif.replace("-", "_")
         doc_keys_map = {
             "rifFile": "rif_file_url",
             "actaFile": "acta_file_url",
@@ -95,7 +94,9 @@ def register_business_logic(data):
                 # Normalizar nombre del archivo
                 normalized_filename = unicodedata.normalize('NFKD', file_name).encode('ASCII', 'ignore').decode('ASCII')
                 normalized_filename = re.sub(r'[^\w\-_\.]', '_', normalized_filename)
-                object_key = f"documents/{safe_rif_prefix}_{normalized_filename}"
+                
+                # Estructura de carpeta basada en el RIF de la empresa
+                object_key = f"companies/{rif}/{normalized_filename}"
 
                 try:
                     base64_data = doc_info["base64"]
@@ -104,7 +105,7 @@ def register_business_logic(data):
 
                     file_bytes = base64.b64decode(base64_data)
                     
-                    # Subir directamente los bytes a Cloudflare R2 sin pasar por disco local
+                    # Subir directamente los bytes a Cloudflare R2 en la carpeta del RIF
                     s3.put_object(
                         Bucket=R2_BUCKET_NAME,
                         Key=object_key,
@@ -112,7 +113,7 @@ def register_business_logic(data):
                         ContentType="application/pdf"
                     )
                     
-                    # Generar la URL de acceso
+                    # Generar la URL de acceso pública
                     file_url = f"{R2_PUBLIC_DOMAIN}/{object_key}"
                     saved_file_urls[db_column] = file_url
                 except Exception as file_err:
@@ -149,7 +150,7 @@ def register_business_logic(data):
 
         return {
             "success": True,
-            "message": "Empresa registrada y documentos respaldados en Cloudflare R2 exitosamente.",
+            "message": "Empresa registrada, documentos organizados por RIF en Cloudflare R2 y datos guardados exitosamente.",
         }, 200
 
     except Exception as e:

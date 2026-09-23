@@ -17,7 +17,8 @@
         <form action="/api/login" method="POST" class="space-y-4">
             <div>
                 <label class="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico</label>
-                <input type="email5" name="email" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="admin@alpinca.com">
+                <!-- Corregido type="email5" a type="email" -->
+                <input type="email" name="email" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="admin@alpinca.com">
             </div>
             <div>
                 <label class="block text-sm font-medium text-slate-300 mb-1">Contraseña / Clave</label>

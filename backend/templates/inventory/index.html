@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión 360 - Almacén y Logística{% endblock %}
+{% block header_title %}Control de Almacenes y Logística - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Mensajes Flash de Notificación -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="space-y-2">
+          {% for category, message in messages %}
+            <div class="p-4 rounded-lg border text-sm flex items-center justify-between {{ 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' if category == 'success' else 'bg-rose-500/10 border-rose-500/30 text-rose-300' }}" role="alert">
+              <span>{{ message }}</span>
+              <button type="button" onclick="this.parentElement.remove()" class="text-xs font-bold uppercase opacity-70 hover:opacity-100">Cerrar</button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Columna Izquierda: Crear Almacenes Dinámicos y Listado -->
+        <div class="space-y-6">
+            <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
+                <h3 class="text-lg font-bold text-emerald-400 mb-3">Crear Almacén Dinámico</h3>
+                <form action="/inventory/api/warehouse/create" method="POST" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Nombre del Almacén</label>
+                        <input type="text" name="name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="Ej. Almacén Averías / Principal">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Descripción (Opcional)</label>
+                        <input type="text" name="description" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="Propósito de este almacén">
+                    </div>
+                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg transition duration-200 text-sm">
+                        Crear Nuevo Almacén
+                    </button>
+                </form>
+            </div>
+
+            <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
+                <h3 class="text-lg font-bold text-slate-200 mb-3">Almacenes Registrados</h3>
+                <div class="space-y-2">
+                    {% for wh in warehouses %}
+                    <div class="bg-slate-900/60 border border-slate-700/60 p-3 rounded-lg">
+                        <div class="font-semibold text-white text-sm">🏢 {{ wh.name }}</div>
+                        <div class="text-xs text-slate-400 mt-1">{{ wh.description or 'Sin descripción' }}</div>
+                    </div>
+                    {% else %}
+                    <p class="text-xs text-slate-500 italic">No hay almacenes personalizados creados aún.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Registro de Productos en Inventario (Unidades / Kg) -->
+        <div class="lg:col-span-2 space-y-6">
+            <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
+                <h3 class="text-xl font-bold text-emerald-400 mb-4">Registro de Productos (Unidades / Kilogramos)</h3>
+                <form action="/inventory/api/product/create" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Nombre del Producto</label>
+                        <input type="text" name="name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="Ej. Filtro de aceite Honda Fit">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Categoría (Clasificación ABC)</label>
+                        <input type="text" name="category" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="Ej. Repuestos / Alimentos (A, B, C)">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Precio Unitario ($)</label>
+                        <input type="number" step="0.01" name="price" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="1.50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Stock Inicial</label>
+                        <input type="number" step="0.001" name="stock" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="120 o 12.5 (si es kg)">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Tipo de Medida</label>
+                        <select name="unit_type" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500">
+                            <option value="unit">Unidades (Piezas / Pzas)</option>
+                            <option value="kg">Kilogramos (Kg / Peso a granel)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Atributo / Peso (Ej. 1kg)</label>
+                        <input type="text" name="weight" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="1kg / 500g">
+                    </div>
+
+                    <div class="md:col-span-2 pt-2">
+                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-lg transition duration-200 text-sm">
+                            Registrar Producto en Inventario
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla del Catálogo de Productos y Existencias -->
+    <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
+        <h4 class="text-lg font-semibold text-slate-200 mb-4">Catálogo e Inventario en Tiempo Real</h4>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-700 text-slate-400 text-sm">
+                        <th class="py-3 px-4">Producto</th>
+                        <th class="py-3 px-4">Categoría (ABC)</th>
+                        <th class="py-3 px-4">Precio ($)</th>
+                        <th class="py-3 px-4">Stock Disponible</th>
+                        <th class="py-3 px-4">Unidad de Medida</th>
+                        <th class="py-3 px-4">Atributos</th>
+                    </tr>
+                </thead>
+                <tbody class="text-slate-300 text-sm">
+                    {% for product in products %}
+                    <tr class="border-b border-slate-700/50">
+                        <td class="py-3 px-4 font-medium text-white">{{ product.name }}</td>
+                        <td class="py-3 px-4">
+                            <span class="bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded text-xs border border-emerald-500/20 font-medium">
+                                {{ product.category }}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 font-semibold text-emerald-400">${{ "%.2f"|format(product.price) }}</td>
+                        <td class="py-3 px-4 font-bold text-white">{{ product.stock }}</td>
+                        <td class="py-3 px-4 text-xs">
+                            {% if product.unit_type == 'kg' %}
+                                <span class="bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded border border-amber-500/20">Kilogramos (Kg)</span>
+                            {% else %}
+                                <span class="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20">Unidades (Pzas)</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4 text-xs text-slate-400">
+                            {{ product.attributes }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="py-6 text-center text-slate-500">
+                            No hay productos registrados en el inventario.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
