@@ -1,19 +1,10 @@
 # backend/routes/auth_routes.py
-import os
-import psycopg2
-from psycopg2.extras import RealDictCursor
 from flask import Blueprint, render_template, request, redirect, url_for, session
 
-# Importamos la lógica centralizada de login que valida Neon (estado/licencia) y MongoDB (usuario)
+# Importamos la lógica centralizada de login que valida contra MongoDB
 from services.login_service import login_business_user
 
 auth_bp = Blueprint('auth_bp', __name__)
-
-# URL de conexión a PostgreSQL (Neon / Aiven de control central)
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://...")
-
-def get_db_connection():
-    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 # 1. Portada / Login principal
 @auth_bp.route("/", methods=["GET"])
@@ -57,24 +48,11 @@ def api_login():
 def register_business_view():
     return render_template("register_business.html")
 
-# 4. Panel Administrativo (Dashboard) -> Muestra el nombre de la empresa activa desde la sesión o Neon
+# 4. Panel Administrativo (Dashboard) -> Muestra el nombre de la empresa activa desde la sesión
 @auth_bp.route("/dashboard", methods=["GET"])
 def dashboard_view():
-    # Tomamos el nombre directamente de la sesión si ya está logueado, o respaldamos con Neon
+    # Tomamos el nombre directamente de la sesión si ya está logueado
     company_name = session.get('company_name', "Gestión 360")
-    
-    if company_name == "Gestión 360":
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT name FROM businesses LIMIT 1")
-            biz = cursor.fetchone()
-            if biz:
-                company_name = biz['name']
-                session['company_name'] = company_name
-            conn.close()
-        except Exception as e:
-            print(f"Error al obtener empresa en dashboard: {e}")
 
     # Pasamos company_name a la plantilla para que pinte el nombre exacto de la compañía
     return render_template("dashboard.html", company_name=company_name)
