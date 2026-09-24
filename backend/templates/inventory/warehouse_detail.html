@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión 360 - Detalle de Almacén{% endblock %}
+{% block header_title %}Almacén: {{ selected_warehouse }} - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Mensajes Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="space-y-2">
+          {% for category, message in messages %}
+            <div class="p-4 rounded-lg border text-sm flex items-center justify-between {{ 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' if category == 'success' else 'bg-rose-500/10 border-rose-500/30 text-rose-300' }}" role="alert">
+              <span>{{ message }}</span>
+              <button type="button" onclick="this.parentElement.remove()" class="text-xs font-bold uppercase opacity-70 hover:opacity-100">Cerrar</button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Barra de Navegación / Retorno -->
+    <div class="flex items-center justify-between bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-lg">
+        <div class="flex items-center gap-3">
+            <a href="{{ url_for('inventory_bp.inventory_view') }}" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold px-3 py-2 rounded-lg transition flex items-center gap-1">
+                ⬅️ Volver al Panel General
+            </a>
+            <h3 class="text-base font-bold text-white">Existencias y Lotes en: <span class="text-emerald-400">{{ selected_warehouse }}</span></h3>
+        </div>
+    </div>
+
+    <!-- Tabla de Lotes del Almacén Seleccionado -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+        <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+            <h4 class="text-sm font-bold text-slate-200">Inventario Clasificado</h4>
+            <span class="text-xs bg-slate-700 text-slate-300 px-3 py-1 rounded-full">Vista Exclusiva de Almacén</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider bg-slate-900/40">
+                        <th class="py-3 px-4">SKU / Producto</th>
+                        <th class="py-3 px-4">Número de Lote</th>
+                        <th class="py-3 px-4">Fecha de Vencimiento</th>
+                        <th class="py-3 px-4">Cantidad / Stock</th>
+                        <th class="py-3 px-4 text-center">Acciones (Modificar)</th>
+                    </tr>
+                </thead>
+                <tbody class="text-slate-300 text-xs divide-y divide-slate-700/60">
+                    {% if batches %}
+                        {% for b in batches %}
+                        <tr class="hover:bg-slate-900/30 transition">
+                            <td class="py-3 px-4">
+                                <div class="font-medium text-white">{{ b.product_name }}</div>
+                                <div class="text-[11px] text-amber-400 font-mono">{{ b.sku }}</div>
+                            </td>
+                            <td class="py-3 px-4 font-mono text-emerald-400 font-bold">
+                                📦 {{ b.batch }}
+                            </td>
+                            <td class="py-3 px-4 font-mono text-slate-400">
+                                {{ b.expiration_date if b.expiration_date and b.expiration_date != 'None' else 'N/D' }}
+                            </td>
+                            <td class="py-3 px-4 font-bold text-white text-sm">
+                                {{ b.quantity }}
+                            </td>
+                            <td class="py-3 px-4 text-center">
+                                <button type="button" 
+                                        onclick="openEditBatchModal('{{ b._id }}', '{{ b.batch }}', '{{ b.expiration_date }}')"
+                                        class="bg-sky-500/10 text-sky-400 border border-sky-500/20 hover:bg-sky-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                                    ✏️ Modificar Lote / Vencimiento
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="py-12 text-center text-slate-500">
+                                No hay lotes ni productos registrados en este almacén actualmente.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: EDITAR LOTE Y VENCIMIENTO -->
+<div id="editBatchModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl p-6 space-y-4">
+        <div class="flex justify-between items-center">
+            <h3 class="text-lg font-bold text-sky-400">Editar Lote y Vencimiento</h3>
+            <button type="button" onclick="closeEditBatchModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+        </div>
+        <form id="editBatchForm" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Número de Lote</label>
+                <input type="text" id="modalBatchName" name="batch" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-sky-500 text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Fecha de Vencimiento</label>
+                <input type="date" id="modalBatchExpiry" name="expiration_date" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-sky-500 text-sm">
+            </div>
+            <div class="flex justify-end space-x-3 pt-2">
+                <button type="button" onclick="closeEditBatchModal()" class="bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 rounded-lg text-sm transition">Cancelar</button>
+                <button type="submit" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2 rounded-lg text-sm transition">Actualizar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEditBatchModal(batchId, currentBatch, currentExpiry) {
+        const modal = document.getElementById('editBatchModal');
+        const form = document.getElementById('editBatchForm');
+        
+        form.action = `/inventory/api/batch/update/${batchId}`;
+        document.getElementById('modalBatchName').value = (currentBatch && currentBatch !== 'None' && currentBatch !== 'S/N') ? currentBatch : '';
+        document.getElementById('modalBatchExpiry').value = (currentExpiry && currentExpiry !== 'N/D' && currentExpiry !== 'None') ? currentExpiry : '';
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeEditBatchModal() {
+        const modal = document.getElementById('editBatchModal');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+</script>
+{% endblock %}

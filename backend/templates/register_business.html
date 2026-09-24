@@ -10,7 +10,7 @@
 
     <div class="max-w-2xl mx-auto bg-white text-slate-900 p-8 rounded-2xl shadow-2xl">
         <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
-            <h1 class="text-xl font-bold text-slate-900">Onboarding Comercial - Registro de Empresa</h1>
+            <h1 class="text-xl font-bold text-slate-900">Onboarding Corporativo - Registro de Empresa</h1>
             <a href="/" class="text-sm text-emerald-600 hover:underline font-semibold">← Volver al Login</a>
         </div>
 
@@ -20,44 +20,64 @@
                 <input type="text" id="activationToken" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. GESTION360-xxxx">
             </div>
 
-            <div>
-                <label class="block text-sm font-semibold mb-1">Nombre Comercial de la Empresa</label>
-                <input type="text" id="name" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. Alpinca">
-            </div>
-
             <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Nombre Comercial de la Empresa</label>
+                    <input type="text" id="name" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. Alpinca">
+                </div>
                 <div>
                     <label class="block text-sm font-semibold mb-1">RIF</label>
                     <input type="text" id="rif" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. J-63426-9">
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold mb-1">Zona Fiscal (Tax Right)</label>
-                    <input type="text" id="taxRight" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. Trocal 5 Barinas">
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-sm font-semibold mb-1">Dirección Comercial</label>
-                <input type="text" id="commercialDirection" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. C.C. Palma de Oro">
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-semibold mb-1">Correo del Dueño (Owner Email)</label>
-                    <input type="email" id="ownerEmail" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="alpinca.123@gmail.com">
+                    <label class="block text-sm font-semibold mb-1">Zona Fiscal (Tax Right)</label>
+                    <input type="text" id="taxRight" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. Trocal 5 Barinas">
                 </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Teléfono de Contacto</label>
+                    <input type="text" id="phone" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. 0414-1234567">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold mb-1">Dirección Fiscal</label>
+                <input type="text" id="fiscalDirection" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. Av. Principal, Zona Industrial Barinas">
+            </div>
+
+            <div class="pt-4 border-t border-slate-200">
+                <h3 class="font-bold text-sm mb-3 text-emerald-700">Credenciales del Administrador Principal</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Nombre del Admin</label>
+                        <input type="text" id="adminName" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Freddy Valero">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Correo Electrónico</label>
+                        <input type="email" id="adminEmail" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="admin@alpinca.com">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Contraseña</label>
+                        <input type="password" id="adminPassword" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="••••••••">
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 pt-2">
                 <div>
                     <label class="block text-sm font-semibold mb-1">Plan de Contratación</label>
                     <select id="planType" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm">
-                        <option value="free">Plan Free (Demo)</option>
-                        <option value="pro">Plan Pro (Avanzado)</option>
+                        <option value="free">Plan Free (30 días)</option>
+                        <option value="pro">Plan Pro (Anual)</option>
                     </select>
                 </div>
             </div>
 
             <div class="pt-4 border-t border-slate-200">
                 <h3 class="font-bold text-sm mb-1">Documentación Legal Obligatoria (Solo PDF)</h3>
-                <p class="text-xs text-slate-500 mb-4">Cargue en formato digital PDF los documentos corporativos.</p>
+                <p class="text-xs text-slate-500 mb-4">Cargue en formato digital PDF los documentos corporativos. Se guardarán de forma segura en Cloudflare R2 ordenados por RIF.</p>
                 
                 <div class="space-y-3">
                     <div class="flex items-center justify-between bg-slate-50 p-3 border border-slate-300 rounded-lg">
@@ -76,7 +96,7 @@
             </div>
 
             <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition duration-200 mt-6">
-                Completar Registro Corporativo
+                Completar Registro Corporativo y Crear Admin
             </button>
         </form>
     </div>
@@ -104,8 +124,11 @@
                     name: document.getElementById('name').value.trim(),
                     rif: document.getElementById('rif').value.trim(),
                     taxRight: document.getElementById('taxRight').value.trim(),
-                    commercialDirection: document.getElementById('commercialDirection').value.trim(),
-                    ownerEmail: document.getElementById('ownerEmail').value.trim(),
+                    phone: document.getElementById('phone').value.trim(),
+                    fiscalDirection: document.getElementById('fiscalDirection').value.trim(),
+                    adminName: document.getElementById('adminName').value.trim(),
+                    adminEmail: document.getElementById('adminEmail').value.trim(),
+                    adminPassword: document.getElementById('adminPassword').value.trim(),
                     planType: document.getElementById('planType').value,
                     documents: {
                         rifFile: { filename: rifInput.name, base64: await fileToBase64(rifInput) },
@@ -122,7 +145,7 @@
 
                 const result = await response.json();
                 if (response.ok && result.success) {
-                    alert('¡Empresa registrada con éxito! Redirigiendo...');
+                    alert('¡Empresa y cuenta de Administrador creadas con éxito! Redirigiendo al login...');
                     window.location.href = '/';
                 } else {
                     alert('Error: ' + (result.error || 'No se pudo completar el registro.'));

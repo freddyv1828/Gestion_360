@@ -1,30 +1,36 @@
+# backend/routes/personal_routes.py
 from flask import Blueprint, render_template, request, redirect, url_for, session, send_file, flash
 from io import BytesIO
-import sqlalchemy
-from utils import get_r2_client, get_db_connection, R2_BUCKET_NAME
+from bson import ObjectId
+from database import get_company_db
+from utils import get_r2_client, R2_BUCKET_NAME
 from services.personal_service import update_employee_service, create_employee_service
 
 personal_bp = Blueprint('personal_bp', __name__, url_prefix='/personal')
 
 @personal_bp.route('/', methods=['GET'])
 def personal_view():
-    """Vista principal de gestión de personal."""
+    """Vista principal de gestión de personal (Multi-tenant MongoDB)."""
     company_name = session.get('company_name', 'Mi Empresa')
-    company_rif = session.get('company_rif', 'J-00000000-0')
+    company_db_name = session.get('company_db')
     
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
     staff_members = []
     try:
-        engine = get_db_connection()
-        metadata = sqlalchemy.MetaData()
-        users_table = sqlalchemy.Table('users', metadata, autoload_with=engine)
+        db = get_company_db(company_db_name)
+        users_col = db['users']
         
-        with engine.connect() as connection:
-            stmt = sqlalchemy.select(users_table)
-            result = connection.execute(stmt).fetchall()
-            staff_members = [dict(row._mapping) for row in result]
+        cursor_users = users_col.find({})
+        for doc in cursor_users:
+            if '_id' in doc:
+                doc['_id'] = str(doc['_id'])
+            doc['id'] = doc.get('_id')
+            staff_members.append(doc)
             
     except Exception as e:
-        print(f"Error cargando personal: {e}")
+        print(f"Error cargando personal desde MongoDB: {e}")
 
     return render_template("personal/index.html", company_name=company_name, staff_members=staff_members)
 
@@ -51,9 +57,12 @@ def download_doc():
 
 @personal_bp.route('/api/create', methods=['POST'])
 def create_employee_route():
-    """Ruta para registrar nuevo personal."""
+    """Ruta para registrar nuevo personal en la BD del tenant."""
     creator_email = session.get('user_email', 'admin@empresa.com')
-    company_rif = session.get('company_rif', 'J-12345678-9')
+    company_rif = session.get('company_rif') or session.get('company_db')
+
+    if not company_rif:
+        return redirect(url_for('auth_bp.index'))
 
     success, message = create_employee_service(
         form_data=request.form,
@@ -69,12 +78,16 @@ def create_employee_route():
         
     return redirect(url_for('personal_bp.personal_view'))
 
-@personal_bp.route('/api/update/<int:user_id>', methods=['POST'])
+@personal_bp.route('/api/update/<string:user_id>', methods=['POST'])
 def update_employee_route(user_id):
     """Ruta para modificar personal existente."""
     modifier_email = session.get('user_email', 'admin@empresa.com')
-    company_rif = session.get('company_rif', 'J-12345678-9')
+    company_rif = session.get('company_rif') or session.get('company_db')
 
+    if not company_rif:
+        return redirect(url_for('auth_bp.index'))
+
+    # Pasamos el company_rif que exige el servicio de actualización
     success, message = update_employee_service(
         user_id=user_id,
         form_data=request.form,
@@ -90,21 +103,27 @@ def update_employee_route(user_id):
         
     return redirect(url_for('personal_bp.personal_view'))
 
-@personal_bp.route('/api/delete/<int:user_id>', methods=['POST'])
+@personal_bp.route('/api/delete/<string:user_id>', methods=['POST'])
 def delete_employee_route(user_id):
-    """Ruta para eliminar un registro de personal de la BD."""
-    try:
-        engine = get_db_connection()
-        metadata = sqlalchemy.MetaData()
-        users_table = sqlalchemy.Table('users', metadata, autoload_with=engine)
+    """Ruta para eliminar un registro de personal del MongoDB aislado."""
+    company_db_name = session.get('company_db')
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
 
-        with engine.connect() as connection:
-            delete_stmt = users_table.delete().where(users_table.c.id == user_id)
-            connection.execute(delete_stmt)
-            connection.commit()
+    try:
+        db = get_company_db(company_db_name)
+        users_col = db['users']
+        
+        query_id = ObjectId(user_id) if len(user_id) == 24 else user_id
+        result = users_col.delete_one({"_id": query_id})
+        
+        if result.deleted_count > 0:
             flash("Personal eliminado correctamente.", "success")
+        else:
+            flash("No se encontró el registro a eliminar.", "warning")
+            
     except Exception as e:
-        print(f"Error al eliminar personal: {e}")
+        print(f"Error al eliminar personal en MongoDB: {e}")
         flash("No se pudo eliminar el registro.", "danger")
 
     return redirect(url_for('personal_bp.personal_view'))

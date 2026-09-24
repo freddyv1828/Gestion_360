@@ -13,7 +13,6 @@ deprecation==2.1.0
 dnspython==2.8.0
 Flask==3.1.3
 flask-cors==6.0.5
-Flask-SQLAlchemy==3.1.1
 greenlet==3.5.6
 gunicorn==26.2.0
 h11==0.16.0
@@ -29,9 +28,7 @@ jmespath==1.1.0
 MarkupSafe==3.0.3
 multidict==6.9.1
 packaging==26.3
-postgrest==2.31.0
 propcache==0.5.4
-psycopg2-binary==2.9.13
 pycparser==3.0
 pydantic==2.13.5
 pydantic_core==2.46.5
@@ -39,16 +36,10 @@ PyJWT==2.14.0
 pymongo==4.18.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.3
-realtime==2.31.0
 requests==2.34.2
 s3transfer==0.19.2
 six==1.17.0
-SQLAlchemy==2.0.54
-storage3==2.31.0
 StrEnum==0.4.15
-supabase==2.31.0
-supabase-auth==2.31.0
-supabase-functions==2.31.0
 typing-inspection==0.4.4
 typing_extensions==4.16.0
 urllib3==2.8.0

@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión 360 - Gestión Comercial y Financiera{% endblock %}
+{% block header_title %}Gestión Comercial, Costos y Auditoría - {{ session.get('company_name', 'Empresa') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    
+    <!-- Alertas Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="p-4 rounded-xl border {% if category == 'success' %}bg-emerald-500/10 border-emerald-500/30 text-emerald-300{% else %}bg-rose-500/10 border-rose-500/30 text-rose-300{% endif %} flex items-center justify-between shadow-lg">
+                    <span class="text-sm font-medium">{{ message }}</span>
+                    <button onclick="this.parentElement.remove()" class="text-xs opacity-70 hover:opacity-100">✕</button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Panel Superior / Acciones Rápidas -->
+    <div class="bg-slate-800/50 border border-slate-700/60 p-6 rounded-2xl shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
+        <div>
+            <h2 class="text-xl font-bold text-white">Maestro Financiero y Auditoría de Stock</h2>
+            <p class="text-sm text-slate-400 mt-1">Administra costos, márgenes de ganancia, precios de venta y movimientos de mercancía auditables.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="openModal('productModal')" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-lg shadow-amber-900/20 flex items-center gap-2">
+                <span>➕</span> Nuevo Producto (Maestro)
+            </button>
+            <button onclick="openModal('movementModal')" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-lg shadow-blue-900/20 flex items-center gap-2">
+                <span>🔄</span> Registrar Movimiento / Traslado
+            </button>
+        </div>
+    </div>
+
+    <!-- TARJETAS DE MACRO NÚMEROS Y FINANZAS -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-slate-800/80 border border-slate-700/80 p-5 rounded-2xl shadow-lg backdrop-blur-md">
+            <p class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-1">Costo Total Inventario</p>
+            <h4 class="text-2xl font-extrabold text-amber-400">${{ kpis.total_cost if kpis and kpis.total_cost is defined else '0.00' }}</h4>
+        </div>
+        <div class="bg-slate-800/80 border border-slate-700/80 p-5 rounded-2xl shadow-lg backdrop-blur-md">
+            <p class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-1">Valor Venta Potencial</p>
+            <h4 class="text-2xl font-extrabold text-cyan-400">${{ kpis.total_sales_value if kpis and kpis.total_sales_value is defined else '0.00' }}</h4>
+        </div>
+        <div class="bg-slate-800/80 border border-slate-700/80 p-5 rounded-2xl shadow-lg backdrop-blur-md">
+            <p class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-1">Utilidad Proyectada</p>
+            <h4 class="text-2xl font-extrabold text-emerald-400">
+                ${{ kpis.potential_profit if kpis and kpis.potential_profit is defined else '0.00' }} 
+                <span class="text-xs font-normal text-emerald-300">({{ kpis.global_margin if kpis and kpis.global_margin is defined else '0.0' }}%)</span>
+            </h4>
+        </div>
+        <div class="bg-slate-800/80 border border-slate-700/80 p-5 rounded-2xl shadow-lg backdrop-blur-md">
+            <p class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-1">Gastos Operativos Totales</p>
+            <h4 class="text-2xl font-extrabold text-rose-400">${{ kpis.total_expenses if kpis and kpis.total_expenses is defined else '0.00' }}</h4>
+        </div>
+    </div>
+
+    <!-- BARRA DE FILTROS Y BÚSQUEDA DINÁMICA -->
+    <div class="bg-slate-800/80 border border-slate-700/80 p-5 rounded-2xl shadow-lg backdrop-blur-md">
+        <form method="GET" action="{{ url_for('commercial.index') }}" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            <div class="md:col-span-4">
+                <label class="block text-xs font-medium text-slate-400 mb-1">Buscar por Nombre o SKU</label>
+                <input type="text" name="search" placeholder="Ej: Gouda, Q-G-001..." value="{{ filters.search if filters else '' }}" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500">
+            </div>
+            <div class="md:col-span-3">
+                <label class="block text-xs font-medium text-slate-400 mb-1">Filtrar por Categoría</label>
+                <input type="text" name="category" placeholder="Ej: Alimentos" value="{{ filters.category if filters else '' }}" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500">
+            </div>
+            <div class="md:col-span-3">
+                <label class="block text-xs font-medium text-slate-400 mb-1">Filtrar por Marca</label>
+                <input type="text" name="brand" placeholder="Ej: San Luis" value="{{ filters.brand if filters else '' }}" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500">
+            </div>
+            <div class="md:col-span-2 flex gap-2">
+                <button type="submit" class="w-full bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2.5 px-3 rounded-xl transition shadow flex items-center justify-center gap-1">
+                    🔍 Buscar
+                </button>
+                <a href="{{ url_for('commercial.index') }}" class="bg-slate-900 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 text-xs font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center" title="Limpiar filtros">
+                    ↺
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- TABLA DINÁMICA DE PRODUCTOS (Se muestra solo si hay filtros aplicados/búsqueda activa) -->
+    {% if filters and (filters.search or filters.category or filters.brand) %}
+    <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl shadow-xl overflow-hidden backdrop-blur-md">
+        <div class="p-6 border-b border-slate-700 flex justify-between items-center">
+            <h3 class="text-lg font-bold text-white">Resultados del Catálogo y Márgenes Financieros</h3>
+            <span class="text-xs bg-slate-700 text-slate-300 px-3 py-1 rounded-full">Exclusivo Administrativo</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+                        <th class="p-4">SKU / Producto</th>
+                        <th class="p-4">Categoría</th>
+                        <th class="p-4">Costo ($)</th>
+                        <th class="p-4">Precio Venta ($)</th>
+                        <th class="p-4">Margen (%)</th>
+                        <th class="p-4">Unidad</th>
+                        <th class="p-4 text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700/60 text-sm text-slate-300">
+                    {% if products %}
+                        {% for prod in products %}
+                        <tr class="hover:bg-slate-700/30 transition">
+                            <td class="p-4 font-medium text-white">
+                                {{ prod.name }}
+                                <div class="text-xs text-amber-400 font-mono">{{ prod.sku }}</div>
+                            </td>
+                            <td class="p-4">{{ prod.category }}</td>
+                            <td class="p-4 font-mono text-slate-400">${{ "%.2f"|format(prod.cost) }}</td>
+                            <td class="p-4 font-mono text-emerald-400 font-bold">${{ "%.2f"|format(prod.price) }}</td>
+                            <td class="p-4">
+                                <span class="px-2.5 py-1 rounded-full text-xs font-bold {% if prod.margin >= 30 %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/20{% else %}bg-amber-500/10 text-amber-400 border border-amber-500/20{% endif %}">
+                                    {{ prod.margin }}%
+                                </span>
+                            </td>
+                            <td class="p-4 uppercase text-xs text-slate-400">{{ prod.unit_type }}</td>
+                            <td class="p-4 text-center">
+                                <span class="text-xs text-slate-500 italic">Registrado</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" class="p-8 text-center text-slate-500">
+                                No se encontraron productos que coincidan con los criterios de búsqueda.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <!-- Estado inicial: Oculto para ahorrar memoria hasta que se realice una búsqueda -->
+    <div class="bg-slate-800/40 border border-dashed border-slate-700 p-8 rounded-2xl text-center">
+        <p class="text-slate-400 text-sm mb-1">Utiliza el buscador superior para consultar el catálogo de productos.</p>
+        <p class="text-xs text-slate-500">La tabla se mostrará dinámicamente al realizar una consulta para optimizar el rendimiento del sistema.</p>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- MODAL: Crear Producto Maestro -->
+<div id="productModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+        <div class="p-6 border-b border-slate-700 flex justify-between items-center">
+            <h3 class="text-lg font-bold text-white">Crear Producto en Maestro Comercial</h3>
+            <button onclick="closeModal('productModal')" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+        <form action="{{ url_for('commercial.create_product') }}" method="POST" class="p-6 space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">SKU / Código</label>
+                    <input type="text" name="sku" placeholder="Ej. Q-G-001 (Opcional)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Nombre del Producto</label>
+                    <input type="text" name="name" required placeholder="Ej. Queso Gouda Artesanal" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Categoría</label>
+                    <input type="text" name="category" required placeholder="Ej. Alimentos" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Marca / Proveedor</label>
+                    <input type="text" name="brand" placeholder="Ej. San Luis" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500">
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Costo ($)</label>
+                    <input type="number" step="0.01" name="cost" required placeholder="0.00" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Precio Venta ($)</label>
+                    <input type="number" step="0.01" name="price" required placeholder="0.00" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Unidad</label>
+                    <select name="unit_type" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500">
+                        <option value="unit">Unidad</option>
+                        <option value="kg">Kilogramos</option>
+                        <option value="lt">Litros</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pt-4 flex justify-end gap-3">
+                <button type="button" onclick="closeModal('productModal')" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-4 py-2 rounded-xl transition">Cancelar</button>
+                <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-5 py-2 rounded-xl transition shadow-lg shadow-amber-900/20">Guardar Producto</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: Registrar Movimiento / Traslado Auditable -->
+<div id="movementModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+        <div class="p-6 border-b border-slate-700 flex justify-between items-center">
+            <h3 class="text-lg font-bold text-white">Registro de Movimiento / Auditoría</h3>
+            <button onclick="closeModal('movementModal')" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+        <form action="{{ url_for('commercial.register_movement') }}" method="POST" class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">Seleccionar Producto</label>
+                <select name="product_id" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+                    {% for prod in products %}
+                        <option value="{{ prod._id }}">{{ prod.name }} (SKU: {{ prod.sku }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Almacén Origen</label>
+                    <select name="source_warehouse" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+                        <option value="">Seleccione origen...</option>
+                        {% for wh in warehouses %}
+                            <option value="{{ wh.name }}">{{ wh.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Almacén Destino</label>
+                    <select name="dest_warehouse" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+                        <option value="">Seleccione destino...</option>
+                        {% for wh in warehouses %}
+                            <option value="{{ wh.name }}">{{ wh.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Cantidad</label>
+                    <input type="number" step="0.01" name="quantity" required placeholder="0.00" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Tipo de Movimiento</label>
+                    <select name="movement_type" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+                        <option value="TRASLADO">Traslado entre Almacenes</option>
+                        <option value="AJUSTE">Ajuste de Inventario</option>
+                        <option value="MERMA">Descargo por Merma / Daño</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">Motivo / Justificación (Auditoría)</label>
+                <textarea name="reason" rows="2" required placeholder="Detalla la razón operativa o administrativa..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-blue-500"></textarea>
+            </div>
+            <div class="pt-4 flex justify-end gap-3">
+                <button type="button" onclick="closeModal('movementModal')" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-4 py-2 rounded-xl transition">Cancelar</button>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-5 py-2 rounded-xl transition shadow-lg shadow-blue-900/20">Registrar Auditoría</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openModal(id) {
+        document.getElementById(id).classList.remove('hidden');
+        document.getElementById(id).classList.add('flex');
+    }
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('flex');
+        document.getElementById(id).classList.add('hidden');
+    }
+</script>
+{% endblock %}

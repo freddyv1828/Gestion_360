@@ -1,8 +1,11 @@
-import os
+# backend/services/personal_service.py
 import re
 import unicodedata
-import sqlalchemy
-from utils import get_r2_client, get_db_connection, R2_BUCKET_NAME
+from datetime import datetime
+from bson import ObjectId
+from flask import session
+from database import get_company_db
+from utils import get_r2_client, R2_BUCKET_NAME
 
 def create_employee_service(form_data, files_data, creator_email, company_rif):
     name = form_data.get('name', '').strip()
@@ -42,31 +45,35 @@ def create_employee_service(form_data, files_data, creator_email, company_rif):
     cv_doc_key = upload_single_file('cv_doc')
 
     try:
-        engine = get_db_connection()
-        metadata = sqlalchemy.MetaData()
-        users_table = sqlalchemy.Table('users', metadata, autoload_with=engine)
+        company_db_name = session.get('company_db')
+        if not company_db_name:
+            return False, "No se encontró la base de datos de la empresa en la sesión."
 
-        with engine.connect() as connection:
-            insert_stmt = users_table.insert().values(
-                name=name,
-                email=email,
-                phone=phone,
-                dni=dni,
-                role=role,
-                password=password,
-                photo=photo_key,
-                dni_doc=dni_doc_key,
-                rif_doc=rif_doc_key,
-                cv_doc=cv_doc_key,
-                created_by=creator_email
-            )
-            connection.execute(insert_stmt)
-            connection.commit()
-            return True, "Personal registrado con éxito"
+        db = get_company_db(company_db_name)
+        users_col = db['users']
+
+        # Verificar si el DNI o correo ya existen
+        if users_col.find_one({"$or": [{"dni": dni}, {"email": email}]}):
+            return False, "El DNI o correo electrónico ya está registrado en el sistema."
+
+        employee_data = {
+            "name": name,
+            "email": email,
+            "phone": phone,
+            "dni": dni,
+            "role": role,
+            "password": password,
+            "photo": photo_key,
+            "dni_doc": dni_doc_key,
+            "rif_doc": rif_doc_key,
+            "cv_doc": cv_doc_key,
+            "created_by": creator_email,
+            "created_at": datetime.utcnow()
+        }
+
+        users_col.insert_one(employee_data)
+        return True, "Personal registrado con éxito"
             
-    except sqlalchemy.exc.IntegrityError as e:
-        print(f"⚠️ El DNI o correo ya se encuentra registrado: {e}")
-        return False, "El DNI o correo electrónico ya está registrado en el sistema."
     except Exception as e:
         print(f"🔥 ERROR CRÍTICO AL REGISTRAR EN BD: {e}")
         return False, str(e)
@@ -109,43 +116,39 @@ def update_employee_service(user_id, form_data, files_data, modifier_email, comp
     cv_doc_key = upload_single_file('cv_doc')
 
     try:
-        engine = get_db_connection()
-        metadata = sqlalchemy.MetaData()
-        users_table = sqlalchemy.Table('users', metadata, autoload_with=engine)
+        company_db_name = session.get('company_db')
+        if not company_db_name:
+            return False, "No se encontró la base de datos de la empresa en la sesión."
 
-        with engine.connect() as connection:
-            select_stmt = sqlalchemy.select(users_table).where(users_table.c.id == user_id)
-            current_user = connection.execute(select_stmt).fetchone()
+        db = get_company_db(company_db_name)
+        users_col = db['users']
 
-            if not current_user:
-                return False, "Usuario no encontrado"
+        query_id = ObjectId(user_id) if len(user_id) == 24 else user_id
+        current_user = users_col.find_one({"_id": query_id})
 
-            current_dict = dict(current_user._mapping)
+        if not current_user:
+            return False, "Usuario no encontrado"
 
-            update_values = {
-                'name': name,
-                'email': email,
-                'phone': phone,
-                'dni': dni,
-                'role': role,
-                'photo': photo_key if photo_key else current_dict.get('photo'),
-                'dni_doc': dni_doc_key if dni_doc_key else current_dict.get('dni_doc'),
-                'rif_doc': rif_doc_key if rif_doc_key else current_dict.get('rif_doc'),
-                'cv_doc': cv_doc_key if cv_doc_key else current_dict.get('cv_doc'),
-            }
+        update_values = {
+            'name': name,
+            'email': email,
+            'phone': phone,
+            'dni': dni,
+            'role': role,
+            'photo': photo_key if photo_key else current_user.get('photo'),
+            'dni_doc': dni_doc_key if dni_doc_key else current_user.get('dni_doc'),
+            'rif_doc': rif_doc_key if rif_doc_key else current_user.get('rif_doc'),
+            'cv_doc': cv_doc_key if cv_doc_key else current_user.get('cv_doc'),
+            'updated_by': modifier_email,
+            'updated_at': datetime.utcnow()
+        }
 
-            if password:
-                update_values['password'] = password
+        if password:
+            update_values['password'] = password
 
-            update_stmt = users_table.update().where(users_table.c.id == user_id).values(**update_values)
-            connection.execute(update_stmt)
-            connection.commit()
+        users_col.update_one({"_id": query_id}, {"$set": update_values})
+        return True, "Actualizado con éxito"
 
-            return True, "Actualizado con éxito"
-
-    except sqlalchemy.exc.IntegrityError as e:
-        print(f"⚠️ Conflicto de unicidad al actualizar: {e}")
-        return False, "El DNI o correo electrónico ya pertenece a otro usuario."
     except Exception as e:
         print(f"🔥 ERROR CRÍTICO AL ACTUALIZAR EN BD: {e}")
         return False, str(e)
