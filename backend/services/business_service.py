@@ -1,3 +1,4 @@
+# backend/services/business_service.py
 import os
 import re
 import base64
@@ -8,9 +9,8 @@ from botocore.config import Config
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash
 
-# Importamos las conexiones a ambas bases de datos
-from neon_database import get_neon_connection, validate_license_in_neon
-from database import client  # Cliente global de MongoDB para crear bases de datos independientes
+# Importamos el cliente global de MongoDB Atlas
+from database import client
 
 # Configuración de Logging
 logger = logging.getLogger(__name__)
@@ -33,7 +33,6 @@ def get_r2_client():
     )
 
 def register_business_logic(data):
-    neon_conn = None
     uploaded_object_keys = []  # Para seguimiento en caso de rollback de archivos si fuera necesario
     
     try:
@@ -59,132 +58,129 @@ def register_business_logic(data):
         if not re.match(rif_regex, rif):
             return {"error": "Formato de RIF inválido. Use el formato Ej. J-12345678-9."}, 400
 
-        # --- 1. VALIDAR LICENCIA EN NEON (POSTGRESQL) ---
-        validation_result = validate_license_in_neon(activation_token)
-        if not validation_result.get("valid"):
-            return {"error": validation_result.get("error", "Token de activación inválido.")}, 403
+        # --- 1. CONEXIÓN A LA BD CENTRAL EN MONGODB ---
+        central_db = client.get_database("gestion360_central")
+        businesses_col = central_db["businesses"]
+        licenses_col = central_db["licenses"]
+
+        # --- 2. VALIDAR LICENCIA EN MONGODB ---
+        license_record = licenses_col.find_one({"token_key": activation_token})
+        if not license_record:
+            return {"error": "Token de activación inválido."}, 403
         
-        license_record = validation_result.get("license")
+        if license_record.get("is_active") or license_record.get("assigned_rif"):
+            return {"error": "Este token de activación ya ha sido utilizado."}, 403
+
         resolved_plan = license_record.get("plan_type", plan_type)
 
-        # Conexión persistente a Neon para las verificaciones y transacciones
-        neon_conn = get_neon_connection()
-        if not neon_conn:
-            return {"error": "No se pudo conectar al servidor de control central (Neon)."}, 500
+        # --- 3. VERIFICAR SI YA EXISTE LA EMPRESA POR RIF ---
+        if businesses_col.find_one({"rif": rif}):
+            return {"error": "Ya existe una empresa registrada con este RIF en el sistema."}, 400
 
-        with neon_conn.cursor() as cursor:
-            # --- 2. VERIFICAR SI YA EXISTE LA EMPRESA POR RIF EN NEON ---
-            cursor.execute("SELECT id FROM businesses WHERE rif = %s", (rif,))
-            if cursor.fetchone():
-                return {"error": "Ya existe una empresa registrada con este RIF en el sistema."}, 400
+        # --- 4. SUBIDA DE ARCHIVOS A CLOUDFLARE R2 ---
+        s3 = get_r2_client()
+        documents = data.get("documents", {})
+        saved_file_urls = {}
 
-            # --- 3. SUBIDA DE ARCHIVOS A CLOUDFLARE R2 ---
-            s3 = get_r2_client()
-            documents = data.get("documents", {})
-            saved_file_urls = {}
+        doc_keys_map = {
+            "rifFile": "rif_file_url",
+            "actaFile": "acta_file_url",
+            "mercantilFile": "mercantil_file_url"
+        }
 
-            doc_keys_map = {
-                "rifFile": "rif_file_url",
-                "actaFile": "acta_file_url",
-                "mercantilFile": "mercantil_file_url"
-            }
+        for client_key, db_column in doc_keys_map.items():
+            doc_info = documents.get(client_key)
+            if doc_info and "base64" in doc_info and "filename" in doc_info:
+                file_name = doc_info["filename"]
+                
+                # Normalizar nombre del archivo para evitar caracteres extraños en S3
+                normalized_filename = unicodedata.normalize('NFKD', file_name).encode('ASCII', 'ignore').decode('ASCII')
+                normalized_filename = re.sub(r'[^\w\-_\.]', '_', normalized_filename)
+                
+                object_key = f"companies/{rif}/{normalized_filename}"
 
-            for client_key, db_column in doc_keys_map.items():
-                doc_info = documents.get(client_key)
-                if doc_info and "base64" in doc_info and "filename" in doc_info:
-                    file_name = doc_info["filename"]
+                try:
+                    base64_data = doc_info["base64"]
+                    if "," in base64_data:
+                        base64_data = base64_data.split(",")[1]
+
+                    file_bytes = base64.b64decode(base64_data)
                     
-                    # Normalizar nombre del archivo para evitar caracteres extraños en S3
-                    normalized_filename = unicodedata.normalize('NFKD', file_name).encode('ASCII', 'ignore').decode('ASCII')
-                    normalized_filename = re.sub(r'[^\w\-_\.]', '_', normalized_filename)
+                    s3.put_object(
+                        Bucket=R2_BUCKET_NAME,
+                        Key=object_key,
+                        Body=file_bytes,
+                        ContentType="application/pdf"
+                    )
                     
-                    object_key = f"companies/{rif}/{normalized_filename}"
-
-                    try:
-                        base64_data = doc_info["base64"]
-                        if "," in base64_data:
-                            base64_data = base64_data.split(",")[1]
-
-                        file_bytes = base64.b64decode(base64_data)
-                        
-                        s3.put_object(
-                            Bucket=R2_BUCKET_NAME,
-                            Key=object_key,
-                            Body=file_bytes,
-                            ContentType="application/pdf"
-                        )
-                        
-                        uploaded_object_keys.append(object_key)
-                        file_url = f"{R2_PUBLIC_DOMAIN}/{object_key}"
-                        saved_file_urls[db_column] = file_url
-                    except Exception as file_err:
-                        logger.error(f"Error subiendo {client_key} a R2: {file_err}")
-                        saved_file_urls[db_column] = None
-                else:
+                    uploaded_object_keys.append(object_key)
+                    file_url = f"{R2_PUBLIC_DOMAIN}/{object_key}"
+                    saved_file_urls[db_column] = file_url
+                except Exception as file_err:
+                    logger.error(f"Error subiendo {client_key} a R2: {file_err}")
                     saved_file_urls[db_column] = None
+            else:
+                saved_file_urls[db_column] = None
 
-            # --- 4. CONFIGURAR BD AISLADA EN MONGODB ATLAS ---
-            clean_rif = rif.replace("-", "").lower()
-            company_db_name = f"gestion360_{clean_rif}"
-            company_db = client.get_database(company_db_name)
-            company_users_col = company_db['users']
+        # --- 5. CONFIGURAR BD AISLADA EN MONGODB ATLAS ---
+        clean_rif = rif.replace("-", "").lower()
+        company_db_name = f"gestion360_{clean_rif}"
+        company_db = client.get_database(company_db_name)
+        company_users_col = company_db['users']
 
-            # Verificar si el correo ya existe dentro de la BD de esta empresa específica
-            if company_users_col.find_one({"email": admin_email}):
-                return {"error": "El correo del administrador ya está registrado en el sistema de esta empresa."}, 400
+        # Verificar si el correo ya existe dentro de la BD de esta empresa específica
+        if company_users_col.find_one({"email": admin_email}):
+            return {"error": "El correo del administrador ya está registrado en el sistema de esta empresa."}, 400
 
-            # --- 5. REGISTRAR EMPRESA EN NEON (PLANO DE CONTROL) ---
-            cursor.execute(
-                """
-                INSERT INTO businesses (name, rif, tax_right, fiscal_direction, phone, database_name, status)
-                VALUES (%s, %s, %s, %s, %s, %s, 'active')
-                RETURNING id;
-                """,
-                (name, rif, tax_right, fiscal_direction, phone, company_db_name)
-            )
-            business_row = cursor.fetchone()
-            business_id = business_row['id']
+        # --- 6. REGISTRAR EMPRESA EN EL PLANO CENTRAL DE MONGODB ---
+        business_doc = {
+            "name": name,
+            "rif": rif,
+            "tax_right": tax_right,
+            "fiscal_direction": fiscal_direction,
+            "phone": phone,
+            "database_name": company_db_name,
+            "status": "active",
+            "files": saved_file_urls,
+            "created_at": datetime.utcnow()
+        }
+        insert_result = businesses_col.insert_one(business_doc)
+        business_id = str(insert_result.inserted_id)
 
-            # --- 6. MARCAR LICENCIA COMO USADA Y ASIGNARLA AL RIF EN NEON ---
-            duration_days = 365 if resolved_plan == 'pro' else 30
-            expires_at = datetime.utcnow() + timedelta(days=duration_days)
+        # --- 7. MARCAR LICENCIA COMO USADA Y ASIGNARLA AL RIF ---
+        duration_days = 365 if resolved_plan == 'pro' else 30
+        expires_at = datetime.utcnow() + timedelta(days=duration_days)
 
-            cursor.execute(
-                """
-                UPDATE licenses 
-                SET assigned_rif = %s, expires_at = %s, is_active = TRUE
-                WHERE token_key = %s;
-                """,
-                (rif, expires_at, activation_token)
-            )
-
-            neon_conn.commit()
-
-            # --- 7. CREAR USUARIO ADMIN DENTRO DE LA BASE DE DATOS AISLADA EN MONGODB ---
-            hashed_password = generate_password_hash(admin_password)
-            admin_user_doc = {
-                "business_id": business_id,
-                "rif": rif,
-                "name": admin_name,
-                "email": admin_email,
-                "password": hashed_password,
-                "role": "admin",
-                "created_at": datetime.utcnow()
+        licenses_col.update_one(
+            {"token_key": activation_token},
+            {
+                "$set": {
+                    "assigned_rif": rif,
+                    "expires_at": expires_at,
+                    "is_active": True
+                }
             }
-            company_users_col.insert_one(admin_user_doc)
+        )
+
+        # --- 8. CREAR USUARIO ADMIN DENTRO DE LA BASE DE DATOS AISLADA EN MONGODB ---
+        hashed_password = generate_password_hash(admin_password)
+        admin_user_doc = {
+            "business_id": business_id,
+            "rif": rif,
+            "name": admin_name,
+            "email": admin_email,
+            "password": hashed_password,
+            "role": "admin",
+            "created_at": datetime.utcnow()
+        }
+        company_users_col.insert_one(admin_user_doc)
 
         return {
             "success": True,
-            "message": f"Empresa registrada exitosamente. Base de datos aislada configurada ({company_db_name}) y licencia vinculada en Neon.",
+            "message": f"Empresa registrada exitosamente. Base de datos aislada configurada ({company_db_name}) y licencia vinculada.",
             "business_id": business_id
         }, 200
 
     except Exception as e:
-        if neon_conn:
-            neon_conn.rollback()
-        
         logger.error(f"Error crítico en register_business_logic: {str(e)}", exc_info=True)
         return {"error": f"Error crítico en el servidor: {str(e)}"}, 500
-    finally:
-        if neon_conn:
-            neon_conn.close()
