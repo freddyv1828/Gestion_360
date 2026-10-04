@@ -1,17 +1,29 @@
 from pymongo import MongoClient
 import os
-from dotenv import load_dotenv
+from config import DATABASE_URL, CENTRAL_DB_NAME, MARKETPLACE_DB_NAME
 
-load_dotenv()
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL no está configurada en las variables de entorno (.env).")
 
-# La URL de conexión a tu clúster de MongoDB Atlas
-database_url = os.getenv('DATABASE_URL')
+# Inicializar cliente oficial de PyMongo con parámetros robustos de TLS/SSL para evitar el corte de red
+client = MongoClient(
+    DATABASE_URL,
+    tls=True,
+    tlsAllowInvalidCertificates=True,  # Evita bloqueos de certificado local durante el apretón de manos
+    connectTimeoutMS=60000,
+    socketTimeoutMS=60000
+)
 
-# Inicializar cliente oficial de PyMongo (Se conecta una sola vez al clúster)
-client = MongoClient(database_url)
+# Base de datos central para licencias, empresas e índice global de usuarios
+db = client.get_database(CENTRAL_DB_NAME)
 
-# (Opcional) Base de datos por defecto o master si se requiere en algún proceso general
-db = client.get_database('gestion360')
+def get_central_db():
+    """Retorna la base de datos central de control SaaS (gestion360_central)."""
+    return client.get_database(CENTRAL_DB_NAME)
+
+def get_marketplace_db():
+    """Retorna la base de datos pública del marketplace de clientes y catálogo Dropi."""
+    return client.get_database(MARKETPLACE_DB_NAME)
 
 def get_company_db(company_db_name):
     """
@@ -19,5 +31,5 @@ def get_company_db(company_db_name):
     Ej: company_db_name = 'gestion360_j123456789'
     """
     if not company_db_name:
-        raise ValueError("No se ha especificado el nombre de la base de datos de la empresa en la sesión.")
+        raise ValueError("No se ha especificado el identificador de la base de datos de la empresa.")
     return client.get_database(company_db_name)

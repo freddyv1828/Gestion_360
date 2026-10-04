@@ -1,190 +1,165 @@
 {% extends "base.html" %}
 
-{% block title %}Gestión 360 - Control de Personal{% endblock %}
-{% block header_title %}Administración y Control de Personal - {{ company_name }}{% endblock %}
+{% block title %}Talento Humano & Vendedores — {{ company_name }}{% endblock %}
+{% block header_title %}Talento Humano & Fuerza de Ventas — {{ company_name }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
-    <!-- Mensajes Flash de Notificación -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="space-y-2">
-          {% for category, message in messages %}
-            <div class="p-4 rounded-lg border text-sm flex items-center justify-between {{ 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' if category == 'success' else 'bg-rose-500/10 border-rose-500/30 text-rose-300' }}" role="alert">
-              <span>{{ message }}</span>
-              <button type="button" onclick="this.parentElement.remove()" class="text-xs font-bold uppercase opacity-70 hover:opacity-100">Cerrar</button>
+
+    <!-- ENCABEZADO Y BARRA DE ACCIÓN SUPERIOR -->
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <div class="flex items-center gap-2 mb-1.5">
+                <span class="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-widest bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                    Módulo de Personal
+                </span>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    {{ staff_members | length }} Registrados
+                </span>
             </div>
-          {% endfor %}
+            <h2 class="text-xl font-extrabold text-slate-900 dark:text-white">Expedientes Digitales & Vendedores</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Control de nómina, roles de acceso, documentos en Cloudflare R2 y habilitación para la App Móvil.</p>
         </div>
-      {% endif %}
-    {% endwith %}
 
-    <!-- Formulario de Registro con Archivos Opcionales -->
-    <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
-        <h3 class="text-xl font-bold text-emerald-400 mb-4">Registro de Nuevo Personal y Expediente Digital</h3>
-        <form action="/personal/api/create" method="POST" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Nombre Completo</label>
-                <input type="text" name="name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="Ej. Juan Pérez">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico</label>
-                <input type="email" name="email" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="jperez@yahoo.com">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Teléfono</label>
-                <input type="text" name="phone" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="8298927527">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Cédula / DNI</label>
-                <input type="text" name="dni" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="284792865">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Rol Corporativo</label>
-                <select name="role" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500">
-                    <option value="" disabled selected>Selecciona un rol...</option>
-                    <optgroup label="Administración">
-                        <option value="Admin">Admin (Dueño / Back-office)</option>
-                        <option value="Gerente">Gerente</option>
-                        <option value="RRHH">Recursos Humanos</option>
-                    </optgroup>
-                    <optgroup label="Ventas">
-                        <option value="seller">Vendedor (App Móvil)</option>
-                        <option value="Gerente de Ventas">Gerente de Ventas</option>
-                    </optgroup>
-                    <optgroup label="Caja y Finanzas">
-                        <option value="cashier">Facturador / Cajero</option>
-                        <option value="Tesorería">Tesorería</option>
-                        <option value="Cobranza">Cobranza</option>
-                    </optgroup>
-                    <optgroup label="Logística y Almacén">
-                        <option value="Coordinador de Logística">Coordinador de Logística</option>
-                        <option value="Supervisor de Almacén">Supervisor de Almacén</option>
-                        <option value="Almacenista">Almacenista</option>
-                        <option value="Chofer">Chofer</option>
-                    </optgroup>
-                    <optgroup label="Soporte">
-                        <option value="Soporte Técnico">Soporte Técnico</option>
-                    </optgroup>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Contraseña Temporal</label>
-                <input type="password" name="password" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="••••••••">
-            </div>
-
-            <!-- Archivos Opcionales (Expediente Digital) -->
-            <div class="md:col-span-3 border-t border-slate-700 pt-4 mt-2">
-                <h4 class="text-sm font-semibold text-emerald-400 mb-3">Documentos y Expediente (Opcional)</h4>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">Foto Personal</label>
-                        <input type="file" name="photo" accept="image/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-emerald-400 hover:file:bg-slate-600">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">Cédula / DNI (PDF/Img)</label>
-                        <input type="file" name="dni_doc" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-emerald-400 hover:file:bg-slate-600">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">RIF (PDF/Img)</label>
-                        <input type="file" name="rif_doc" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-emerald-400 hover:file:bg-slate-600">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">Currículum (CV)</label>
-                        <input type="file" name="cv_doc" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-emerald-400 hover:file:bg-slate-600">
-                    </div>
-                </div>
-            </div>
-
-            <div class="md:col-span-3 pt-4">
-                <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-lg transition duration-200">
-                    Registrar Personal y Guardar Expediente
-                </button>
-            </div>
-        </form>
+        <div class="flex items-center gap-3">
+            <button onclick="openModal('employeeModal')" 
+                    class="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-md shadow-blue-500/20 flex items-center gap-2">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>Nuevo Colaborador</span>
+            </button>
+        </div>
     </div>
 
-    <!-- Tabla de Personal Activo -->
-    <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-lg">
-        <h4 class="text-lg font-semibold text-slate-200 mb-4">Personal Activo y Auditoría</h4>
+    <!-- BUSCADOR Y FILTRO DINÁMICO -->
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row gap-3 items-center">
+        <div class="flex-1 w-full relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
+            <input type="text" id="staffSearchInput" onkeyup="filterStaffTable()" placeholder="Buscar por nombre, correo, cédula o rol..." 
+                   class="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+        </div>
+        <div class="w-full sm:w-56">
+            <select id="roleFilterSelect" onchange="filterStaffTable()" 
+                    class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-semibold">
+                <option value="">Todos los Roles</option>
+                <option value="seller">Vendedor (App Móvil)</option>
+                <option value="Admin">Administrador</option>
+                <option value="Gerente">Gerente</option>
+                <option value="cashier">Facturador / Caja</option>
+                <option value="Chofer">Chofer / Conductor</option>
+                <option value="Almacenista">Almacenista</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- TABLA DE PERSONAL (FORTUNE-50 TIER) -->
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/40">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Colaboradores de la Empresa</h4>
+            <span class="text-[11px] font-mono text-slate-400">Total: <strong class="text-indigo-600 dark:text-indigo-400">{{ staff_members | length }}</strong></span>
+        </div>
+
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="border-b border-slate-700 text-slate-400 text-sm">
-                        <th class="py-3 px-4">Personal</th>
-                        <th class="py-3 px-4">Contacto / DNI</th>
-                        <th class="py-3 px-4">Rol</th>
-                        <th class="py-3 px-4">Expediente / Archivos (R2)</th>
-                        <th class="py-3 px-4">Auditoría</th>
-                        <th class="py-3 px-4 text-center">Acciones</th>
+            <table class="w-full text-left border-collapse" id="staffTable">
+                <thead class="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                        <th class="py-3.5 px-4 font-bold">Colaborador</th>
+                        <th class="py-3.5 px-4 font-bold">Identificación / DNI</th>
+                        <th class="py-3.5 px-4 font-bold">Rol en Sistema</th>
+                        <th class="py-3.5 px-4 font-bold">Expediente Cloud R2</th>
+                        <th class="py-3.5 px-4 font-bold text-right">Acciones</th>
                     </tr>
                 </thead>
-                <tbody class="text-slate-300 text-sm">
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-800/80 text-xs text-slate-700 dark:text-slate-300">
                     {% for member in staff_members %}
-                    <tr class="border-b border-slate-700/50">
-                        <td class="py-3 px-4 font-medium text-white flex items-center gap-3">
-                            {% if member.photo %}
-                                <img src="/personal/download-doc?key={{ member.photo }}" class="w-8 h-8 rounded-full object-cover border border-slate-600">
-                            {% else %}
-                                <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs text-emerald-400 font-bold">
-                                    {{ member.name[:2] | upper }}
-                                </div>
-                            {% endif %}
-                            {{ member.name }}
-                        </td>
-                        <td class="py-3 px-4">
-                            <div>{{ member.email }}</div>
-                            <div class="text-xs text-slate-400">Tel: {{ member.phone or 'N/A' }} | DNI: {{ member.dni }}</div>
-                        </td>
-                        <td class="py-3 px-4">
-                            <span class="bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded text-xs border border-emerald-500/20 font-medium">
-                                {{ member.role }}
-                            </span>
-                        </td>
-                        <td class="py-3 px-4 text-xs">
-                            <div class="flex flex-col gap-1.5">
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition staff-row"
+                        data-name="{{ member.name | lower }}" 
+                        data-email="{{ member.email | lower }}" 
+                        data-dni="{{ member.dni | lower }}" 
+                        data-role="{{ member.role | lower }}">
+                        
+                        <!-- Colaborador / Foto -->
+                        <td class="py-3.5 px-4">
+                            <div class="flex items-center gap-3">
                                 {% if member.photo %}
-                                    <a href="/personal/download-doc?key={{ member.photo }}" target="_blank" class="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium">
-                                        🖼️ Ver Foto Personal
-                                    </a>
+                                    <img src="{{ url_for('personal_bp.download_doc', key=member.photo) }}" alt="{{ member.name }}" 
+                                         class="w-10 h-10 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shadow-sm shrink-0">
+                                {% else %}
+                                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm">
+                                        {{ member.name[0:2] | upper }}
+                                    </div>
                                 {% endif %}
+                                <div class="leading-tight">
+                                    <div class="font-bold text-slate-900 dark:text-white">{{ member.name }}</div>
+                                    <div class="text-[11px] text-slate-400 font-mono">{{ member.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Identificación / DNI -->
+                        <td class="py-3.5 px-4 font-mono">
+                            <div class="font-semibold text-slate-800 dark:text-slate-200">{{ member.dni }}</div>
+                            <div class="text-[10px] text-slate-400">{{ member.phone or 'Sin teléfono' }}</div>
+                        </td>
+
+                        <!-- Rol Corporativo -->
+                        <td class="py-3.5 px-4">
+                            {% if member.role | lower == 'seller' or 'vendedor' in member.role | lower %}
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                    <i class="fa-solid fa-mobile-screen"></i>
+                                    <span>Vendedor Móvil</span>
+                                </span>
+                            {% elif 'admin' in member.role | lower %}
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                    <i class="fa-solid fa-shield-halved"></i>
+                                    <span>Administrador</span>
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                    {{ member.role }}
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Expediente Digital R2 -->
+                        <td class="py-3.5 px-4">
+                            <div class="flex items-center gap-1.5">
                                 {% if member.dni_doc %}
-                                    <a href="/personal/download-doc?key={{ member.dni_doc }}" target="_blank" class="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium">
-                                        📄 Ver Cédula / DNI
+                                    <a href="{{ url_for('personal_bp.download_doc', key=member.dni_doc) }}" target="_blank" 
+                                       class="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded text-[10px] font-bold transition" title="Cédula/DNI">
+                                        🪪 DNI
                                     </a>
                                 {% endif %}
                                 {% if member.rif_doc %}
-                                    <a href="/personal/download-doc?key={{ member.rif_doc }}" target="_blank" class="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium">
-                                        📄 Ver RIF
+                                    <a href="{{ url_for('personal_bp.download_doc', key=member.rif_doc) }}" target="_blank" 
+                                       class="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded text-[10px] font-bold transition" title="RIF Fiscal">
+                                        📄 RIF
                                     </a>
                                 {% endif %}
                                 {% if member.cv_doc %}
-                                    <a href="/personal/download-doc?key={{ member.cv_doc }}" target="_blank" class="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium">
-                                        📑 Ver Currículum (CV)
+                                    <a href="{{ url_for('personal_bp.download_doc', key=member.cv_doc) }}" target="_blank" 
+                                       class="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded text-[10px] font-bold transition" title="Currículum">
+                                        📋 CV
                                     </a>
                                 {% endif %}
-                                {% if not member.photo and not member.dni_doc and not member.rif_doc and not member.cv_doc %}
-                                    <span class="text-slate-500 italic">Sin documentos adjuntos</span>
+                                {% if not member.dni_doc and not member.rif_doc and not member.cv_doc %}
+                                    <span class="text-[10px] text-slate-400 italic">Sin documentos</span>
                                 {% endif %}
                             </div>
                         </td>
-                        <td class="py-3 px-4 text-xs">
-                            <div class="font-semibold text-slate-200">
-                                Creado por: {{ member.creator_name or member.created_by }}
-                            </div>
-                            <div class="text-slate-400">{{ member.created_at }}</div>
-                        </td>
-                        <td class="py-3 px-4 text-center">
-                            <div class="flex items-center justify-center gap-2">
-                                <!-- Botón Modificar -->
-                                <button type="button" data-member='{{ member | tojson | forceescape }}' onclick="openEditModal(JSON.parse(this.dataset.member))" class="text-xs bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 px-3 py-1.5 rounded-lg border border-amber-500/20 font-medium inline-flex items-center gap-1 transition">
-                                    ✏️ Modificar
+
+                        <!-- Acciones -->
+                        <td class="py-3.5 px-4 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <button type="button" 
+                                        onclick="openEditModal('{{ member.id }}', '{{ member.name }}', '{{ member.email }}', '{{ member.phone }}', '{{ member.dni }}', '{{ member.role }}')"
+                                        class="p-2 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" title="Editar">
+                                    <i class="fa-solid fa-pen-to-square"></i>
                                 </button>
                                 
-                                <!-- Botón Eliminar -->
-                                <form action="/personal/api/delete/{{ member.id }}" method="POST" onsubmit="return confirm('⚠️ ¿Estás totalmente seguro de que deseas eliminar a {{ member.name }}? Esta acción no se puede deshacer.');" class="inline">
-                                    <button type="submit" class="text-xs bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg border border-rose-500/20 font-medium inline-flex items-center gap-1 transition">
-                                        🗑️ Eliminar
+                                <form action="{{ url_for('personal_bp.delete_employee_route', user_id=member.id) }}" method="POST" 
+                                      onsubmit="return confirm('¿Seguro que deseas eliminar a este colaborador?');" class="inline">
+                                    <button type="submit" class="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition" title="Eliminar">
+                                        <i class="fa-solid fa-trash-can"></i>
                                     </button>
                                 </form>
                             </div>
@@ -192,8 +167,12 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" class="py-6 text-center text-slate-500">
-                            No hay personal registrado.
+                        <td colspan="5" class="py-12 text-center text-slate-400 text-xs">
+                            <div class="flex flex-col items-center justify-center space-y-2">
+                                <i class="fa-solid fa-users text-3xl text-slate-300 dark:text-slate-700"></i>
+                                <p class="font-semibold">No hay colaboradores registrados todavía.</p>
+                                <p class="text-[11px] text-slate-500">Haz clic en "Nuevo Colaborador" para registrar personal o vendedores de calle.</p>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -201,104 +180,233 @@
             </table>
         </div>
     </div>
+
 </div>
 
-<!-- Modal de Edición de Personal -->
-<div id="editModal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50 p-4">
-    <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-        <h3 class="text-xl font-bold text-amber-400 mb-4">Modificar Expediente de Personal</h3>
+<!-- MODAL: REGISTRAR COLABORADOR / VENDEDOR -->
+<div id="employeeModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden my-8">
         
-        <form id="editForm" method="POST" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-2 gap-4" onsubmit="return confirmUpdate(event)">
-            <input type="hidden" id="edit_user_id" name="user_id">
+        <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/50">
+            <div>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Registrar Nuevo Colaborador</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">Crea la cuenta de acceso y sube sus documentos de respaldo.</p>
+            </div>
+            <button onclick="closeModal('employeeModal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold p-1">✕</button>
+        </div>
+
+        <form action="{{ url_for('personal_bp.create_employee_route') }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-4">
             
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Nombre Completo</label>
-                <input type="text" id="edit_name" name="name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico</label>
-                <input type="email" id="edit_email" name="email" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Teléfono</label>
-                <input type="text" id="edit_phone" name="phone" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Cédula / DNI</label>
-                <input type="text" id="edit_dni" name="dni" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Rol Corporativo</label>
-                <select id="edit_role" name="role" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500">
-                    <option value="Admin">Admin (Dueño / Back-office)</option>
-                    <option value="Gerente">Gerente</option>
-                    <option value="RRHH">Recursos Humanos</option>
-                    <option value="seller">Vendedor (App Móvil)</option>
-                    <option value="Gerente de Ventas">Gerente de Ventas</option>
-                    <option value="cashier">Facturador / Cajero</option>
-                    <option value="Tesorería">Tesorería</option>
-                    <option value="Cobranza">Cobranza</option>
-                    <option value="Coordinador de Logística">Coordinador de Logística</option>
-                    <option value="Supervisor de Almacén">Supervisor de Almacén</option>
-                    <option value="Almacenista">Almacenista</option>
-                    <option value="Chofer">Chofer</option>
-                    <option value="Soporte Técnico">Soporte Técnico</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Nueva Contraseña (Opcional)</label>
-                <input type="password" name="password" placeholder="Dejar en blanco para no cambiar" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Nombre Completo *</label>
+                    <input type="text" name="name" required placeholder="Ej. Carlos Mendoza" 
+                           class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Correo Electrónico (Login) *</label>
+                    <input type="email" name="email" required placeholder="cmendoza@empresa.com" 
+                           class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
             </div>
 
-            <!-- Archivos de actualización opcionales -->
-            <div class="md:col-span-2 border-t border-slate-700 pt-3 mt-2">
-                <h4 class="text-xs font-semibold text-amber-400 mb-2">Actualizar Archivos (Opcional - Reemplazará al anterior si se selecciona uno nuevo)</h4>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div>
-                        <label class="text-slate-400 block mb-1">Nueva Foto</label>
-                        <input type="file" name="photo" accept="image/*" class="w-full text-slate-400">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Cédula / DNI *</label>
+                    <input type="text" name="dni" required placeholder="V-12345678" 
+                           class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Teléfono</label>
+                    <input type="text" name="phone" placeholder="+58 412 1234567" 
+                           class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Rol Corporativo *</label>
+                    <select name="role" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                        <option value="" disabled selected>Seleccione rol...</option>
+                        <optgroup label="Fuerza de Ventas (App Móvil)">
+                            <option value="seller">Vendedor (App Móvil)</option>
+                            <option value="Gerente de Ventas">Gerente de Ventas</option>
+                        </optgroup>
+                        <optgroup label="Administración & Finanzas">
+                            <option value="Admin">Administrador General</option>
+                            <option value="Gerente">Gerente</option>
+                            <option value="cashier">Facturador / Cajero</option>
+                            <option value="Tesorería">Tesorería / Cobranzas</option>
+                        </optgroup>
+                        <optgroup label="Logística & Operaciones">
+                            <option value="Supervisor de Almacén">Supervisor de Almacén</option>
+                            <option value="Almacenista">Almacenista</option>
+                            <option value="Chofer">Chofer / Conductor</option>
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Contraseña de Acceso (Web / App Móvil) *</label>
+                <input type="password" name="password" required placeholder="••••••••" 
+                       class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                <span class="text-[10px] text-slate-400 mt-1 block">La contraseña se encriptará de forma segura con Scrypt antes de guardarse.</span>
+            </div>
+
+            <!-- Archivos de Expediente -->
+            <div class="border-t border-slate-200 dark:border-slate-800 pt-4">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-3 flex items-center gap-1.5">
+                    <i class="fa-solid fa-folder-closed"></i>
+                    <span>Expediente Digital en Cloudflare R2</span>
+                </h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div class="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl">
+                        <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Foto de Perfil</label>
+                        <input type="file" name="photo" accept="image/*" class="w-full text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-slate-200 dark:file:bg-slate-800 file:text-slate-700 dark:file:text-slate-200">
                     </div>
-                    <div>
-                        <label class="text-slate-400 block mb-1">Nueva Cédula/DNI</label>
-                        <input type="file" name="dni_doc" class="w-full text-slate-400">
+                    <div class="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl">
+                        <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Documento Cédula / DNI</label>
+                        <input type="file" name="dni_doc" class="w-full text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-slate-200 dark:file:bg-slate-800 file:text-slate-700 dark:file:text-slate-200">
+                    </div>
+                    <div class="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl">
+                        <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">RIF o Registro Fiscal</label>
+                        <input type="file" name="rif_doc" class="w-full text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-slate-200 dark:file:bg-slate-800 file:text-slate-700 dark:file:text-slate-200">
+                    </div>
+                    <div class="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl">
+                        <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Currículum (CV / Resumen)</label>
+                        <input type="file" name="cv_doc" class="w-full text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-slate-200 dark:file:bg-slate-800 file:text-slate-700 dark:file:text-slate-200">
                     </div>
                 </div>
             </div>
 
-            <div class="md:col-span-2 flex justify-end gap-3 pt-4 border-t border-slate-700 mt-2">
-                <button type="button" onclick="closeEditModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm transition">Cancelar</button>
-                <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-5 py-2 rounded-lg text-sm transition">Guardar Cambios</button>
+            <div class="pt-3 flex justify-end gap-2.5 border-t border-slate-200 dark:border-slate-800">
+                <button type="button" onclick="closeModal('employeeModal')" 
+                        class="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition">
+                    Cancelar
+                </button>
+                <button type="submit" 
+                        class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-600/20">
+                    Registrar en Sistema
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: MODIFICAR COLABORADOR -->
+<div id="editEmployeeModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden my-8">
+        
+        <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/50">
+            <div>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Modificar Colaborador</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">Actualiza datos personales, rol o contraseña.</p>
+            </div>
+            <button onclick="closeModal('editEmployeeModal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold p-1">✕</button>
+        </div>
+
+        <form id="editEmployeeForm" method="POST" enctype="multipart/form-data" class="p-6 space-y-4">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Nombre Completo *</label>
+                    <input type="text" id="editName" name="name" required 
+                           class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Correo Electrónico *</label>
+                    <input type="email" id="editEmail" name="email" required 
+                           class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Cédula / DNI *</label>
+                    <input type="text" id="editDni" name="dni" required 
+                           class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Teléfono</label>
+                    <input type="text" id="editPhone" name="phone" 
+                           class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Rol Corporativo *</label>
+                    <select id="editRole" name="role" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                        <option value="seller">Vendedor (App Móvil)</option>
+                        <option value="Admin">Administrador General</option>
+                        <option value="Gerente">Gerente</option>
+                        <option value="Gerente de Ventas">Gerente de Ventas</option>
+                        <option value="cashier">Facturador / Cajero</option>
+                        <option value="Tesorería">Tesorería / Cobranzas</option>
+                        <option value="Supervisor de Almacén">Supervisor de Almacén</option>
+                        <option value="Almacenista">Almacenista</option>
+                        <option value="Chofer">Chofer / Conductor</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Nueva Contraseña (Dejar en blanco para no cambiar)</label>
+                <input type="password" name="password" placeholder="••••••••" 
+                       class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <div class="pt-3 flex justify-end gap-2.5 border-t border-slate-200 dark:border-slate-800">
+                <button type="button" onclick="closeModal('editEmployeeModal')" 
+                        class="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition">
+                    Cancelar
+                </button>
+                <button type="submit" 
+                        class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-600/20">
+                    Guardar Cambios
+                </button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-function openEditModal(member) {
-    document.getElementById('editForm').action = `/personal/api/update/${member.id}`;
-    document.getElementById('edit_user_id').value = member.id;
-    document.getElementById('edit_name').value = member.name || '';
-    document.getElementById('edit_email').value = member.email || '';
-    document.getElementById('edit_phone').value = member.phone || '';
-    document.getElementById('edit_dni').value = member.dni || '';
-    document.getElementById('edit_role').value = member.role || '';
-    
-    document.getElementById('editModal').classList.remove('hidden');
-    document.getElementById('editModal').classList.add('flex');
-}
-
-function closeEditModal() {
-    document.getElementById('editModal').classList.remove('flex');
-    document.getElementById('editModal').classList.add('hidden');
-}
-
-function confirmUpdate(event) {
-    const confirmation = confirm("⚠️ ¿Estás seguro de que deseas modificar este registro de personal? Esta acción quedará registrada en la auditoría.");
-    if (!confirmation) {
-        event.preventDefault();
-        return false;
+    function openModal(id) {
+        const m = document.getElementById(id);
+        if (m) { m.classList.remove('hidden'); m.classList.add('flex'); }
     }
-    return true;
-}
+
+    function closeModal(id) {
+        const m = document.getElementById(id);
+        if (m) { m.classList.remove('flex'); m.classList.add('hidden'); }
+    }
+
+    function openEditModal(id, name, email, phone, dni, role) {
+        const form = document.getElementById('editEmployeeForm');
+        form.action = `/personal/api/update/${id}`;
+        document.getElementById('editName').value = name;
+        document.getElementById('editEmail').value = email;
+        document.getElementById('editPhone').value = phone || '';
+        document.getElementById('editDni').value = dni;
+        document.getElementById('editRole').value = role;
+        openModal('editEmployeeModal');
+    }
+
+    function filterStaffTable() {
+        const query = document.getElementById('staffSearchInput').value.toLowerCase().trim();
+        const selectedRole = document.getElementById('roleFilterSelect').value.toLowerCase().trim();
+        const rows = document.querySelectorAll('.staff-row');
+
+        rows.forEach(row => {
+            const name = row.getAttribute('data-name') || '';
+            const email = row.getAttribute('data-email') || '';
+            const dni = row.getAttribute('data-dni') || '';
+            const role = row.getAttribute('data-role') || '';
+
+            const matchesText = !query || name.includes(query) || email.includes(query) || dni.includes(query) || role.includes(query);
+            const matchesRole = !selectedRole || role.includes(selectedRole);
+
+            if (matchesText && matchesRole) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
 </script>
 {% endblock %}

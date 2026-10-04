@@ -6,33 +6,39 @@
     <title>Gestión 360 - Acceso Corporativo</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 flex items-center justify-center h-screen">
+<body class="bg-[#070D1D] text-slate-100 flex items-center justify-center h-screen bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(14,116,144,0.15),rgba(255,255,255,0))]">
 
-    <div class="bg-slate-800 border border-slate-700 p-8 rounded-2xl shadow-2xl w-full max-w-md">
+    <div class="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden">
+        <!-- Detalle de luz superior -->
+        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-600"></div>
+
         <div class="text-center mb-8">
-            <h1 class="text-2xl font-bold text-emerald-400">GESTIÓN 360</h1>
-            <p class="text-sm text-slate-400 mt-1">Plataforma Administrativa y Logística</p>
+            <!-- Logotipo oficial corporativo -->
+            <div class="flex justify-center mb-4">
+                <img src="{{ url_for('static', filename='images/logo.jpeg') }}" alt="Gestión 360 Logo" class="h-20 w-auto rounded-xl object-contain shadow-lg border border-slate-800">
+            </div>
+            <h1 class="text-xl font-extrabold tracking-wider text-white">GESTIÓN <span class="text-cyan-400">360</span></h1>
+            <p class="text-xs text-slate-400 mt-1 uppercase tracking-widest font-medium">Impulsa tus datos, maximiza tu negocio</p>
         </div>
 
-        <form action="/api/login" method="POST" class="space-y-4">
+        <form action="/api/login" method="POST" class="space-y-5">
             <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico</label>
-                <!-- Corregido type="email5" a type="email" -->
-                <input type="email" name="email" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="admin@alpinca.com">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Correo Electrónico</label>
+                <input type="email" name="email" required class="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition duration-200" placeholder="admin@alpinca.com">
             </div>
             <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Contraseña / Clave</label>
-                <input type="password" name="password" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500" placeholder="••••••••">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Contraseña</label>
+                <input type="password" name="password" required class="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition duration-200" placeholder="••••••••">
             </div>
-            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition duration-200">
+            <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-cyan-500/20 transition duration-200 text-sm tracking-wide">
                 Iniciar Sesión
             </button>
         </form>
 
-        <div class="mt-6 text-center border-t border-slate-700 pt-4">
-            <p class="text-sm text-slate-400">¿Nueva empresa a bordo?</p>
-            <a href="/register-business" class="text-emerald-400 hover:underline text-sm font-semibold mt-1 inline-block">
-                Ir al Onboarding y Registro Corporativo →
+        <div class="mt-8 text-center border-t border-slate-800/80 pt-5">
+            <p class="text-xs text-slate-400">¿Nueva empresa integrándose al ecosistema?</p>
+            <a href="/register-business" class="text-cyan-400 hover:text-cyan-300 text-xs font-semibold mt-1.5 inline-block transition">
+                Configurar Onboarding Corporativo →
             </a>
         </div>
     </div>

@@ -9,28 +9,11 @@ from botocore.config import Config
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash
 
-# Importamos el cliente global de MongoDB Atlas
-from database import client
+from database import client, get_central_db
+from utils import get_r2_client, R2_BUCKET_NAME, R2_PUBLIC_DOMAIN
 
 # Configuración de Logging
 logger = logging.getLogger(__name__)
-
-# Configuración de Cloudflare R2 (S3 compatible) desde variables de entorno con respaldos
-R2_ENDPOINT_URL = os.getenv("R2_ENDPOINT_URL", "https://f6142b0b6187db4eda007cc0962ac8a4.r2.cloudflarestorage.com")
-R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "50613beb9e89af5c41f2d07ee23c11ac")
-R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "feca9e0e7fd65ac91c518e6e6b680516d5ad57df1dfedf30f686a17be9d7824a")
-R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME", "gestion360-storage")
-R2_PUBLIC_DOMAIN = os.getenv("R2_PUBLIC_DOMAIN", "https://f6142b0b6187db4eda007cc0962ac8a4.r2.cloudflarestorage.com/gestion360-storage")
-
-def get_r2_client():
-    return boto3.client(
-        's3',
-        endpoint_url=R2_ENDPOINT_URL,
-        aws_access_key_id=R2_ACCESS_KEY_ID,
-        aws_secret_access_key=R2_SECRET_ACCESS_KEY,
-        config=Config(signature_version='s3v4'),
-        region_name='auto'
-    )
 
 def register_business_logic(data):
     uploaded_object_keys = []  # Para seguimiento en caso de rollback de archivos si fuera necesario
@@ -174,6 +157,29 @@ def register_business_logic(data):
             "created_at": datetime.utcnow()
         }
         company_users_col.insert_one(admin_user_doc)
+
+        # --- 9. REGISTRAR EN EL ÍNDICE GLOBAL CENTRAL PARA LOGIN O(1) ---
+        central_db["global_users"].update_one(
+            {"email": admin_email.lower()},
+            {
+                "$set": {
+                    "email": admin_email.lower(),
+                    "name": admin_name,
+                    "password": hashed_password,
+                    "user_type": "company_staff",
+                    "role": "admin",
+                    "rif": rif,
+                    "business_name": name,
+                    "company_db": company_db_name,
+                    "is_active": True,
+                    "updated_at": datetime.utcnow()
+                },
+                "$setOnInsert": {
+                    "created_at": datetime.utcnow()
+                }
+            },
+            upsert=True
+        )
 
         return {
             "success": True,

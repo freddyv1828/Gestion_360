@@ -3,99 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión 360 - Onboarding Comercial</title>
+    <title>Gestión 360 - Onboarding Corporativo</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 py-12 px-4">
+<body class="bg-[#070D1D] text-slate-100 py-12 px-4 selection:bg-cyan-500 selection:text-white bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(14,116,144,0.15),rgba(255,255,255,0))]">
 
-    <div class="max-w-2xl mx-auto bg-white text-slate-900 p-8 rounded-2xl shadow-2xl">
-        <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
-            <h1 class="text-xl font-bold text-slate-900">Onboarding Corporativo - Registro de Empresa</h1>
-            <a href="/" class="text-sm text-emerald-600 hover:underline font-semibold">← Volver al Login</a>
+    <div class="max-w-3xl mx-auto bg-slate-900/80 backdrop-blur-xl border border-slate-800 text-slate-100 p-8 md:p-10 rounded-3xl shadow-2xl relative overflow-hidden">
+        <!-- Detalle de luz superior corporativa -->
+        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-600"></div>
+
+        <!-- Encabezado con Logotipo -->
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 pb-6 border-b border-slate-800 gap-4">
+            <div class="flex items-center gap-4">
+                <img src="{{ url_for('static', filename='images/logo.jpeg') }}" alt="Gestión 360 Logo" class="h-12 w-12 rounded-xl object-contain border border-slate-700 shadow">
+                <div>
+                    <h1 class="text-xl font-extrabold tracking-wide text-white">GESTIÓN <span class="text-cyan-400">360</span></h1>
+                    <p class="text-xs text-slate-400 tracking-wider uppercase font-medium mt-0.5">Onboarding y Registro Corporativo</p>
+                </div>
+            </div>
+            <a href="/" class="text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition flex items-center gap-1 bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-700/80 shadow-sm">
+                ← Volver al Login
+            </a>
         </div>
 
-        <form id="registrationForm" class="space-y-4" onsubmit="submitRegistration(event)">
-            <div>
-                <label class="block text-sm font-semibold mb-1">Clave de Activación / Licencia</label>
-                <input type="text" id="activationToken" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. GESTION360-xxxx">
+        <form id="registrationForm" class="space-y-6" onsubmit="submitRegistration(event)">
+            
+            <!-- Licencia y Activación -->
+            <div class="bg-slate-950/40 p-5 rounded-2xl border border-slate-800/80">
+                <label class="block text-xs font-bold uppercase tracking-wider text-cyan-400 mb-2">Clave de Activación / Licencia Global</label>
+                <input type="text" id="activationToken" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition" placeholder="Ej. GESTION360-xxxx">
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold mb-1">Nombre Comercial de la Empresa</label>
-                    <input type="text" id="name" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. Alpinca">
+            <!-- Datos de la Empresa -->
+            <div class="space-y-4">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-300 border-l-2 border-cyan-500 pl-3">Información de la Empresa</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Nombre Comercial</label>
+                        <input type="text" id="name" required class="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 transition" placeholder="Ej. Alpinca">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">RIF</label>
+                        <input type="text" id="rif" required class="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 transition" placeholder="Ej. J-63426-9">
+                    </div>
                 </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Zona Fiscal (Tax Right)</label>
+                        <input type="text" id="taxRight" required class="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 transition" placeholder="Ej. Trocal 5 Barinas">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Teléfono de Contacto</label>
+                        <input type="text" id="phone" required class="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 transition" placeholder="Ej. 0414-1234567">
+                    </div>
+                </div>
+
                 <div>
-                    <label class="block text-sm font-semibold mb-1">RIF</label>
-                    <input type="text" id="rif" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. J-63426-9">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Dirección Fiscal</label>
+                    <input type="text" id="fiscalDirection" required class="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 transition" placeholder="Ej. Av. Principal, Zona Industrial Barinas">
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold mb-1">Zona Fiscal (Tax Right)</label>
-                    <input type="text" id="taxRight" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. Trocal 5 Barinas">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold mb-1">Teléfono de Contacto</label>
-                    <input type="text" id="phone" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. 0414-1234567">
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-sm font-semibold mb-1">Dirección Fiscal</label>
-                <input type="text" id="fiscalDirection" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm" placeholder="Ej. Av. Principal, Zona Industrial Barinas">
-            </div>
-
-            <div class="pt-4 border-t border-slate-200">
-                <h3 class="font-bold text-sm mb-3 text-emerald-700">Credenciales del Administrador Principal</h3>
+            <!-- Credenciales del Administrador -->
+            <div class="pt-4 border-t border-slate-800 space-y-4">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-cyan-400 border-l-2 border-cyan-500 pl-3">Credenciales del Administrador Principal</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-xs font-semibold mb-1">Nombre del Admin</label>
-                        <input type="text" id="adminName" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Freddy Valero">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Nombre del Admin</label>
+                        <input type="text" id="adminName" required class="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 transition" placeholder="Freddy Valero">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold mb-1">Correo Electrónico</label>
-                        <input type="email" id="adminEmail" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="admin@alpinca.com">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Correo Electrónico</label>
+                        <input type="email" id="adminEmail" required class="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 transition" placeholder="admin@alpinca.com">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold mb-1">Contraseña</label>
-                        <input type="password" id="adminPassword" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="••••••••">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Contraseña</label>
+                        <input type="password" id="adminPassword" required class="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 transition" placeholder="••••••••">
                     </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4 pt-2">
+            <!-- Plan de Contratación -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 <div>
-                    <label class="block text-sm font-semibold mb-1">Plan de Contratación</label>
-                    <select id="planType" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm">
-                        <option value="free">Plan Free (30 días)</option>
-                        <option value="pro">Plan Pro (Anual)</option>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Plan de Contratación</label>
+                    <select id="planType" class="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 transition">
+                        <option value="free" class="bg-slate-900">Plan Free (30 días)</option>
+                        <option value="pro" class="bg-slate-900">Plan Pro (Anual)</option>
                     </select>
                 </div>
             </div>
 
-            <div class="pt-4 border-t border-slate-200">
-                <h3 class="font-bold text-sm mb-1">Documentación Legal Obligatoria (Solo PDF)</h3>
-                <p class="text-xs text-slate-500 mb-4">Cargue en formato digital PDF los documentos corporativos. Se guardarán de forma segura en Cloudflare R2 ordenados por RIF.</p>
+            <!-- Documentación Legal Obligatoria -->
+            <div class="pt-4 border-t border-slate-800 space-y-3">
+                <div>
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-slate-300 border-l-2 border-cyan-500 pl-3">Documentación Legal Obligatoria</h3>
+                    <p class="text-xs text-slate-400 mt-1">Cargue en formato digital PDF los documentos corporativos. Se cifrarán y almacenarán ordenados por RIF de forma segura.</p>
+                </div>
                 
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between bg-slate-50 p-3 border border-slate-300 rounded-lg">
-                        <span class="text-xs font-semibold">1. RIF de la Empresa</span>
-                        <input type="file" id="rifFile" accept="application/pdf" required class="text-xs">
+                <div class="space-y-3 pt-2">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-950/50 p-4 border border-slate-800 rounded-xl gap-2">
+                        <span class="text-xs font-semibold text-slate-300">1. RIF de la Empresa</span>
+                        <input type="file" id="rifFile" accept="application/pdf" required class="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-cyan-500/10 file:text-cyan-400 hover:file:bg-cyan-500/20 cursor-pointer">
                     </div>
-                    <div class="flex items-center justify-between bg-slate-50 p-3 border border-slate-300 rounded-lg">
-                        <span class="text-xs font-semibold">2. Acta Constitutiva</span>
-                        <input type="file" id="actaFile" accept="application/pdf" required class="text-xs">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-950/50 p-4 border border-slate-800 rounded-xl gap-2">
+                        <span class="text-xs font-semibold text-slate-300">2. Acta Constitutiva</span>
+                        <input type="file" id="actaFile" accept="application/pdf" required class="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-cyan-500/10 file:text-cyan-400 hover:file:bg-cyan-500/20 cursor-pointer">
                     </div>
-                    <div class="flex items-center justify-between bg-slate-50 p-3 border border-slate-300 rounded-lg">
-                        <span class="text-xs font-semibold">3. Registro Mercantil</span>
-                        <input type="file" id="mercantilFile" accept="application/pdf" required class="text-xs">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-950/50 p-4 border border-slate-800 rounded-xl gap-2">
+                        <span class="text-xs font-semibold text-slate-300">3. Registro Mercantil</span>
+                        <input type="file" id="mercantilFile" accept="application/pdf" required class="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-cyan-500/10 file:text-cyan-400 hover:file:bg-cyan-500/20 cursor-pointer">
                     </div>
                 </div>
             </div>
 
-            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition duration-200 mt-6">
+            <!-- Botón de Envío -->
+            <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-cyan-500/20 transition duration-200 text-sm tracking-wide mt-8">
                 Completar Registro Corporativo y Crear Admin
             </button>
         </form>

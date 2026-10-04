@@ -1,0 +1,520 @@
+{% extends "base.html" %}
+
+{% block title %}Catálogo Maestro & Precios — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
+{% block header_title %}Catálogo Maestro & Multialmacén — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
+
+{% block content %}
+            <div class="space-y-6 max-w-7xl mx-auto">
+                
+                <!-- ENCABEZADO SUPERIOR -->
+                <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                                Bloque Comercial / Control por Almacenes
+                            </span>
+                        </div>
+                        <h2 class="text-xl font-extrabold text-gray-900 dark:text-white">Catálogo Maestro y Traslados de Mercancía</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Optimización de memoria, gestión de costos, existencias y control de precios comerciales.</p>
+                    </div>
+
+                    <!-- Botonera Funcional Superior -->
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <form id="dropi" action="{{ url_for('commercial.sync_dropi') }}" method="POST" onsubmit="return confirm('¿Sincronizar el Almacén Virtual y Catálogo Dropi?');" class="inline">
+                            <button type="submit" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                                <i class="fa-solid fa-store text-amber-500"></i> Sincronizar Dropi
+                            </button>
+                        </form>
+                        <button onclick="openModal('warehouseModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                            <i class="fa-solid fa-warehouse"></i> Gestionar Almacenes
+                        </button>
+                        <button onclick="openModal('productModal')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i> Nuevo Artículo Comercial
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ALERTA RÁPIDA / BANNER DE STOCK CRÍTICO O EN CERO (conteo global, no limitado a la página actual) -->
+                {% set zero_stock_count = alert_counts.zero_stock_count if alert_counts else 0 %}
+                {% set low_stock_count = alert_counts.low_stock_count if alert_counts else 0 %}
+                {% if zero_stock_count > 0 or low_stock_count > 0 %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {% if zero_stock_count > 0 %}
+                    <div class="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 p-4 rounded-2xl flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-triangle-exclamation text-base"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-rose-900 dark:text-rose-200">{{ zero_stock_count }} artículo(s) con Existencia en Cero (0)</h4>
+                            <p class="text-[11px] text-rose-700 dark:text-rose-400">Registre órdenes de compra o traslados para reabastecer las sucursales afectadas.</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if low_stock_count > 0 %}
+                    <div class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 p-4 rounded-2xl flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-gauge-high text-base"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-amber-900 dark:text-amber-200">{{ low_stock_count }} artículo(s) por debajo del Stock Mínimo</h4>
+                            <p class="text-[11px] text-amber-700 dark:text-amber-400">Revise la columna "Stock & Unidad" en la tabla para identificar cuáles requieren reposición.</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- BARRA DE BÚSQUEDA Y FILTROS -->
+                <form method="GET" action="{{ url_for('commercial.products') }}" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-2xl shadow-sm flex flex-col md:flex-row gap-3 items-center">
+                    <div class="flex-1 w-full">
+                        <input type="text" name="search" value="{{ filters.search }}" placeholder="Buscar por Nombre o SKU..." class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    
+                    <div class="w-full md:w-64">
+                        <select name="warehouse_id" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 focus:outline-none focus:border-indigo-500">
+                            <option value="">Todos los Almacenes</option>
+                            {% for wh in warehouses %}
+                                <option value="{{ wh._id }}" {% if request.args.get('warehouse_id') == wh._id|string %}selected{% endif %}>
+                                    {{ wh.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2 w-full md:w-auto">
+                        <button type="submit" class="flex-1 md:flex-none px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm">
+                            <i class="fa-solid fa-filter mr-1"></i> Filtrar
+                        </button>
+                        <a href="{{ url_for('commercial.products') }}" class="px-3 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-xl text-xs transition" title="Limpiar Filtros">
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </a>
+                    </div>
+                </form>
+
+                <!-- TABLA DE PRODUCTOS PROFESIONAL -->
+                <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
+                    <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <i class="fa-solid fa-tags text-indigo-600 dark:text-indigo-400"></i> Artículos Registrados
+                        </h3>
+                        <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Total Registros: {{ pagination.total_count }}</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs text-gray-600 dark:text-gray-300">
+                            <thead class="bg-gray-50 dark:bg-gray-900/50 text-gray-500 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+                                <tr>
+                                    <th class="py-3 px-4 font-semibold">Artículo / SKU</th>
+                                    <th class="py-3 px-4 font-semibold">Categoría</th>
+                                    <th class="py-3 px-4 font-semibold">Costo Unitario</th>
+                                    <th class="py-3 px-4 font-semibold">Precio Venta</th>
+                                    <th class="py-3 px-4 font-semibold">Margen Bruto</th>
+                                    <th class="py-3 px-4 font-semibold">Stock & Unidad</th>
+                                    <th class="py-3 px-4 font-semibold">Lote / Vencimiento</th>
+                                    <th class="py-3 px-4 font-semibold text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                {% for product in products %}
+                                {% set cost = product.get('cost', 0) | float %}
+                                {% set price = product.get('price', 0) | float %}
+                                {% set stock_val = product.get('stock', 0) | float %}
+                                {% set min_stock_val = product.get('min_stock', 0) | float %}
+                                {% set margin = ((price - cost) / price * 100) if price > 0 else 0 %}
+                                
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+                                    <!-- Artículo / SKU -->
+                                    <td class="py-3.5 px-4">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0 overflow-hidden border border-gray-200 dark:border-gray-600">
+                                                {% if product.get('image_url') %}
+                                                    <img src="{{ product.get('image_url') }}" alt="" class="w-full h-full object-cover">
+                                                {% else %}
+                                                    <i class="fa-solid fa-box text-gray-400 text-xs"></i>
+                                                {% endif %}
+                                            </div>
+                                            <div>
+                                                <div class="font-bold text-gray-900 dark:text-white">{{ product.get('name') }}</div>
+                                                <div class="text-[11px] text-gray-400 font-mono">SKU: {{ product.get('sku') }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <!-- Categoría -->
+                                    <td class="py-3.5 px-4">
+                                        <div class="text-gray-800 dark:text-gray-200 font-medium">{{ product.get('category', 'General') }}</div>
+                                        <div class="text-[11px] text-gray-400">Marca: {{ product.get('brand', 'N/D') }}</div>
+                                    </td>
+
+                                    <!-- Costo Unitario -->
+                                    <td class="py-3.5 px-4 font-mono font-semibold text-gray-700 dark:text-gray-300">
+                                        ${{ "%.2f"|format(cost) }}
+                                    </td>
+
+                                    <!-- Precio Venta -->
+                                    <td class="py-3.5 px-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                                        ${{ "%.2f"|format(price) }}
+                                    </td>
+
+                                    <!-- Margen -->
+                                    <td class="py-3.5 px-4">
+                                        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold {% if margin >= 30 %}bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800{% else %}bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800{% endif %}">
+                                            {{ "%.1f"|format(margin) }}%
+                                        </span>
+                                    </td>
+
+                                    <!-- Stock & Unidad con Alerta Visual de Stock Mínimo o Cero -->
+                                    <td class="py-3.5 px-4">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="font-bold {% if stock_val == 0 %}text-rose-600 dark:text-rose-400{% elif min_stock_val > 0 and stock_val <= min_stock_val %}text-amber-600 dark:text-amber-400{% else %}text-gray-900 dark:text-white{% endif %}">
+                                                {{ product.get('stock', 0) }}
+                                            </span>
+                                            {% if stock_val == 0 %}
+                                                <span class="px-1.5 py-0.5 text-[9px] font-extrabold uppercase bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 rounded">Sin Stock</span>
+                                            {% elif min_stock_val > 0 and stock_val <= min_stock_val %}
+                                                <span class="px-1.5 py-0.5 text-[9px] font-extrabold uppercase bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 rounded" title="Stock por debajo del mínimo ({{ min_stock_val }})">Mínimo</span>
+                                            {% endif %}
+                                        </div>
+                                        <span class="text-[10px] uppercase font-semibold text-indigo-500 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded">
+                                            {{ product.get('unit_type', 'unit') }}
+                                        </span>
+                                    </td>
+
+                                    <!-- Lote / Vencimiento -->
+                                    <td class="py-3.5 px-4">
+                                        {% set nb = product.get('nearest_batch') %}
+                                        <div class="font-mono text-gray-800 dark:text-gray-200 text-[11px]">L: {{ nb.batch_code if nb else product.get('batch', 'N/A') }}</div>
+                                        <div class="text-[11px] text-gray-400"><i class="fa-regular fa-calendar mr-1"></i>{{ (nb.exp_date if nb and nb.exp_date else product.get('expiration_date', 'N/A')) }}</div>
+                                        {% if product.get('lot_count', 0) > 1 %}
+                                        <div class="text-[10px] text-indigo-500 font-semibold">+{{ product.lot_count - 1 }} lote(s) más</div>
+                                        {% endif %}
+                                    </td>
+
+                                    <!-- ACCIONES COMPLETAS -->
+                                    <td class="py-3.5 px-4 text-center">
+                                        <div class="flex items-center justify-center space-x-1.5">
+                                            <button onclick="openEditModal('{{ product.get('_id') }}', '{{ product.get('name') }}', '{{ product.get('sku') }}', '{{ product.get('cost') }}', '{{ product.get('price') }}')" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-[11px] font-semibold transition" title="Modificar / Editar">
+                                                Editar
+                                            </button>
+                                            <button onclick="openMovementModal('{{ product.get('_id') }}', '{{ product.get('name') }}')" class="px-2 py-1 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 rounded-lg text-[11px] font-semibold transition" title="Movimiento / Traslado">
+                                                Movimiento
+                                            </button>
+                                            <form action="{{ url_for('commercial.delete_product', product_id=product.get('_id')) }}" method="POST" onsubmit="return confirm('¿Estás seguro de inactivar este artículo?');" class="inline">
+                                                <button type="submit" class="px-2 py-1 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-600 dark:text-rose-400 rounded-lg text-[11px] font-semibold transition">Inactivar</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="8" class="py-8 text-center text-gray-400">
+                                        No se encontraron artículos comerciales registrados en la base de datos.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- PAGINACIÓN -->
+                    {% if pagination.total_pages > 1 %}
+                    <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between flex-wrap gap-3">
+                        <span class="text-[11px] text-gray-500 dark:text-gray-400">
+                            Página {{ pagination.page }} de {{ pagination.total_pages }} &bull; {{ pagination.total_count }} artículo(s) en total ({{ pagination.per_page }} por página)
+                        </span>
+                        <div class="flex items-center gap-2">
+                            <a href="{{ url_for('commercial.products', page=pagination.page-1, search=filters.search, category=filters.category, brand=filters.brand, warehouse_id=filters.warehouse_id) }}"
+                               class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 text-xs font-semibold transition {% if pagination.page <= 1 %}pointer-events-none opacity-40{% endif %}">
+                                <i class="fa-solid fa-chevron-left mr-1"></i> Anterior
+                            </a>
+                            <span class="px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 rounded-lg">{{ pagination.page }} / {{ pagination.total_pages }}</span>
+                            <a href="{{ url_for('commercial.products', page=pagination.page+1, search=filters.search, category=filters.category, brand=filters.brand, warehouse_id=filters.warehouse_id) }}"
+                               class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 text-xs font-semibold transition {% if pagination.page >= pagination.total_pages %}pointer-events-none opacity-40{% endif %}">
+                                Siguiente <i class="fa-solid fa-chevron-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL: NUEVO ARTÍCULO COMERCIAL -->
+    <div id="productModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+                <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-plus text-indigo-600"></i> Registrar Nuevo Artículo Comercial
+                </h3>
+                <button onclick="closeModal('productModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form action="{{ url_for('commercial.save_product') }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-4 overflow-y-auto flex-1">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Nombre del Producto *</label>
+                        <input type="text" name="name" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">SKU *</label>
+                        <input type="text" name="sku" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Categoría</label>
+                        <input type="text" name="category" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Subcategoría / Marca</label>
+                        <input type="text" name="subcategory" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Costo Unitario ($)</label>
+                        <input type="number" step="0.01" name="cost" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Precio de Venta ($)</label>
+                        <input type="number" step="0.01" name="price" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Stock Inicial</label>
+                        <input type="number" step="any" name="stock" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Stock Mínimo (Alerta)</label>
+                        <input type="number" step="any" name="min_stock" value="0" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs" placeholder="Ej. 5">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Unidad de Medida</label>
+                        <select name="unit_type" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                            <option value="unit">Unidad (unit)</option>
+                            <option value="kg">Kilogramos (kg)</option>
+                            <option value="caja">Caja</option>
+                            <option value="bulto">Bulto</option>
+                            <option value="litros">Litros</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Lote (Batch)</label>
+                        <input type="text" name="batch" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Fecha de Vencimiento</label>
+                        <input type="date" name="expiration_date" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Almacén Destino *</label>
+                        <select name="warehouse_id" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 focus:outline-none focus:border-indigo-500">
+                            <option value="" disabled selected>-- Selecciona un Almacén Creado --</option>
+                            {% for wh in warehouses %}
+                                <option value="{{ wh._id }}">{{ wh.name }} {% if wh.location %}({{ wh.location }}){% endif %}</option>
+                            {% else %}
+                                <option value="" disabled>No hay almacenes creados aún. Crea uno primero.</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Imagen del Producto</label>
+                        <input type="file" name="image_file" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button type="button" onclick="closeModal('productModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl shadow">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: GESTIÓN DE ALMACENES -->
+    <div id="warehouseModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col">
+            <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+                <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-warehouse text-indigo-600"></i> Crear Nuevo Almacén
+                </h3>
+                <button onclick="closeModal('warehouseModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form action="{{ url_for('commercial.save_warehouse') }}" method="POST" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Nombre del Almacén *</label>
+                    <input type="text" name="name" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Ubicación / Sede</label>
+                    <input type="text" name="location" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button type="button" onclick="closeModal('warehouseModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl shadow">Guardar Almacén</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: MOVIMIENTOS Y TRASLADOS ENTRE ALMACENES -->
+    <div id="movementModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col">
+            <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+                <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-right-left text-indigo-600"></i> Movimiento / Traslado de Mercancía
+                </h3>
+                <button onclick="closeModal('movementModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form action="{{ url_for('commercial.register_movement') }}" method="POST" class="p-6 space-y-4">
+                <input type="hidden" name="product_id" id="movement_product_id">
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Artículo Seleccionado</label>
+                    <input type="text" id="movement_product_name" disabled class="w-full px-3 py-2 bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Tipo de Movimiento *</label>
+                    <select name="movement_type" id="movement_type_select" required onchange="updateMovementFormVisibility()" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100">
+                        <option value="ENTRADA">Entrada de Inventario (Compra)</option>
+                        <option value="SALIDA">Salida de Inventario (Venta)</option>
+                        <option value="TRASLADO">Traslado entre Almacenes</option>
+                        <option value="CARGO">Cargo (Ajuste a favor)</option>
+                        <option value="DESCARGO">Descargo (Merma / Daño / Ajuste en contra)</option>
+                    </select>
+                </div>
+
+                <div id="source_warehouse_wrap" class="hidden">
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Almacén Origen *</label>
+                    <select name="source_warehouse_id" id="source_warehouse_select" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100">
+                        <option value="" disabled selected>-- Seleccionar Almacén --</option>
+                        {% for wh in warehouses %}
+                            <option value="{{ wh._id }}">{{ wh.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div id="target_warehouse_wrap" class="hidden">
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Almacén Destino *</label>
+                    <select name="target_warehouse_id" id="target_warehouse_select" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100">
+                        <option value="" disabled selected>-- Seleccionar Almacén --</option>
+                        {% for wh in warehouses %}
+                            <option value="{{ wh._id }}">{{ wh.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Cantidad *</label>
+                    <input type="number" step="any" name="quantity" required placeholder="Ej. 10" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Lote (Código)</label>
+                        <input type="text" name="batch_code" placeholder="Auto si se deja vacío" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Vencimiento del Lote</label>
+                        <input type="date" name="expiration_date" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    </div>
+                </div>
+                <p class="text-[10px] text-gray-400 -mt-2">En Salida / Traslado / Descargo, si deja el lote vacío se consume automáticamente por FEFO (primero en vencer, primero en salir).</p>
+
+                <div>
+                    <label id="movement_notes_label" class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Motivo u Observación</label>
+                    <input type="text" name="notes" id="movement_notes" placeholder="Ej. Reubicación a sede principal..." class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button type="button" onclick="closeModal('movementModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl shadow">Ejecutar Movimiento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: EDITAR / MODIFICAR PRODUCTO -->
+    <div id="editModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col">
+            <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+                <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-indigo-600"></i> Modificar Artículo Comercial
+                </h3>
+                <button onclick="closeModal('editModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form action="{{ url_for('commercial.save_product') }}" method="POST" class="p-6 space-y-4" id="editForm">
+                <input type="hidden" name="product_id" id="edit_product_id">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Nombre del Producto *</label>
+                    <input type="text" name="name" id="edit_name" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">SKU *</label>
+                    <input type="text" name="sku" id="edit_sku" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Costo Unitario ($)</label>
+                    <input type="number" step="0.01" name="cost" id="edit_cost" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Precio de Venta ($)</label>
+                    <input type="number" step="0.01" name="price" id="edit_price" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button type="button" onclick="closeModal('editModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl shadow">Actualizar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts Específicos de Productos -->
+    <script>
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        function openMovementModal(productId, productName) {
+            document.getElementById('movement_product_id').value = productId;
+            document.getElementById('movement_product_name').value = productName;
+            document.getElementById('movement_type_select').value = 'ENTRADA';
+            updateMovementFormVisibility();
+            openModal('movementModal');
+        }
+
+        function updateMovementFormVisibility() {
+            const type = document.getElementById('movement_type_select').value;
+            const sourceWrap = document.getElementById('source_warehouse_wrap');
+            const targetWrap = document.getElementById('target_warehouse_wrap');
+            const sourceSelect = document.getElementById('source_warehouse_select');
+            const targetSelect = document.getElementById('target_warehouse_select');
+            const notesInput = document.getElementById('movement_notes');
+            const notesLabel = document.getElementById('movement_notes_label');
+
+            const needsSource = ['SALIDA', 'TRASLADO', 'DESCARGO'].includes(type);
+            const needsTarget = ['ENTRADA', 'TRASLADO', 'CARGO'].includes(type);
+            const needsActa = ['CARGO', 'DESCARGO'].includes(type);
+
+            sourceWrap.classList.toggle('hidden', !needsSource);
+            sourceSelect.required = needsSource;
+            targetWrap.classList.toggle('hidden', !needsTarget);
+            targetSelect.required = needsTarget;
+
+            notesInput.required = needsActa;
+            notesLabel.textContent = needsActa ? 'Acta / Justificación de Ajuste *' : 'Motivo u Observación';
+            notesInput.placeholder = needsActa
+                ? 'Obligatorio: describa el motivo del ajuste (merma, daño, conteo físico...)'
+                : 'Ej. Reubicación a sede principal...';
+        }
+
+        function openEditModal(productId, name, sku, cost, price) {
+            document.getElementById('edit_product_id').value = productId;
+            document.getElementById('edit_name').value = name;
+            document.getElementById('edit_sku').value = sku;
+            document.getElementById('edit_cost').value = cost;
+            document.getElementById('edit_price').value = price;
+            openModal('editModal');
+        }
+    </script>
+{% endblock %}

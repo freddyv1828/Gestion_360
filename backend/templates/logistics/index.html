@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block title %}Logística, Flota & Despachos — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
+{% block header_title %}Centro de Logística, Flota & Despachos — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
+
+{% block content %}
+{% set status_badges = {
+    'available': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+    'in_route': 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+    'maintenance': 'bg-slate-500/10 text-slate-500 border-slate-500/20',
+    'planificada': 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20',
+    'en_curso': 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+    'completada': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+    'cancelada': 'bg-rose-500/10 text-rose-600 border-rose-500/20',
+} %}
+{% set status_labels = {
+    'available': 'Disponible',
+    'in_route': 'En Ruta',
+    'maintenance': 'Mantenimiento',
+    'planificada': 'Planificada',
+    'en_curso': 'En Curso',
+    'completada': 'Completada',
+    'cancelada': 'Cancelada',
+} %}
+<div class="space-y-6 max-w-7xl mx-auto">
+
+    <!-- ENCABEZADO SUPERIOR -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-widest bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                    Bloque Logístico / Flota & Despachos
+                </span>
+            </div>
+            <h2 class="text-xl font-extrabold text-gray-900 dark:text-white">Gestión de Flota, Choferes y Rutas</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Control de vehículos, asignación de conductores y activación/cierre de hojas de ruta.</p>
+        </div>
+
+        <div class="flex items-center gap-3 flex-wrap">
+            <button onclick="openModal('vehicleModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-truck"></i> Nuevo Vehículo
+            </button>
+            <button onclick="openModal('routeModal')" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-route"></i> Planificar Ruta
+            </button>
+        </div>
+    </div>
+
+    <!-- FLOTA DE VEHÍCULOS -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-truck-ramp-box text-amber-600"></i> Flota de Vehículos
+            </h3>
+        </div>
+        <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% for v in vehicles %}
+            <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <div class="text-sm font-bold text-gray-900 dark:text-white font-mono">{{ v.plate }}</div>
+                        <div class="text-[11px] text-gray-400">{{ v.brand }} {{ v.model }}</div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-extrabold border {{ status_badges.get(v.status, '') }}">
+                        {{ status_labels.get(v.status, v.status) }}
+                    </span>
+                </div>
+                <div class="mt-3 text-[11px] text-gray-500 dark:text-gray-400">
+                    Capacidad: <span class="font-semibold">{{ v.capacity_kg }} kg</span> · Tipo: {{ v.type }}
+                </div>
+            </div>
+            {% else %}
+            <div class="col-span-3 text-center text-gray-400 text-xs py-6">No hay vehículos registrados aún.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- HOJAS DE RUTA -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-route text-indigo-600"></i> Hojas de Ruta & Despachos
+            </h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+                <thead class="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 uppercase text-[10px]">
+                    <tr>
+                        <th class="py-3 px-4 font-semibold">Ruta</th>
+                        <th class="py-3 px-4 font-semibold">Vehículo</th>
+                        <th class="py-3 px-4 font-semibold">Chofer</th>
+                        <th class="py-3 px-4 font-semibold">Destino / Zona</th>
+                        <th class="py-3 px-4 font-semibold">Estado</th>
+                        <th class="py-3 px-4 font-semibold text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for r in routes %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+                        <td class="py-3 px-4 font-mono font-semibold text-gray-800 dark:text-gray-200">{{ r.route_code }}</td>
+                        <td class="py-3 px-4 font-mono">{{ r.vehicle_plate }}</td>
+                        <td class="py-3 px-4">{{ r.driver_name }}</td>
+                        <td class="py-3 px-4">{{ r.destination }}</td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold border {{ status_badges.get(r.status, '') }}">
+                                {{ status_labels.get(r.status, r.status) }}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="flex items-center justify-center gap-1.5">
+                                {% if r.status == 'planificada' %}
+                                <form action="{{ url_for('logistics_bp.update_route_status', route_id=r._id) }}" method="POST" class="inline">
+                                    <input type="hidden" name="status" value="en_curso">
+                                    <button type="submit" class="px-2 py-1 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 text-amber-600 dark:text-amber-400 rounded-lg text-[11px] font-semibold transition">Iniciar Despacho</button>
+                                </form>
+                                <form action="{{ url_for('logistics_bp.update_route_status', route_id=r._id) }}" method="POST" class="inline" onsubmit="return confirm('¿Cancelar esta ruta?');">
+                                    <input type="hidden" name="status" value="cancelada">
+                                    <button type="submit" class="px-2 py-1 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-600 dark:text-rose-400 rounded-lg text-[11px] font-semibold transition">Cancelar</button>
+                                </form>
+                                {% elif r.status == 'en_curso' %}
+                                <form action="{{ url_for('logistics_bp.update_route_status', route_id=r._id) }}" method="POST" class="inline">
+                                    <input type="hidden" name="status" value="completada">
+                                    <button type="submit" class="px-2 py-1 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-600 dark:text-emerald-400 rounded-lg text-[11px] font-semibold transition">Completar</button>
+                                </form>
+                                <form action="{{ url_for('logistics_bp.update_route_status', route_id=r._id) }}" method="POST" class="inline" onsubmit="return confirm('¿Cancelar esta ruta en curso?');">
+                                    <input type="hidden" name="status" value="cancelada">
+                                    <button type="submit" class="px-2 py-1 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-600 dark:text-rose-400 rounded-lg text-[11px] font-semibold transition">Cancelar</button>
+                                </form>
+                                {% else %}
+                                <span class="text-gray-400 text-[11px]">Sin acciones</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="py-8 text-center text-gray-400">No se han planificado rutas de despacho aún.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if pagination.total_pages > 1 %}
+        <div class="p-4 flex justify-center gap-2 border-t border-gray-200 dark:border-gray-700">
+            <a href="{{ url_for('logistics_bp.index', page=pagination.page-1) }}" class="bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-lg text-gray-700 dark:text-gray-200 text-xs {% if pagination.page <= 1 %}pointer-events-none opacity-40{% endif %}">Anterior</a>
+            <span class="px-3 py-1 text-xs text-gray-500">{{ pagination.page }} / {{ pagination.total_pages }}</span>
+            <a href="{{ url_for('logistics_bp.index', page=pagination.page+1) }}" class="bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-lg text-gray-700 dark:text-gray-200 text-xs {% if pagination.page >= pagination.total_pages %}pointer-events-none opacity-40{% endif %}">Siguiente</a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- MODAL: NUEVO VEHÍCULO -->
+<div id="vehicleModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-truck text-amber-600"></i> Registrar Nuevo Vehículo
+            </h3>
+            <button onclick="closeModal('vehicleModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form action="{{ url_for('logistics_bp.save_vehicle') }}" method="POST" class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Placa *</label>
+                <input type="text" name="plate" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Marca</label>
+                    <input type="text" name="brand" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Modelo</label>
+                    <input type="text" name="model" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Tipo</label>
+                    <select name="type" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                        <option value="van">Camioneta / Van</option>
+                        <option value="truck">Camión</option>
+                        <option value="moto">Moto</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Capacidad (kg)</label>
+                    <input type="number" step="any" name="capacity_kg" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" onclick="closeModal('vehicleModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-amber-600 text-white text-xs font-semibold rounded-xl shadow">Guardar Vehículo</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: PLANIFICAR RUTA -->
+<div id="routeModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-route text-indigo-600"></i> Planificar Hoja de Ruta
+            </h3>
+            <button onclick="closeModal('routeModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form action="{{ url_for('logistics_bp.save_route') }}" method="POST" class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Código de Ruta</label>
+                <input type="text" name="route_code" placeholder="Auto si se deja vacío" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Vehículo Disponible *</label>
+                <select name="vehicle_id" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    <option value="" disabled selected>-- Seleccionar Vehículo --</option>
+                    {% for v in vehicles %}
+                        {% if v.status == 'available' %}
+                        <option value="{{ v._id }}">{{ v.plate }} — {{ v.brand }} {{ v.model }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Chofer *</label>
+                <select name="driver_id" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    <option value="" disabled selected>-- Seleccionar Chofer --</option>
+                    {% for d in drivers %}
+                    <option value="{{ d._id }}">{{ d.name }}</option>
+                    {% else %}
+                    <option value="" disabled>No hay personal con rol "Chofer" registrado</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Destino / Zona de Despacho *</label>
+                <input type="text" name="destination" required placeholder="Ej. Zona Norte - Valencia" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Notas</label>
+                <input type="text" name="notes" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+            </div>
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" onclick="closeModal('routeModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl shadow">Planificar Ruta</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openModal(modalId) {
+        document.getElementById(modalId).classList.remove('hidden');
+    }
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.add('hidden');
+    }
+</script>
+{% endblock %}

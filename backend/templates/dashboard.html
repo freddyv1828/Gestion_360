@@ -1,77 +1,232 @@
 {% extends "base.html" %}
 
-{% block title %}Gestión 360 - Dashboard General{% endblock %}
-{% block header_title %}Panel de Control y Analítica - {{ session.get('company_name', 'Empresa') }}{% endblock %}
+{% block title %}Dashboard Ejecutivo — {{ company_name }}{% endblock %}
+{% block header_title %}Centro de Operaciones Corporativas — {{ company_name }}{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Bienvenida e Indicadores Rápidos -->
-    <div class="bg-slate-800/50 border border-slate-700/60 p-6 rounded-2xl shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
-        <div>
-            <h2 class="text-xl font-bold text-white">¡Bienvenido a tu Centro de Mando!</h2>
-            <p class="text-sm text-slate-400 mt-1">Selecciona el módulo que deseas administrar o consultar en tiempo real.</p>
-        </div>
-        <div class="flex items-center gap-3">
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                🟢 Sistema Operativo Activo
+<!-- Banner Superior de Bienvenida Ejecutivo -->
+<div class="bg-gradient-to-r from-indigo-700 via-indigo-600 to-purple-700 rounded-3xl p-7 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center relative overflow-hidden">
+    <div class="absolute -right-8 -bottom-8 opacity-10 text-9xl">
+        <i class="fa-solid fa-chart-line"></i>
+    </div>
+    
+    <div class="relative z-10">
+        <div class="flex items-center gap-2 mb-2">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-white/20 backdrop-blur-md text-indigo-100 border border-white/20">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-ping"></span>
+                Ecosistema Activo &bull; MongoDB Atlas
             </span>
+            <span class="text-xs text-indigo-200 font-mono">{{ session.get('company_rif', '') }}</span>
         </div>
+        <h2 class="text-2xl md:text-3xl font-black tracking-tight">Bienvenido, {{ user_name }}</h2>
+        <p class="text-indigo-100 text-xs md:text-sm mt-1 max-w-2xl leading-relaxed">
+            Supervisión integral de rendimiento comercial, almacenes, talento humano y flujo financiero para <strong>{{ company_name }}</strong>.
+        </p>
     </div>
 
-    <!-- Tarjetas de Navegación Estilo Hub (Módulos Principales) -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="mt-4 md:mt-0 relative z-10 flex flex-wrap gap-2.5">
+        <div class="bg-black/25 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/10 text-xs flex items-center gap-2">
+            <i class="fa-solid fa-cloud text-cyan-300 text-base"></i>
+            <div>
+                <div class="text-[10px] text-indigo-200">Cloud Storage</div>
+                <div class="font-bold">Cloudflare R2</div>
+            </div>
+        </div>
+        <div class="bg-black/25 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/10 text-xs flex items-center gap-2">
+            <i class="fa-solid fa-coins text-amber-300 text-base"></i>
+            <div>
+                <div class="text-[10px] text-indigo-200">Moneda Base</div>
+                <div class="font-bold">USD ($)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SECCIÓN 1: KPIs CLAVE EN TIEMPO REAL -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+    
+    <!-- KPI 1: Personal & Vendedores -->
+    <a href="{{ url_for('personal_bp.personal_view') }}" 
+       class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg hover:border-indigo-500/50 transition group block">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Talento & Ventas</span>
+            <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center text-base group-hover:scale-110 transition-transform">
+                <i class="fa-solid fa-users"></i>
+            </div>
+        </div>
+        <div class="mt-4 flex items-baseline justify-between">
+            <span class="text-3xl font-black text-slate-900 dark:text-white">{{ metrics.staff_count if metrics else 0 }}</span>
+            <span class="text-xs text-blue-600 dark:text-blue-400 font-semibold group-hover:underline">Expedientes →</span>
+        </div>
+        <div class="mt-3 w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+            <div class="bg-blue-500 h-full rounded-full" style="width: 100%"></div>
+        </div>
+    </a>
+
+    <!-- KPI 2: Almacenes Activos -->
+    <a href="{{ url_for('commercial.products') }}" 
+       class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg hover:border-amber-500/50 transition group block">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Almacenes Físicos</span>
+            <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center text-base group-hover:scale-110 transition-transform">
+                <i class="fa-solid fa-warehouse"></i>
+            </div>
+        </div>
+        <div class="mt-4 flex items-baseline justify-between">
+            <span class="text-3xl font-black text-slate-900 dark:text-white">{{ metrics.warehouses_count if metrics else 0 }}</span>
+            <span class="text-xs text-amber-600 dark:text-amber-400 font-semibold group-hover:underline">Gestionar →</span>
+        </div>
+        <div class="mt-3 w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+            <div class="bg-amber-500 h-full rounded-full" style="width: 100%"></div>
+        </div>
+    </a>
+
+    <!-- KPI 3: Catálogo de Productos -->
+    <a href="{{ url_for('commercial.products') }}" 
+       class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg hover:border-emerald-500/50 transition group block">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Catálogo Activo</span>
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-base group-hover:scale-110 transition-transform">
+                <i class="fa-solid fa-boxes-packing"></i>
+            </div>
+        </div>
+        <div class="mt-4 flex items-baseline justify-between">
+            <span class="text-3xl font-black text-slate-900 dark:text-white">{{ metrics.products_count if metrics else 0 }}</span>
+            <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold group-hover:underline">Ver Artículos →</span>
+        </div>
+        <div class="mt-3 w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+            <div class="bg-emerald-500 h-full rounded-full" style="width: 100%"></div>
+        </div>
+    </a>
+
+    <!-- KPI 4: Control Financiero -->
+    <a href="{{ url_for('commercial.financial') }}" 
+       class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg hover:border-indigo-500/50 transition group block">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Finanzas & Bancos</span>
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-base group-hover:scale-110 transition-transform">
+                <i class="fa-solid fa-chart-pie"></i>
+            </div>
+        </div>
+        <div class="mt-4 flex items-baseline justify-between">
+            <span class="text-lg font-black text-indigo-600 dark:text-indigo-400">Flujo Bimoneda</span>
+            <span class="text-xs text-indigo-600 dark:text-indigo-400 font-semibold group-hover:underline">Tesorería →</span>
+        </div>
+        <div class="mt-3 w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+            <div class="bg-indigo-500 h-full rounded-full" style="width: 100%"></div>
+        </div>
+    </a>
+
+</div>
+
+<!-- SECCIÓN 2: MATRIZ DE ACCESO RÁPIDO OPERATIVO -->
+<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-2">
+        <div>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-layer-group text-indigo-600"></i>
+                <span>Matriz de Gestión Integral 360</span>
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Acceso rápido a los flujos principales de la compañía.</p>
+        </div>
+        <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+            SaaS Multitenant &bull; Modo Enterprise
+        </span>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         
-        <!-- Tarjeta 1: Personal -->
-        <div class="bg-slate-800 border border-slate-700 hover:border-emerald-500/50 p-6 rounded-2xl shadow-xl transition duration-300 flex flex-col justify-between">
+        <!-- Tarjeta Inventario y Lotes -->
+        <a href="{{ url_for('commercial.products') }}" class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-slate-50/50 dark:bg-slate-950/30 transition flex items-start gap-3.5 group">
+            <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                <i class="fa-solid fa-boxes-stacked"></i>
+            </div>
             <div>
-                <div class="flex items-center justify-between mb-4">
-                    <span class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl text-xl">👥</span>
-                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">RRHH</span>
-                </div>
-                <h3 class="text-lg font-bold text-white">Control de Personal</h3>
-                <p class="text-sm text-slate-400 mt-2">Gestiona expedientes, roles corporativos, subida de documentos a R2 y accesos del personal.</p>
+                <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 transition-colors">Inventario & Multialmacén</h4>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Control de stock, lotes, fechas de vencimiento y traslados.</p>
             </div>
-            <div class="mt-6 pt-4 border-t border-slate-700/60 flex items-center justify-between">
-                <span class="text-xs font-medium text-emerald-400">Personal Activo</span>
-                <a href="/personal/" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-lg shadow-emerald-900/20">
-                    Administrar →
-                </a>
-            </div>
-        </div>
+        </a>
 
-        <!-- Tarjeta 2: Almacenes e Inventario -->
-        <div class="bg-slate-800 border border-slate-700 hover:border-blue-500/50 p-6 rounded-2xl shadow-xl transition duration-300 flex flex-col justify-between">
+        <!-- Tarjeta Finanzas & Bancos -->
+        <a href="{{ url_for('commercial.financial') }}" class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 bg-slate-50/50 dark:bg-slate-950/30 transition flex items-start gap-3.5 group">
+            <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                <i class="fa-solid fa-file-invoice-dollar"></i>
+            </div>
             <div>
-                <div class="flex items-center justify-between mb-4">
-                    <span class="p-3 bg-blue-500/10 text-blue-400 rounded-xl text-xl">📦</span>
-                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Logística</span>
-                </div>
-                <h3 class="text-lg font-bold text-white">Almacenes e Inventario</h3>
-                <p class="text-sm text-slate-400 mt-2">Crea almacenes dinámicos y administra stock en tiempo real (unidades o kilogramos con clasificación ABC).</p>
+                <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 transition-colors">Finanzas & Tesorería</h4>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">CxC, CxP, bancos, conciliación y cálculo multimoneda.</p>
             </div>
-            <div class="mt-6 pt-4 border-t border-slate-700/60 flex items-center justify-between">
-                <span class="text-xs font-medium text-blue-400">Control de Stock</span>
-                <a href="/inventory/" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-lg shadow-blue-900/20">
-                    Gestionar Stock →
-                </a>
-            </div>
-        </div>
+        </a>
 
-        <!-- Tarjeta 3: Gestión Comercial y Financiera -->
-        <div class="bg-slate-800 border border-slate-700 hover:border-amber-500/50 p-6 rounded-2xl shadow-xl transition duration-300 flex flex-col justify-between">
-            <div>
-                <div class="flex items-center justify-between mb-4">
-                    <span class="p-3 bg-amber-500/10 text-amber-400 rounded-xl text-xl">💰</span>
-                    <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider">Financiero</span>
-                </div>
-                <h3 class="text-lg font-bold text-white">Gestión Comercial y Financiera</h3>
-                <p class="text-sm text-slate-400 mt-2">Administra costos, precios, cálculo automático de márgenes y auditoría de movimientos de mercancía.</p>
+        <!-- Tarjeta Talento Humano y Vendedores -->
+        <a href="{{ url_for('personal_bp.personal_view') }}" class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 bg-slate-50/50 dark:bg-slate-950/30 transition flex items-start gap-3.5 group">
+            <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                <i class="fa-solid fa-users"></i>
             </div>
-            <div class="mt-6 pt-4 border-t border-slate-700/60 flex items-center justify-between">
-                <span class="text-xs font-medium text-amber-400">Maestro y Auditoría</span>
-                <a href="/commercial/" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-lg shadow-amber-900/20">
-                    Administrar →
-                </a>
+            <div>
+                <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 transition-colors">Talento Humano & Vendedores</h4>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Expedientes digitales y activación de vendedores para la App.</p>
+            </div>
+        </a>
+
+        <!-- Tarjeta Compras -->
+        <a href="{{ url_for('commercial.purchases') }}" class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-cyan-500 dark:hover:border-cyan-500 bg-slate-50/50 dark:bg-slate-950/30 transition flex items-start gap-3.5 group">
+            <div class="w-10 h-10 rounded-xl bg-cyan-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                <i class="fa-solid fa-cart-plus"></i>
+            </div>
+            <div>
+                <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-cyan-600 transition-colors">Compras & Reabastecimiento</h4>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ metrics.purchases_count if metrics else 0 }} orden(es) de compra registradas.</p>
+            </div>
+        </a>
+
+        <!-- Tarjeta Facturación -->
+        <a href="{{ url_for('commercial.invoicing') }}" class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 bg-slate-50/50 dark:bg-slate-950/30 transition flex items-start gap-3.5 group">
+            <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                <i class="fa-solid fa-file-invoice"></i>
+            </div>
+            <div>
+                <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 transition-colors">Facturación de Ventas</h4>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ metrics.invoices_count if metrics else 0 }} factura(s) emitidas con descuento FEFO automático.</p>
+            </div>
+        </a>
+
+        <!-- Tarjeta Logística y Rutas -->
+        <a href="{{ url_for('logistics_bp.index') }}" class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-purple-500 dark:hover:border-purple-500 bg-slate-50/50 dark:bg-slate-950/30 transition flex items-start gap-3.5 group">
+            <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                <i class="fa-solid fa-truck"></i>
+            </div>
+            <div>
+                <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-purple-600 transition-colors">Logística & Despachos</h4>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ metrics.vehicles_count if metrics else 0 }} vehículo(s) de flota registrados.</p>
+            </div>
+        </a>
+
+        <!-- Tarjeta Hub Dropi & Marketplace -->
+        <a href="{{ url_for('commercial.products') }}#dropi" class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-amber-500 dark:hover:border-amber-500 bg-slate-50/50 dark:bg-slate-950/30 transition flex items-start gap-3.5 group">
+            <div class="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                <i class="fa-solid fa-store"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-1.5">
+                    <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200">Hub Dropi / App Móvil</h4>
+                    <span class="text-[9px] px-1.5 py-0.2 bg-amber-500/10 text-amber-600 font-bold rounded">Pruebas</span>
+                </div>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Almacén Virtual Dropi para sincronización y vitrina de clientes.</p>
+            </div>
+        </a>
+
+        <!-- Tarjeta Business Intelligence & ABC -->
+        <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex items-start gap-3.5 opacity-90">
+            <div class="w-10 h-10 rounded-xl bg-cyan-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm">
+                <i class="fa-solid fa-chart-line"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-1.5">
+                    <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200">Inteligencia de Negocios</h4>
+                    <span class="text-[9px] px-1.5 py-0.2 bg-cyan-500/10 text-cyan-600 font-bold rounded">Próximamente</span>
+                </div>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Clasificación ABC de rotación de stock y márgenes netos reales.</p>
             </div>
         </div>
 
