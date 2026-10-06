@@ -20,9 +20,9 @@ class Gestion360App extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFFF8FAFC),
       ),
-      // Arranca en la vitrina pública (Guest Browsing); el login es opcional
-      // hasta que el usuario decida comprar o es un vendedor corporativo.
-      initialRoute: '/',
+      // Build de prueba enfocado en el vendedor: arranca directo en el login
+      // corporativo. La vitrina pública (B2C) queda desactivada por ahora.
+      initialRoute: '/auth',
       routes: {
         '/': (context) => const HomeCatalogScreen(),
         '/auth': (context) => const AuthScreen(),
