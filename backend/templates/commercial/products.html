@@ -175,6 +175,12 @@
                                                 <span class="px-1.5 py-0.5 text-[9px] font-extrabold uppercase bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 rounded" title="Stock por debajo del mínimo ({{ min_stock_val }})">Mínimo</span>
                                             {% endif %}
                                         </div>
+                                        {% set reserved_val = product.get('reserved', 0) | float %}
+                                        {% if reserved_val > 0 %}
+                                        <div class="text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5" title="Mercancía bloqueada por pedidos pendientes de facturar">
+                                            <i class="fa-solid fa-lock text-[9px]"></i> {{ reserved_val }} reservado · {{ product.get('available', stock_val) }} disponible
+                                        </div>
+                                        {% endif %}
                                         <span class="text-[10px] uppercase font-semibold text-indigo-500 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded">
                                             {{ product.get('unit_type', 'unit') }}
                                         </span>
@@ -283,6 +289,10 @@
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Stock Mínimo (Alerta)</label>
                         <input type="number" step="any" name="min_stock" value="0" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs" placeholder="Ej. 5">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Peso Unitario (kg)</label>
+                        <input type="number" step="0.01" name="weight_kg" value="0" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs" placeholder="Para plan de carga / guía de despacho">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Unidad de Medida</label>

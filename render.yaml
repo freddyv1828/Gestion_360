@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: gestion360-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn main:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: SECRET_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: MASTER_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: NEON_DATABASE_URL
+        sync: false
+      - key: CENTRAL_DB_NAME
+        value: gestion360_central
+      - key: MARKETPLACE_DB_NAME
+        value: gestion360_marketplace
+      - key: AWS_ENDPOINT_URL_S3
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: DROPI_API_BASE_URL
+        value: https://api.dropi.co
+      - key: DROPI_API_KEY
+        sync: false

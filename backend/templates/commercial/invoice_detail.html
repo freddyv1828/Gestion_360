@@ -10,9 +10,17 @@
         <a href="{{ url_for('commercial.invoicing') }}" class="text-xs font-semibold text-indigo-600 hover:underline flex items-center gap-1">
             <i class="fa-solid fa-arrow-left"></i> Volver a Facturación
         </a>
-        <button onclick="window.print()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
-            <i class="fa-solid fa-print"></i> Imprimir / Exportar PDF
-        </button>
+        <div class="flex items-center gap-2">
+            <a href="{{ url_for('commercial.download_invoice_pdf', invoice_id=invoice._id) }}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-file-arrow-down"></i> Descargar PDF
+            </a>
+            <a href="{{ url_for('commercial.download_dispatch_guide', invoice_id=invoice._id) }}" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-truck-ramp-box"></i> Guía de Despacho
+            </a>
+            <button onclick="window.print()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-print"></i> Imprimir
+            </button>
+        </div>
     </div>
 
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm p-8 print:shadow-none print:border-0">
@@ -22,7 +30,7 @@
                 <p class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ session.get('company_rif', '') }}</p>
             </div>
             <div class="text-right">
-                <div class="text-[11px] uppercase font-bold text-gray-400">Factura N°</div>
+                <div class="text-[11px] uppercase font-bold text-gray-400">{{ 'Nota de Entrega N°' if invoice.doc_type == 'nota_entrega' else 'Factura N°' }}</div>
                 <div class="text-lg font-black text-indigo-600 dark:text-indigo-400 font-mono">{{ invoice.invoice_number }}</div>
                 <div class="text-[11px] text-gray-400">{{ invoice.created_at.strftime('%Y-%m-%d %H:%M') if invoice.created_at else '' }}</div>
                 <span class="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold {% if invoice.status == 'emitida' %}bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800{% else %}bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800{% endif %}">
@@ -41,6 +49,8 @@
             <div class="text-right">
                 <div class="uppercase font-bold text-gray-400 text-[10px] mb-1">Método de Pago</div>
                 <div class="font-bold text-gray-900 dark:text-white">{{ invoice.payment_method }}</div>
+                <div class="uppercase font-bold text-gray-400 text-[10px] mb-1 mt-2">Vendedor</div>
+                <div class="font-semibold text-gray-700 dark:text-gray-300">{{ invoice.seller or invoice.user }}</div>
             </div>
         </div>
 
@@ -71,16 +81,26 @@
         </table>
 
         <div class="flex justify-end">
-            <div class="w-56 space-y-1.5 text-xs">
+            <div class="w-64 space-y-1.5 text-xs">
                 <div class="flex justify-between text-gray-500 dark:text-gray-400">
-                    <span>Subtotal</span><span class="font-mono">${{ "%.2f"|format(invoice.subtotal) }}</span>
+                    <span>Subtotal (líneas)</span><span class="font-mono">${{ "%.2f"|format(invoice.get('subtotal_usd', invoice.subtotal)) }}</span>
                 </div>
+                {% if invoice.get('discount_amount_usd') %}
+                <div class="flex justify-between text-amber-600 dark:text-amber-400">
+                    <span>Descuento {% if invoice.coupon_code %}(Cupón {{ invoice.coupon_code }}){% endif %}</span>
+                    <span class="font-mono">-${{ "%.2f"|format(invoice.discount_amount_usd) }}</span>
+                </div>
+                {% endif %}
                 <div class="flex justify-between text-gray-500 dark:text-gray-400">
-                    <span>IVA</span><span class="font-mono">${{ "%.2f"|format(invoice.iva_total) }}</span>
+                    <span>IVA {% if invoice.doc_type == 'nota_entrega' %}(No aplica — Nota de Entrega){% endif %}</span>
+                    <span class="font-mono">${{ "%.2f"|format(invoice.get('iva_total_usd', invoice.iva_total)) }}</span>
                 </div>
                 <div class="flex justify-between text-base font-black text-gray-900 dark:text-white border-t border-gray-200 dark:border-gray-700 pt-1.5">
-                    <span>Total ({{ invoice.currency }})</span><span class="font-mono">${{ "%.2f"|format(invoice.total) }}</span>
+                    <span>Total ({{ invoice.currency }})</span><span class="font-mono">{{ "%.2f"|format(invoice.total) }} {{ invoice.currency }}</span>
                 </div>
+                {% if invoice.currency != 'USD' and invoice.exchange_rate_used %}
+                <div class="text-[10px] text-gray-400 text-right">Tasa usada: 1 USD = {{ "%.4f"|format(invoice.exchange_rate_used) }} {{ invoice.currency }}</div>
+                {% endif %}
             </div>
         </div>
 

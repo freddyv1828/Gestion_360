@@ -58,6 +58,13 @@ class FinancialService:
         return True, f"Moneda base de la empresa actualizada a {currency}."
 
     @staticmethod
+    def convert(company_db_name, amount, from_currency, to_currency):
+        """Wrapper público de conversión de monedas usando las tasas vigentes de la empresa.
+        Retorna (monto_convertido_o_None, tasa_usada_o_None)."""
+        rates = FinancialService.get_latest_rates(company_db_name)
+        return _convert_amount(amount, from_currency, to_currency, rates)
+
+    @staticmethod
     def get_latest_rates(company_db_name):
         db = get_company_db(company_db_name)
         rates = {}
@@ -210,6 +217,61 @@ class FinancialService:
             tx['_id'] = str(tx['_id'])
             tx['account_id'] = str(tx['account_id'])
         return txs
+
+    @staticmethod
+    def get_accounts_receivable(company_db_name, client_id=None):
+        """
+        Cuentas por Cobrar (CxC) aproximadas por cliente: suma de facturas emitidas a
+        Crédito menos los cobros de Tesorería que referencian ese N° de factura.
+        Retorna una lista de {client_id, client_name, client_rif, invoiced_total,
+        collected_total, balance_due} ordenada por balance_due descendente.
+        """
+        db = get_company_db(company_db_name)
+        if db is None:
+            return []
+
+        invoice_query = {"status": "emitida", "payment_method": "Crédito"}
+        if client_id:
+            try:
+                invoice_query["client_id"] = ObjectId(client_id)
+            except Exception:
+                return []
+
+        invoices = list(db['invoices'].find(invoice_query))
+        if not invoices:
+            return []
+
+        collected_by_ref = {}
+        invoice_numbers = [inv.get('invoice_number') for inv in invoices if inv.get('invoice_number')]
+        if invoice_numbers:
+            for tx in db['treasury_transactions'].find({"type": "COBRO", "reference": {"$in": invoice_numbers}}):
+                ref = tx.get('reference')
+                amt = float(tx.get('amount_base_equivalent') or tx.get('amount', 0.0))
+                collected_by_ref[ref] = collected_by_ref.get(ref, 0.0) + amt
+
+        by_client = {}
+        for inv in invoices:
+            key = str(inv.get('client_id')) if inv.get('client_id') else f"walkin:{inv.get('client_rif')}"
+            entry = by_client.setdefault(key, {
+                "client_id": str(inv['client_id']) if inv.get('client_id') else None,
+                "client_name": inv.get('client_name'),
+                "client_rif": inv.get('client_rif'),
+                "invoiced_total": 0.0,
+                "collected_total": 0.0,
+            })
+            entry["invoiced_total"] += float(inv.get('total', 0.0))
+            entry["collected_total"] += collected_by_ref.get(inv.get('invoice_number'), 0.0)
+
+        results = []
+        for entry in by_client.values():
+            entry["balance_due"] = round(entry["invoiced_total"] - entry["collected_total"], 2)
+            entry["invoiced_total"] = round(entry["invoiced_total"], 2)
+            entry["collected_total"] = round(entry["collected_total"], 2)
+            if entry["balance_due"] > 0.01:
+                results.append(entry)
+
+        results.sort(key=lambda e: e["balance_due"], reverse=True)
+        return results
 
     @staticmethod
     def get_reconciliation_summary(company_db_name):

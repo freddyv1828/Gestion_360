@@ -83,6 +83,9 @@ def dashboard_view():
         "purchases_count": 0,
         "invoices_count": 0,
         "vehicles_count": 0,
+        "clients_count": 0,
+        "open_orders_count": 0,
+        "accounts_receivable_total": 0.0,
     }
     try:
         from database import get_company_db
@@ -94,6 +97,12 @@ def dashboard_view():
             metrics["purchases_count"] = db['purchase_orders'].count_documents({})
             metrics["invoices_count"] = db['invoices'].count_documents({"status": "emitida"})
             metrics["vehicles_count"] = db['vehicles'].count_documents({"is_active": {"$ne": False}})
+            metrics["clients_count"] = db['clients'].count_documents({"is_active": {"$ne": False}})
+            metrics["open_orders_count"] = db['orders'].count_documents({"status": {"$in": ["pendiente", "en_picking", "listo_facturar"]}})
+
+            from services.financial_service import FinancialService
+            receivables = FinancialService.get_accounts_receivable(company_db_name)
+            metrics["accounts_receivable_total"] = round(sum(r['balance_due'] for r in receivables), 2)
     except Exception as e:
         print(f"Error cargando métricas en dashboard: {e}")
 

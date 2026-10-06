@@ -4,6 +4,7 @@ from werkzeug.security import check_password_hash
 import jwt
 from database import client, get_central_db
 from config import JWT_SECRET_KEY
+from services.neon_license_service import check_license_status_in_neon
 
 def generate_jwt_token(payload, expires_in_days=30):
     """Genera un token JWT para sesiones de la App Móvil o API externa."""
@@ -23,7 +24,6 @@ def login_business_user(email, password):
         central_db = get_central_db()
         global_users_col = central_db["global_users"]
         businesses_col = central_db["businesses"]
-        licenses_col = central_db["licenses"]
 
         # 1. Búsqueda O(1) en el Directorio Global Central
         global_user = global_users_col.find_one({"email": email_clean})
@@ -100,18 +100,14 @@ def login_business_user(email, password):
                     "error": "La cuenta de esta empresa se encuentra suspendida por falta de renovación de licencia."
                 }, 403
 
-            # Validar fecha de expiración en licenses
-            license_record = licenses_col.find_one({"assigned_rif": rif})
-            if license_record and license_record.get("expires_at"):
-                if license_record["expires_at"] < current_time:
-                    # Marcar como suspendida en businesses
-                    businesses_col.update_one(
-                        {"rif": rif},
-                        {"$set": {"status": "suspended", "updated_at": current_time}}
-                    )
-                    return {
-                        "error": "Su licencia ha expirado. El acceso se encuentra suspendido. Por favor, realice el pago de renovación para reactivar el sistema."
-                    }, 403
+            # Validar fecha de expiración de la licencia (fuente de verdad: Neon)
+            license_status = check_license_status_in_neon(rif)
+            if not license_status.get("ok"):
+                businesses_col.update_one(
+                    {"rif": rif},
+                    {"$set": {"status": "suspended", "updated_at": current_time}}
+                )
+                return {"error": license_status.get("error")}, 403
 
         # 4. Construcción de Payload de Sesión y Token JWT
         user_info = {

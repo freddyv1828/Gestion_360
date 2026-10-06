@@ -79,7 +79,7 @@
         </div>
 
         <!-- Navegación Modular Corporativa: Listas Inteligentes por Módulo / Submódulo -->
-        {% set comercial_active = '/commercial/products' in request.path or '/commercial/purchases' in request.path or '/commercial/invoicing' in request.path or '/inventory' in request.path %}
+        {% set comercial_active = '/commercial/products' in request.path or '/commercial/purchases' in request.path or '/commercial/invoicing' in request.path or '/commercial/clients' in request.path or '/commercial/orders' in request.path or '/inventory' in request.path %}
         {% set finanzas_active = '/commercial/financial' in request.path %}
         {% set operaciones_active = '/personal' in request.path or '/logistics' in request.path %}
         {% set integraciones_active = False %}
@@ -103,6 +103,11 @@
                     <i id="chevron-comercial" class="fa-solid fa-chevron-down text-[10px] sidebar-text opacity-0 transition-transform duration-200 {% if comercial_active %}rotate-180{% endif %}"></i>
                 </button>
                 <div id="group-comercial" class="pl-4 mt-1 space-y-1 {% if not comercial_active %}hidden{% endif %}">
+                    <a href="{{ url_for('commercial.orders') }}"
+                       class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/commercial/orders' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">
+                        <i class="fa-solid fa-inbox w-5 text-center text-xs shrink-0"></i>
+                        <span class="ml-2.5 sidebar-text opacity-0 transition-opacity duration-300 whitespace-nowrap">Pedidos</span>
+                    </a>
                     <a href="{{ url_for('commercial.products') }}"
                        class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/commercial/products' in request.path or '/inventory' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">
                         <i class="fa-solid fa-layer-group w-5 text-center text-xs shrink-0"></i>
@@ -112,6 +117,11 @@
                        class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/commercial/purchases' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">
                         <i class="fa-solid fa-cart-plus w-5 text-center text-xs shrink-0"></i>
                         <span class="ml-2.5 sidebar-text opacity-0 transition-opacity duration-300 whitespace-nowrap">Compras</span>
+                    </a>
+                    <a href="{{ url_for('commercial.clients') }}"
+                       class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/commercial/clients' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">
+                        <i class="fa-solid fa-address-book w-5 text-center text-xs shrink-0"></i>
+                        <span class="ml-2.5 sidebar-text opacity-0 transition-opacity duration-300 whitespace-nowrap">Clientes</span>
                     </a>
                     <a href="{{ url_for('commercial.invoicing') }}"
                        class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/commercial/invoicing' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">

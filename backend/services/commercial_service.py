@@ -65,6 +65,32 @@ def _recompute_stock_by_warehouse(batches):
     return stock_by_wh
 
 
+def get_available_quantity(product, warehouse_id):
+    """
+    Existencia física menos lo reservado por pedidos pendientes de facturar en ese
+    almacén. Esto es lo que debe validarse al crear un Pedido (nunca el stock bruto),
+    para que dos pedidos simultáneos no puedan vender la misma mercancía dos veces.
+    """
+    stock_by_wh = product.get('stock_by_warehouse', {}) or {}
+    reserved_by_wh = product.get('reserved_by_warehouse', {}) or {}
+    physical = float(stock_by_wh.get(warehouse_id, stock_by_wh.get(str(warehouse_id), 0.0)))
+    reserved = float(reserved_by_wh.get(warehouse_id, reserved_by_wh.get(str(warehouse_id), 0.0)))
+    return physical - reserved
+
+
+def _reserve_quantity(reserved_by_wh, warehouse_id, quantity):
+    reserved_by_wh[warehouse_id] = float(reserved_by_wh.get(warehouse_id, 0.0)) + quantity
+
+
+def _release_quantity(reserved_by_wh, warehouse_id, quantity):
+    current = float(reserved_by_wh.get(warehouse_id, 0.0))
+    new_value = max(0.0, current - quantity)
+    if new_value <= 0.0001:
+        reserved_by_wh.pop(warehouse_id, None)
+    else:
+        reserved_by_wh[warehouse_id] = new_value
+
+
 class CommercialService:
 
     MOVEMENT_ALIASES = {
@@ -156,7 +182,8 @@ class CommercialService:
             projection = {
                 "name": 1, "sku": 1, "category": 1, "brand": 1,
                 "cost": 1, "price": 1, "profit_margin": 1, "iva_rate": 1,
-                "unit_type": 1, "stock_by_warehouse": 1, "stock": 1, "image_url": 1,
+                "unit_type": 1, "stock_by_warehouse": 1, "reserved_by_warehouse": 1,
+                "stock": 1, "image_url": 1,
                 "batch": 1, "expiration_date": 1, "batches": 1, "min_stock": 1
             }
             cursor = products_col.find(query, projection).sort('name', 1).skip(skip).limit(per_page)
@@ -174,11 +201,15 @@ class CommercialService:
                 prod.setdefault('brand', 'N/D')
                 prod.setdefault('min_stock', 0.0)
                 stock_by_wh = prod.setdefault('stock_by_warehouse', {})
-                
+                reserved_by_wh = prod.setdefault('reserved_by_warehouse', {})
+
                 if target_warehouse_id and target_warehouse_id != "all":
                     prod['stock'] = float(stock_by_wh.get(target_warehouse_id, stock_by_wh.get(str(target_warehouse_id), 0.0)))
+                    prod['reserved'] = float(reserved_by_wh.get(target_warehouse_id, reserved_by_wh.get(str(target_warehouse_id), 0.0)))
                 else:
                     prod['stock'] = sum(float(v) for v in stock_by_wh.values()) if stock_by_wh else prod.get('stock', 0.0)
+                    prod['reserved'] = sum(float(v) for v in reserved_by_wh.values()) if reserved_by_wh else 0.0
+                prod['available'] = prod['stock'] - prod['reserved']
 
                 prod.setdefault('image_url', None)
                 prod.setdefault('batch', 'N/A')
@@ -252,17 +283,28 @@ class CommercialService:
 
     @staticmethod
     def get_active_products_lite(company_db_name):
-        """Lista ligera de artículos activos (para selects de Compras/Facturación)."""
+        """Lista ligera de artículos activos (para selects de Compras/Facturación/Pedidos)."""
         db = get_company_db(company_db_name)
         if db is None:
             return []
-        projection = {"name": 1, "sku": 1, "price": 1, "cost": 1, "iva_rate": 1, "unit_type": 1, "stock": 1}
+        projection = {
+            "name": 1, "sku": 1, "price": 1, "cost": 1, "iva_rate": 1, "unit_type": 1,
+            "stock": 1, "stock_by_warehouse": 1, "reserved_by_warehouse": 1, "weight_kg": 1
+        }
         products = list(db['products'].find({"is_active": {"$ne": False}}, projection).sort('name', 1))
         for p in products:
             p['_id'] = str(p['_id'])
             p.setdefault('price', 0.0)
             p.setdefault('cost', 0.0)
             p.setdefault('iva_rate', 16.0)
+            p.setdefault('unit_type', 'unidad')
+            stock_by_wh = p.get('stock_by_warehouse', {}) or {}
+            reserved_by_wh = p.get('reserved_by_warehouse', {}) or {}
+            p['availability_by_warehouse'] = {
+                wh_id: round(float(qty) - float(reserved_by_wh.get(wh_id, 0.0)), 2)
+                for wh_id, qty in stock_by_wh.items()
+            }
+            p['requires_weighing'] = p.get('unit_type') in ('kg', 'litros')
         return products
 
     @staticmethod
@@ -408,7 +450,12 @@ class CommercialService:
             return False, "Los campos numéricos deben ser válidos."
             
         unit_type = form_data.get('unit_type', 'unidad').strip()
-        
+
+        try:
+            weight_kg = float(form_data.get('weight_kg', 0) or 0)
+        except ValueError:
+            weight_kg = 0.0
+
         if not name:
             return False, "El nombre del artículo es obligatorio."
 
@@ -429,6 +476,7 @@ class CommercialService:
                     "price": price,
                     "unit_type": unit_type,
                     "min_stock": min_stock,
+                    "weight_kg": weight_kg,
                     "batch": batch,
                     "expiration_date": expiration_date,
                     "updated_at": datetime.utcnow()
@@ -458,6 +506,7 @@ class CommercialService:
                     "price": price,
                     "unit_type": unit_type,
                     "min_stock": min_stock,
+                    "weight_kg": weight_kg,
                     "stock": initial_stock,
                     "stock_by_warehouse": stock_by_warehouse,
                     "batches": batches,
@@ -577,6 +626,82 @@ class CommercialService:
             })
         except Exception as e:
             print(f"Error en auditoría comercial: {e}")
+
+    @staticmethod
+    def reserve_stock_for_order(company_db_name, warehouse_id, items):
+        """
+        Bloquea (reserva) la mercancía de un Pedido para que no pueda venderse dos
+        veces mientras se verifica/factura. `items` = [{product_id, quantity}, ...].
+        No toca stock_by_warehouse/batches (eso solo cambia al facturar de verdad) —
+        solo incrementa product.reserved_by_warehouse[warehouse_id].
+        Si algún artículo no tiene suficiente disponible, no reserva nada (todo o nada).
+        Retorna (ok, mensaje).
+        """
+        db = get_company_db(company_db_name)
+        if db is None:
+            return False, "Base de datos no disponible."
+
+        products_col = db['products']
+        reserved_so_far = []
+
+        for item in items:
+            product_id = item['product_id']
+            quantity = float(item['quantity'])
+            product = products_col.find_one({"_id": ObjectId(product_id)})
+            if not product:
+                CommercialService._rollback_reservations(products_col, warehouse_id, reserved_so_far)
+                return False, "Uno de los artículos del pedido ya no existe."
+
+            available = get_available_quantity(product, warehouse_id)
+            if available < quantity:
+                CommercialService._rollback_reservations(products_col, warehouse_id, reserved_so_far)
+                return False, f"Stock disponible insuficiente para '{product.get('name')}' (Disponible: {available})."
+
+            reserved_by_wh = product.get('reserved_by_warehouse', {})
+            _reserve_quantity(reserved_by_wh, warehouse_id, quantity)
+            products_col.update_one(
+                {"_id": product['_id']},
+                {"$set": {"reserved_by_warehouse": reserved_by_wh, "updated_at": datetime.utcnow()}}
+            )
+            reserved_so_far.append({"product_id": product_id, "quantity": quantity})
+
+        return True, "Mercancía reservada con éxito para el pedido."
+
+    @staticmethod
+    def _rollback_reservations(products_col, warehouse_id, reserved_items):
+        for item in reserved_items:
+            product = products_col.find_one({"_id": ObjectId(item['product_id'])})
+            if not product:
+                continue
+            reserved_by_wh = product.get('reserved_by_warehouse', {})
+            _release_quantity(reserved_by_wh, warehouse_id, item['quantity'])
+            products_col.update_one(
+                {"_id": product['_id']},
+                {"$set": {"reserved_by_warehouse": reserved_by_wh, "updated_at": datetime.utcnow()}}
+            )
+
+    @staticmethod
+    def release_stock_for_order(company_db_name, warehouse_id, items):
+        """
+        Libera (reincorpora al disponible) la mercancía previamente reservada de un
+        Pedido anulado o convertido a factura. `items` = [{product_id, quantity}, ...].
+        """
+        db = get_company_db(company_db_name)
+        if db is None:
+            return False, "Base de datos no disponible."
+
+        products_col = db['products']
+        for item in items:
+            product = products_col.find_one({"_id": ObjectId(item['product_id'])})
+            if not product:
+                continue
+            reserved_by_wh = product.get('reserved_by_warehouse', {})
+            _release_quantity(reserved_by_wh, warehouse_id, float(item['quantity']))
+            products_col.update_one(
+                {"_id": product['_id']},
+                {"$set": {"reserved_by_warehouse": reserved_by_wh, "updated_at": datetime.utcnow()}}
+            )
+        return True, "Mercancía liberada y reincorporada al disponible."
 
     @staticmethod
     def soft_delete_product(company_db_name, product_id):

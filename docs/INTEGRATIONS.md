@@ -20,12 +20,12 @@ fase de desarrollo.
   vendedor/staff de empresa (`user_type` en `seller`/`company_staff`), la respuesta
   incluye además el inventario completo de su empresa para descarga inicial
   (`MarketplaceService.get_company_inventory_for_seller`).
-- Propuesto: todos los endpoints bajo `/api/v1/` que devuelvan datos de una empresa
-  específica deben exigir el header `Authorization: Bearer <jwt>` y resolver
-  `company_db` a partir del token (no de un parámetro de la URL), para que un
-  vendedor nunca pueda leer el inventario de otra empresa. Esto se implementa con un
-  decorador `@jwt_required` que decodifica el token con `JWT_SECRET_KEY` e inyecta
-  `request.jwt_user` en el contexto de Flask.
+- Ya implementado: decorador `@jwt_required` (`api_routes.py`) — exige
+  `Authorization: Bearer <jwt>`, decodifica con `JWT_SECRET_KEY` e inyecta
+  `request.jwt_user`. **`company_db` siempre se resuelve del token**, nunca de un
+  parámetro de la URL/body, para que un vendedor nunca pueda leer el inventario de
+  otra empresa suplantando el parámetro. Todos los endpoints `/api/v1/seller/*` lo
+  usan.
 
 ### 1.2 Endpoints existentes
 
@@ -34,6 +34,16 @@ fase de desarrollo.
 | POST | `/api/v1/auth/login` | — | Login unificado vendedor/cliente, emite JWT |
 | GET | `/api/v1/marketplace/catalog` | Pública | Vitrina Dropi para *guest browsing* |
 | POST | `/api/v1/marketplace/checkout` | — | Carrito → pedido, con alta/login en caliente del cliente |
+| GET | `/api/v1/seller/dashboard` | JWT | Resumen: clientes, pedidos abiertos, cuentas por cobrar |
+| GET/POST | `/api/v1/seller/clients` | JWT | Listar / crear clientes de la empresa |
+| GET | `/api/v1/seller/products` | JWT | Catálogo paginado (filtro de almacén/búsqueda) |
+| GET | `/api/v1/seller/warehouses` | JWT | Almacenes de la empresa |
+| GET/POST | `/api/v1/seller/orders` | JWT | Listar / crear Pedidos (bloquea stock al crear) |
+| GET | `/api/v1/seller/orders/<id>` | JWT | Detalle de un pedido |
+| POST | `/api/v1/seller/orders/<id>/cancel` | JWT | Anula y libera la reserva de stock |
+| GET/POST | `/api/v1/seller/budgets` | JWT | Presupuestos/cotizaciones (NO tocan stock) |
+| POST | `/api/v1/seller/budgets/<id>/convert` | JWT | Convierte presupuesto en Pedido real |
+| GET | `/api/v1/seller/accounts-receivable` | JWT | Cartera por cobrar de la empresa |
 
 ### 1.3 Endpoints propuestos para la siguiente fase
 

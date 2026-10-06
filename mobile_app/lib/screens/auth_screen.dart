@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'seller_home_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -31,13 +32,25 @@ class _AuthScreenState extends State<AuthScreen> {
 
       if (!mounted) return;
 
-      Navigator.pushReplacementNamed(context, '/');
       final greeting = userProfile.isCorporateSeller
           ? 'Bienvenido Vendedor: ${userProfile.name}'
           : 'Bienvenido: ${userProfile.name}';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(greeting)),
       );
+
+      if (userProfile.isCorporateSeller) {
+        // Vendedores/personal corporativo entran a su app de gestión, no a la
+        // vitrina pública.
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SellerHomeScreen(user: userProfile, authService: _authService),
+          ),
+        );
+      } else {
+        Navigator.pushReplacementNamed(context, '/');
+      }
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();

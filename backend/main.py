@@ -23,11 +23,6 @@ app.register_blueprint(logistics_bp)
 from routes.api_routes import api_bp
 app.register_blueprint(api_bp)
 
-# --- RUTA RAÍZ: Entrada oficial al sistema ---
-@app.route('/')
-def index():
-    return redirect(url_for('auth_bp.index'))
-
 # --- RUTA DE VERIFICACIÓN DE CONEXIÓN A BASE DE DATOS ---
 @app.route('/test-db')
 def test_db():

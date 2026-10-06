@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}Pedidos — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
+{% block header_title %}Bandeja de Pedidos (Pre-Despacho) — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-7xl mx-auto">
+
+    <!-- ENCABEZADO SUPERIOR -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-widest bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                    Bloque Comercial / Pedidos
+                </span>
+            </div>
+            <h2 class="text-xl font-extrabold text-gray-900 dark:text-white">Bandeja de Pedidos (Pre-Despacho)</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Pedidos recibidos antes de facturar: verifique peso/existencia física y bloquee la mercancía hasta emitir la factura.</p>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+            <button onclick="openModal('orderModal')" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-cart-shopping"></i> Nuevo Pedido
+            </button>
+        </div>
+    </div>
+
+    <!-- TABS DE ESTADO -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-2xl shadow-sm flex flex-wrap gap-2">
+        {% set tabs = [('all', 'Todos'), ('pendiente', 'Pendientes'), ('en_picking', 'En Picking'), ('listo_facturar', 'Listos p/ Facturar'), ('facturado', 'Facturados'), ('anulado', 'Anulados')] %}
+        {% for key, label in tabs %}
+        <a href="{{ url_for('commercial.orders', status=key) }}"
+           class="px-4 py-2 rounded-xl text-xs font-semibold transition {% if status == key %}bg-amber-600 text-white shadow-sm{% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600{% endif %}">
+            {{ label }} <span class="opacity-70">({{ status_counts.get(key, 0) }})</span>
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- TABLA DE PEDIDOS -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-inbox text-amber-600 dark:text-amber-400"></i> Pedidos Registrados
+            </h3>
+            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Total Registros: {{ pagination.total_count }}</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-gray-600 dark:text-gray-300">
+                <thead class="bg-gray-50 dark:bg-gray-900/50 text-gray-500 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+                    <tr>
+                        <th class="py-3 px-4 font-semibold">N° Pedido</th>
+                        <th class="py-3 px-4 font-semibold">Fecha</th>
+                        <th class="py-3 px-4 font-semibold">Cliente</th>
+                        <th class="py-3 px-4 font-semibold">Documento</th>
+                        <th class="py-3 px-4 font-semibold">Artículos</th>
+                        <th class="py-3 px-4 font-semibold text-center">Estado</th>
+                        <th class="py-3 px-4 font-semibold text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% set status_colors = {
+                        'pendiente': 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700',
+                        'en_picking': 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800',
+                        'listo_facturar': 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800',
+                        'facturado': 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
+                        'anulado': 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800'
+                    } %}
+                    {% for o in orders %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+                        <td class="py-3.5 px-4 font-mono font-bold text-gray-900 dark:text-white">{{ o.order_number }}</td>
+                        <td class="py-3.5 px-4 font-mono text-[11px] text-gray-500">{{ o.created_at.strftime('%Y-%m-%d %H:%M') if o.created_at else 'N/D' }}</td>
+                        <td class="py-3.5 px-4">
+                            <div class="font-bold text-gray-900 dark:text-white">{{ o.client_name }}</div>
+                            <div class="text-[11px] text-gray-400 font-mono">{{ o.client_rif }}</div>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold {% if o.doc_type == 'factura_fiscal' %}bg-indigo-500/10 text-indigo-600{% else %}bg-slate-500/10 text-slate-600{% endif %}">
+                                {{ 'Factura Fiscal' if o.doc_type == 'factura_fiscal' else 'Nota de Entrega' }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4">{{ o['items']|length }} línea(s)</td>
+                        <td class="py-3.5 px-4 text-center">
+                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold border {{ status_colors.get(o.status, '') }}">
+                                {{ o.status|replace('_', ' ')|upper }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4 text-center">
+                            <a href="{{ url_for('commercial.order_detail', order_id=o._id) }}" class="px-2 py-1 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 text-amber-600 dark:text-amber-400 rounded-lg text-[11px] font-semibold transition">Ver / Procesar</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="py-8 text-center text-gray-400">No hay pedidos en este estado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if pagination.total_pages > 1 %}
+        <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between flex-wrap gap-3">
+            <span class="text-[11px] text-gray-500 dark:text-gray-400">
+                Página {{ pagination.page }} de {{ pagination.total_pages }} &bull; {{ pagination.total_count }} pedido(s) en total
+            </span>
+            <div class="flex items-center gap-2">
+                <a href="{{ url_for('commercial.orders', page=pagination.page-1, status=status) }}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 text-xs font-semibold transition {% if pagination.page <= 1 %}pointer-events-none opacity-40{% endif %}">
+                    <i class="fa-solid fa-chevron-left mr-1"></i> Anterior
+                </a>
+                <span class="px-3 py-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 rounded-lg">{{ pagination.page }} / {{ pagination.total_pages }}</span>
+                <a href="{{ url_for('commercial.orders', page=pagination.page+1, status=status) }}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 text-xs font-semibold transition {% if pagination.page >= pagination.total_pages %}pointer-events-none opacity-40{% endif %}">
+                    Siguiente <i class="fa-solid fa-chevron-right ml-1"></i>
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- MODAL: NUEVO PEDIDO -->
+<div id="orderModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full max-w-3xl rounded-2xl shadow-xl overflow-hidden max-h-[92vh] flex flex-col">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-cart-shopping text-amber-600"></i> Registrar Nuevo Pedido
+            </h3>
+            <button onclick="closeModal('orderModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form action="{{ url_for('commercial.save_order') }}" method="POST" id="orderForm" class="p-6 space-y-4 overflow-y-auto flex-1">
+            <input type="hidden" name="items_json" id="order_items_json">
+            <input type="hidden" name="client_id" id="order_client_id">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Cliente Registrado</label>
+                    <select id="order_client_picker" onchange="applyOrderClientSelection()" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                        <option value="">-- Cliente ocasional (llenar manualmente) --</option>
+                        {% for c in clients %}
+                            <option value="{{ c._id }}" data-name="{{ c.name }}" data-rif="{{ c.rif_cedula }}" data-email="{{ c.email }}">{{ c.name }} ({{ c.rif_cedula }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Cliente / Razón Social *</label>
+                    <input type="text" name="client_name" id="order_client_name" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">RIF / Cédula</label>
+                    <input type="text" name="client_rif" id="order_client_rif" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Correo (opcional)</label>
+                    <input type="email" name="client_email" id="order_client_email" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Almacén de Despacho *</label>
+                    <select name="warehouse_id" id="order_warehouse_select" required onchange="refreshAvailability()" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                        <option value="" disabled selected>-- Seleccionar Almacén --</option>
+                        {% for wh in warehouses %}
+                            <option value="{{ wh._id }}">{{ wh.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Tipo de Documento Preferido *</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 text-xs">
+                            <input type="radio" name="doc_type" value="factura_fiscal" checked> Factura Fiscal (con IVA)
+                        </label>
+                        <label class="flex items-center gap-2 text-xs">
+                            <input type="radio" name="doc_type" value="nota_entrega"> Nota de Entrega (sin IVA)
+                        </label>
+                    </div>
+                    <p class="text-[10px] text-gray-400 mt-1">Esto se puede ajustar de nuevo al momento de facturar.</p>
+                </div>
+            </div>
+
+            <!-- LÍNEAS DE ARTÍCULOS -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                <div class="p-3 bg-gray-50 dark:bg-gray-900/50 flex justify-between items-center">
+                    <span class="text-xs font-bold text-gray-700 dark:text-gray-200">Artículos del Pedido</span>
+                    <button type="button" onclick="addOrderLine()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold rounded-lg">
+                        <i class="fa-solid fa-plus mr-1"></i> Agregar Línea
+                    </button>
+                </div>
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-gray-50 dark:bg-gray-900/30 text-gray-500 uppercase text-[10px]">
+                        <tr>
+                            <th class="py-2 px-3">Artículo</th>
+                            <th class="py-2 px-3 w-28">Disponible</th>
+                            <th class="py-2 px-3 w-24">Cantidad</th>
+                            <th class="py-2 px-3 w-10"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderLinesBody" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
+                </table>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Comentario del Pedido</label>
+                <input type="text" name="comment" placeholder="Ej. Entregar antes de las 10am, cliente pide factura a nombre de..." class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" onclick="closeModal('orderModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
+                <button type="submit" onclick="return prepareOrderSubmit()" class="px-4 py-2 bg-amber-600 text-white text-xs font-semibold rounded-xl shadow">Crear Pedido y Bloquear Mercancía</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const ORDER_PRODUCTS = {{ products | tojson }};
+    let orderLineCounter = 0;
+
+    function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
+    function closeModal(modalId) { document.getElementById(modalId).classList.add('hidden'); }
+
+    function applyOrderClientSelection() {
+        const picker = document.getElementById('order_client_picker');
+        const opt = picker.options[picker.selectedIndex];
+        document.getElementById('order_client_id').value = opt.value || '';
+        if (opt.value) {
+            document.getElementById('order_client_name').value = opt.getAttribute('data-name') || '';
+            document.getElementById('order_client_rif').value = opt.getAttribute('data-rif') || '';
+            document.getElementById('order_client_email').value = opt.getAttribute('data-email') || '';
+        }
+    }
+
+    function selectedWarehouse() {
+        return document.getElementById('order_warehouse_select').value;
+    }
+
+    function availabilityFor(product) {
+        const wh = selectedWarehouse();
+        if (!wh || !product.availability_by_warehouse) return null;
+        const val = product.availability_by_warehouse[wh];
+        return (val === undefined) ? 0 : val;
+    }
+
+    function productOptions() {
+        return ORDER_PRODUCTS.map(p => `<option value="${p._id}" data-unit="${p.unit_type}">${p.name} (${p.sku})</option>`).join('');
+    }
+
+    function addOrderLine() {
+        orderLineCounter++;
+        const row = document.createElement('tr');
+        row.id = `order-line-${orderLineCounter}`;
+        row.innerHTML = `
+            <td class="py-2 px-3">
+                <select class="line-product w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs" onchange="recalcOrderLine(${orderLineCounter})">
+                    <option value="" disabled selected>-- Artículo --</option>
+                    ${productOptions()}
+                </select>
+            </td>
+            <td class="py-2 px-3 text-center font-mono available-cell">—</td>
+            <td class="py-2 px-3"><input type="number" step="any" min="0.01" value="1" class="line-qty w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"></td>
+            <td class="py-2 px-3 text-center"><button type="button" onclick="removeOrderLine(${orderLineCounter})" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash"></i></button></td>
+        `;
+        document.getElementById('orderLinesBody').appendChild(row);
+    }
+
+    function removeOrderLine(id) {
+        const row = document.getElementById(`order-line-${id}`);
+        if (row) row.remove();
+    }
+
+    function recalcOrderLine(id) {
+        const row = document.getElementById(`order-line-${id}`);
+        const select = row.querySelector('.line-product');
+        const productId = select.value;
+        const product = ORDER_PRODUCTS.find(p => p._id === productId);
+        const cell = row.querySelector('.available-cell');
+        if (product) {
+            const avail = availabilityFor(product);
+            cell.textContent = (avail === null) ? 'Seleccione almacén' : avail;
+        }
+    }
+
+    function refreshAvailability() {
+        document.querySelectorAll('#orderLinesBody tr').forEach(row => {
+            const select = row.querySelector('.line-product');
+            if (select && select.value) {
+                const id = row.id.replace('order-line-', '');
+                recalcOrderLine(id);
+            }
+        });
+    }
+
+    function prepareOrderSubmit() {
+        const items = [];
+        document.querySelectorAll('#orderLinesBody tr').forEach(row => {
+            const productId = row.querySelector('.line-product').value;
+            const qty = parseFloat(row.querySelector('.line-qty').value || 0);
+            if (productId && qty > 0) {
+                items.push({ product_id: productId, quantity: qty });
+            }
+        });
+        if (items.length === 0) {
+            alert('Agregue al menos un artículo al pedido.');
+            return false;
+        }
+        if (!selectedWarehouse()) {
+            alert('Seleccione el almacén de despacho.');
+            return false;
+        }
+        document.getElementById('order_items_json').value = JSON.stringify(items);
+        return true;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => addOrderLine());
+</script>
+{% endblock %}

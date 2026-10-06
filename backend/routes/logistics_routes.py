@@ -20,11 +20,20 @@ def index():
     drivers = LogisticsService.get_available_drivers(company_db_name)
     routes, total_count = LogisticsService.get_routes(company_db_name, page=page, per_page=per_page)
 
+    load_plans = {}
+    for r in routes:
+        if r.get('status') in ('planificada', 'en_curso'):
+            load_plans[r['_id']] = LogisticsService.get_route_load_plan(company_db_name, r['_id'])
+
+    unassigned_invoices = LogisticsService.get_unassigned_invoices(company_db_name)
+
     return render_template(
         'logistics/index.html',
         vehicles=vehicles,
         drivers=drivers,
         routes=routes,
+        load_plans=load_plans,
+        unassigned_invoices=unassigned_invoices,
         pagination={
             'page': page,
             'per_page': per_page,
@@ -62,5 +71,26 @@ def update_route_status(route_id):
 
     new_status = request.form.get('status', '').strip()
     success, message = LogisticsService.update_route_status(company_db_name, route_id, new_status)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('logistics_bp.index'))
+
+@logistics_bp.route('/routes/<route_id>/attach-invoice', methods=['POST'])
+def attach_invoice(route_id):
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    invoice_id = request.form.get('invoice_id', '').strip()
+    success, message = LogisticsService.attach_invoice_to_route(company_db_name, route_id, invoice_id)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('logistics_bp.index'))
+
+@logistics_bp.route('/routes/<route_id>/detach-invoice/<invoice_id>', methods=['POST'])
+def detach_invoice(route_id, invoice_id):
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    success, message = LogisticsService.detach_invoice_from_route(company_db_name, route_id, invoice_id)
     flash(message, 'success' if success else 'danger')
     return redirect(url_for('logistics_bp.index'))

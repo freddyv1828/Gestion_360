@@ -19,6 +19,11 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 CENTRAL_DB_NAME = os.getenv("CENTRAL_DB_NAME", "gestion360_central")
 MARKETPLACE_DB_NAME = os.getenv("MARKETPLACE_DB_NAME", "gestion360_marketplace")
 
+# Conexión a Neon (PostgreSQL) — fuente de verdad para la tabla 'licenses'
+# (control de tokens de activación). El resto de los datos de la empresa
+# (negocios, usuarios, inventario) siguen viviendo en MongoDB.
+NEON_DATABASE_URL = os.getenv("NEON_DATABASE_URL")
+
 # Configuración de Cloudflare R2 (S3 compatible)
 R2_ENDPOINT_URL = os.getenv("R2_ENDPOINT_URL") or os.getenv("AWS_ENDPOINT_URL_S3")
 R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID") or os.getenv("AWS_ACCESS_KEY_ID")

@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block title %}Pedido {{ order.order_number }} — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
+{% block header_title %}Picking & Verificación — Pedido {{ order.order_number }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-5">
+
+    <a href="{{ url_for('commercial.orders') }}" class="text-xs font-semibold text-amber-600 hover:underline flex items-center gap-1">
+        <i class="fa-solid fa-arrow-left"></i> Volver a Pedidos
+    </a>
+
+    {% set status_colors = {
+        'pendiente': 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700',
+        'en_picking': 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800',
+        'listo_facturar': 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800',
+        'facturado': 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
+        'anulado': 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800'
+    } %}
+
+    <!-- ENCABEZADO DEL PEDIDO -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm p-6">
+        <div class="flex justify-between items-start flex-wrap gap-3">
+            <div>
+                <div class="text-[11px] uppercase font-bold text-gray-400">Pedido N°</div>
+                <div class="text-lg font-black text-amber-600 dark:text-amber-400 font-mono">{{ order.order_number }}</div>
+                <span class="inline-block mt-1 px-2.5 py-1 rounded-full text-[10px] font-bold border {{ status_colors.get(order.status, '') }}">
+                    {{ order.status|replace('_', ' ')|upper }}
+                </span>
+                {% if order.reserved %}
+                <span class="inline-block mt-1 ml-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                    <i class="fa-solid fa-lock"></i> Mercancía Bloqueada
+                </span>
+                {% endif %}
+            </div>
+            <div class="text-right text-xs">
+                <div class="font-bold text-gray-900 dark:text-white">{{ order.client_name }}</div>
+                <div class="text-gray-500 dark:text-gray-400 font-mono">{{ order.client_rif }}</div>
+                <div class="text-gray-400">Almacén: {{ warehouse_name }}</div>
+            </div>
+        </div>
+        {% if order.comment %}
+        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300">
+            <strong>Comentario:</strong> {{ order.comment }}
+        </div>
+        {% endif %}
+        <div class="mt-3 text-xs">
+            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold {% if order.doc_type == 'factura_fiscal' %}bg-indigo-500/10 text-indigo-600{% else %}bg-slate-500/10 text-slate-600{% endif %}">
+                {{ 'Factura Fiscal (con IVA)' if order.doc_type == 'factura_fiscal' else 'Nota de Entrega (sin IVA)' }}
+            </span>
+        </div>
+    </div>
+
+    <!-- ARTÍCULOS Y VERIFICACIÓN -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-clipboard-check text-amber-600"></i> Verificación de Picking
+            </h3>
+            <p class="text-[11px] text-gray-400 mt-1">Confirme que la mercancía está físicamente en el almacén (y el peso real, si aplica) antes de marcar el pedido como listo para facturar.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-gray-600 dark:text-gray-300">
+                <thead class="bg-gray-50 dark:bg-gray-900/50 text-gray-500 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+                    <tr>
+                        <th class="py-3 px-4 font-semibold">Artículo</th>
+                        <th class="py-3 px-4 font-semibold text-right">Cant. Solicitada</th>
+                        <th class="py-3 px-4 font-semibold text-center">Requiere Pesaje</th>
+                        <th class="py-3 px-4 font-semibold text-center">Verificado</th>
+                        <th class="py-3 px-4 font-semibold text-center">Acción</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for item in order['items'] %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+                        <td class="py-3.5 px-4">
+                            <div class="font-bold text-gray-900 dark:text-white">{{ item.name }}</div>
+                            <div class="text-[11px] text-gray-400 font-mono">{{ item.sku }}</div>
+                        </td>
+                        <td class="py-3.5 px-4 text-right font-mono">{{ item.quantity }} {{ item.unit_type }}</td>
+                        <td class="py-3.5 px-4 text-center">
+                            {% if item.requires_weighing %}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-500/10 text-amber-600 border border-amber-500/20"><i class="fa-solid fa-weight-scale mr-1"></i>Sí</span>
+                            {% else %}
+                                <span class="text-gray-400">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3.5 px-4 text-center">
+                            {% if item.verified %}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                                    <i class="fa-solid fa-check mr-1"></i>{{ item.verified_quantity }} {{ item.unit_type }}
+                                </span>
+                            {% else %}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-gray-500/10 text-gray-500 border border-gray-500/20">Pendiente</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3.5 px-4 text-center">
+                            {% if order.status in ['pendiente', 'en_picking'] %}
+                            <form action="{{ url_for('commercial.verify_order_item', order_id=order._id) }}" method="POST" class="flex items-center justify-center gap-1.5">
+                                <input type="hidden" name="product_id" value="{{ item.product_id }}">
+                                <input type="number" step="any" name="verified_quantity" value="{{ item.verified_quantity if item.verified_quantity is not none else item.quantity }}" class="w-20 px-2 py-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs">
+                                <button type="submit" class="px-2 py-1 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 rounded-lg text-[11px] font-semibold transition">Verificar</button>
+                            </form>
+                            {% else %}
+                                <span class="text-gray-300">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ACCIONES DEL PEDIDO -->
+    {% if order.status in ['pendiente', 'en_picking', 'listo_facturar'] %}
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm p-5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2 flex-wrap">
+            {% if order.status in ['pendiente', 'en_picking'] %}
+            <form action="{{ url_for('commercial.mark_order_ready', order_id=order._id) }}" method="POST">
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-clipboard-check"></i> Marcar Listo para Facturar
+                </button>
+            </form>
+            {% endif %}
+            <button type="button" onclick="openModal('convertModal')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-file-invoice-dollar"></i> Facturar Pedido
+            </button>
+        </div>
+        <form action="{{ url_for('commercial.cancel_order', order_id=order._id) }}" method="POST" onsubmit="return confirm('¿Anular este pedido? La mercancía bloqueada se liberará y reincorporará al disponible.');">
+            <input type="hidden" name="reason" value="Anulado manualmente desde el panel">
+            <button type="submit" class="px-4 py-2 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-600 dark:text-rose-400 text-xs font-semibold rounded-xl transition">
+                <i class="fa-solid fa-ban mr-1"></i> Anular Pedido
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
+    {% if order.status == 'facturado' and order.invoice_id %}
+    <div class="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-2xl p-5 flex items-center justify-between">
+        <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-300">Este pedido ya fue facturado.</span>
+        <a href="{{ url_for('commercial.invoice_detail', invoice_id=order.invoice_id) }}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition shadow-sm">Ver Factura</a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- MODAL: FACTURAR PEDIDO (con ajustes de último momento) -->
+<div id="convertModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full max-w-lg rounded-2xl shadow-xl overflow-hidden max-h-[92vh] flex flex-col">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-file-invoice-dollar text-emerald-600"></i> Facturar Pedido {{ order.order_number }}
+            </h3>
+            <button onclick="closeModal('convertModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form action="{{ url_for('commercial.convert_order', order_id=order._id) }}" method="POST" onsubmit="return confirm('¿Facturar este pedido ahora? Esto consumirá el inventario real por FEFO.');" class="p-6 space-y-4 overflow-y-auto flex-1">
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Tipo de Documento</label>
+                <div class="flex gap-4">
+                    <label class="flex items-center gap-2 text-xs">
+                        <input type="radio" name="doc_type" value="factura_fiscal" {% if order.doc_type == 'factura_fiscal' %}checked{% endif %}> Factura Fiscal (con IVA)
+                    </label>
+                    <label class="flex items-center gap-2 text-xs">
+                        <input type="radio" name="doc_type" value="nota_entrega" {% if order.doc_type == 'nota_entrega' %}checked{% endif %}> Nota de Entrega (sin IVA)
+                    </label>
+                </div>
+                <p class="text-[10px] text-gray-400 mt-1">Preferencia tomada del pedido — se puede cambiar aquí si hace falta.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Moneda de la Factura</label>
+                    <select name="currency" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                        {% for cur in ['USD', 'VES', 'EUR', 'COP'] %}
+                        <option value="{{ cur }}">{{ cur }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Método de Pago</label>
+                    <select name="payment_method" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                        <option value="Contado">Contado</option>
+                        <option value="Crédito">Crédito</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Descuento</label>
+                    <select name="discount_type" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                        <option value="">Sin descuento</option>
+                        <option value="percentage">Porcentaje (%)</option>
+                        <option value="fixed">Monto Fijo ($)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Valor del Descuento</label>
+                    <input type="number" step="0.01" name="discount_value" placeholder="0.00" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Cupón (opcional, anula el descuento manual)</label>
+                <select name="coupon_code" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    <option value="">-- Ninguno --</option>
+                    {% for c in coupons %}
+                        <option value="{{ c.code }}">{{ c.code }} ({{ c.discount_value }}{{ '%' if c.discount_type == 'percentage' else '$' }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Vendedor / Facturador</label>
+                <select name="seller" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    <option value="">-- Usuario actual --</option>
+                    {% for s in sellers %}
+                        <option value="{{ s.email }}">{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Registrar Cobro Inmediato en Cuenta</label>
+                <select name="account_id" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    <option value="">-- No registrar cobro ahora --</option>
+                    {% for acc in accounts %}
+                        <option value="{{ acc._id }}">{{ acc.name }} ({{ acc.currency }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" onclick="closeModal('convertModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-xl shadow">Confirmar y Facturar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
+    function closeModal(modalId) { document.getElementById(modalId).classList.add('hidden'); }
+</script>
+{% endblock %}

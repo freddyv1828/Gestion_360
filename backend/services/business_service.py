@@ -11,6 +11,7 @@ from werkzeug.security import generate_password_hash
 
 from database import client, get_central_db
 from utils import get_r2_client, R2_BUCKET_NAME, R2_PUBLIC_DOMAIN
+from services.neon_license_service import validate_license_in_neon, mark_license_used_in_neon
 
 # Configuración de Logging
 logger = logging.getLogger(__name__)
@@ -44,16 +45,13 @@ def register_business_logic(data):
         # --- 1. CONEXIÓN A LA BD CENTRAL EN MONGODB ---
         central_db = client.get_database("gestion360_central")
         businesses_col = central_db["businesses"]
-        licenses_col = central_db["licenses"]
 
-        # --- 2. VALIDAR LICENCIA EN MONGODB ---
-        license_record = licenses_col.find_one({"token_key": activation_token})
-        if not license_record:
-            return {"error": "Token de activación inválido."}, 403
-        
-        if license_record.get("is_active") or license_record.get("assigned_rif"):
-            return {"error": "Este token de activación ya ha sido utilizado."}, 403
+        # --- 2. VALIDAR LICENCIA EN NEON (PostgreSQL) — fuente de verdad real ---
+        validation_result = validate_license_in_neon(activation_token)
+        if not validation_result.get("valid"):
+            return {"error": validation_result.get("error", "Token de activación inválido.")}, 403
 
+        license_record = validation_result.get("license") or {}
         resolved_plan = license_record.get("plan_type", plan_type)
 
         # --- 3. VERIFICAR SI YA EXISTE LA EMPRESA POR RIF ---
@@ -130,20 +128,13 @@ def register_business_logic(data):
         insert_result = businesses_col.insert_one(business_doc)
         business_id = str(insert_result.inserted_id)
 
-        # --- 7. MARCAR LICENCIA COMO USADA Y ASIGNARLA AL RIF ---
+        # --- 7. MARCAR LICENCIA COMO USADA Y ASIGNARLA AL RIF (EN NEON) ---
         duration_days = 365 if resolved_plan == 'pro' else 30
         expires_at = datetime.utcnow() + timedelta(days=duration_days)
 
-        licenses_col.update_one(
-            {"token_key": activation_token},
-            {
-                "$set": {
-                    "assigned_rif": rif,
-                    "expires_at": expires_at,
-                    "is_active": True
-                }
-            }
-        )
+        mark_ok, mark_err = mark_license_used_in_neon(activation_token, rif, expires_at)
+        if not mark_ok:
+            logger.warning(f"La empresa {rif} se registró pero no se pudo marcar el token en Neon: {mark_err}")
 
         # --- 8. CREAR USUARIO ADMIN DENTRO DE LA BASE DE DATOS AISLADA EN MONGODB ---
         hashed_password = generate_password_hash(admin_password)

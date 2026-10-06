@@ -132,6 +132,53 @@
                             </div>
                         </td>
                     </tr>
+                    {% if r.status in ['planificada', 'en_curso'] %}
+                    {% set plan = load_plans.get(r._id) %}
+                    <tr class="bg-gray-50/70 dark:bg-gray-900/40">
+                        <td colspan="6" class="py-4 px-4">
+                            <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+                                <span class="text-[11px] font-bold text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-boxes-packing text-amber-500"></i> Plan de Carga — {{ r.route_code }}
+                                </span>
+                                {% if plan %}
+                                <span class="text-[11px] font-mono {% if plan.over_capacity %}text-rose-600 font-bold{% else %}text-gray-500{% endif %}">
+                                    {{ plan.total_weight_kg }} kg
+                                    {% if plan.capacity_kg > 0 %} / {{ plan.capacity_kg }} kg ({{ plan.usage_pct }}%){% endif %}
+                                    {% if plan.over_capacity %} <i class="fa-solid fa-triangle-exclamation"></i> Excede capacidad{% endif %}
+                                </span>
+                                {% endif %}
+                            </div>
+                            {% if plan and plan.capacity_kg > 0 %}
+                            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-3 overflow-hidden">
+                                <div class="h-2 rounded-full {% if plan.over_capacity %}bg-rose-500{% elif plan.usage_pct and plan.usage_pct > 80 %}bg-amber-500{% else %}bg-emerald-500{% endif %}" style="width: {{ [plan.usage_pct or 0, 100]|min }}%"></div>
+                            </div>
+                            {% endif %}
+                            <div class="space-y-1.5 mb-2">
+                                {% for inv in (plan.invoices if plan else []) %}
+                                <div class="flex items-center justify-between text-[11px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5">
+                                    <span class="font-mono font-semibold text-gray-700 dark:text-gray-200">{{ inv.invoice_number }}</span>
+                                    <span class="text-gray-500">{{ inv.client_name }}</span>
+                                    <span class="font-mono text-gray-500">{{ inv.weight_kg }} kg</span>
+                                    <form action="{{ url_for('logistics_bp.detach_invoice', route_id=r._id, invoice_id=inv._id) }}" method="POST" class="inline">
+                                        <button type="submit" class="text-rose-500 hover:text-rose-700" title="Quitar de la ruta"><i class="fa-solid fa-xmark"></i></button>
+                                    </form>
+                                </div>
+                                {% else %}
+                                <div class="text-[11px] text-gray-400 italic">Sin facturas asignadas a esta ruta todavía.</div>
+                                {% endfor %}
+                            </div>
+                            <form action="{{ url_for('logistics_bp.attach_invoice', route_id=r._id) }}" method="POST" class="flex items-center gap-2">
+                                <select name="invoice_id" class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-[11px]">
+                                    <option value="" disabled selected>-- Asignar factura sin ruta --</option>
+                                    {% for inv in unassigned_invoices %}
+                                    <option value="{{ inv._id }}">{{ inv.invoice_number }} — {{ inv.client_name }} ({{ inv.weight_kg }} kg)</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold rounded-lg">Asignar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endif %}
                     {% else %}
                     <tr>
                         <td colspan="6" class="py-8 text-center text-gray-400">No se han planificado rutas de despacho aún.</td>

@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Clientes — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
+{% block header_title %}Directorio de Clientes — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-7xl mx-auto">
+
+    <!-- ENCABEZADO SUPERIOR -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                    Bloque Comercial / Clientes
+                </span>
+            </div>
+            <h2 class="text-xl font-extrabold text-gray-900 dark:text-white">Directorio de Clientes</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Clientes fiscales (RIF) y naturales (cédula) disponibles para Facturación y Pedidos.</p>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+            <button onclick="openModal('clientModal')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-user-plus"></i> Nuevo Cliente
+            </button>
+        </div>
+    </div>
+
+    <!-- BARRA DE BÚSQUEDA -->
+    <form method="GET" action="{{ url_for('commercial.clients') }}" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-2xl shadow-sm flex flex-col md:flex-row gap-3 items-center">
+        <div class="flex-1 w-full">
+            <input type="text" name="search" value="{{ filters.search }}" placeholder="Buscar por Nombre, RIF/Cédula o Email..." class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 focus:outline-none focus:border-indigo-500">
+        </div>
+        <div class="flex items-center gap-2 w-full md:w-auto">
+            <button type="submit" class="flex-1 md:flex-none px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm">
+                <i class="fa-solid fa-filter mr-1"></i> Buscar
+            </button>
+            <a href="{{ url_for('commercial.clients') }}" class="px-3 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-xl text-xs transition" title="Limpiar Filtros">
+                <i class="fa-solid fa-rotate-right"></i>
+            </a>
+        </div>
+    </form>
+
+    <!-- TABLA DE CLIENTES -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-address-book text-indigo-600 dark:text-indigo-400"></i> Clientes Registrados
+            </h3>
+            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Total Registros: {{ pagination.total_count }}</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-gray-600 dark:text-gray-300">
+                <thead class="bg-gray-50 dark:bg-gray-900/50 text-gray-500 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+                    <tr>
+                        <th class="py-3 px-4 font-semibold">Cliente</th>
+                        <th class="py-3 px-4 font-semibold">RIF / Cédula</th>
+                        <th class="py-3 px-4 font-semibold">Tipo</th>
+                        <th class="py-3 px-4 font-semibold">Contacto</th>
+                        <th class="py-3 px-4 font-semibold text-right">Límite de Crédito</th>
+                        <th class="py-3 px-4 font-semibold text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for c in clients %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+                        <td class="py-3.5 px-4">
+                            <div class="font-bold text-gray-900 dark:text-white">{{ c.name }}</div>
+                            <div class="text-[11px] text-gray-400">{{ c.address or 'Sin dirección registrada' }}</div>
+                        </td>
+                        <td class="py-3.5 px-4 font-mono">{{ c.rif_cedula }}</td>
+                        <td class="py-3.5 px-4">
+                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold {% if c.client_type == 'fiscal' %}bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800{% else %}bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800{% endif %}">
+                                {{ 'Fiscal (RIF)' if c.client_type == 'fiscal' else 'Natural (Cédula)' }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <div class="text-gray-800 dark:text-gray-200">{{ c.email or '—' }}</div>
+                            <div class="text-[11px] text-gray-400">{{ c.phone or '—' }}</div>
+                        </td>
+                        <td class="py-3.5 px-4 text-right font-mono font-semibold text-gray-700 dark:text-gray-300">
+                            ${{ "%.2f"|format(c.credit_limit) }}
+                        </td>
+                        <td class="py-3.5 px-4 text-center">
+                            <div class="flex items-center justify-center space-x-1.5">
+                                <button onclick="openEditModal('{{ c._id }}', '{{ c.name }}', '{{ c.rif_cedula }}', '{{ c.client_type }}', '{{ c.email }}', '{{ c.phone }}', '{{ c.address }}', '{{ c.credit_limit }}')" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-[11px] font-semibold transition">
+                                    Editar
+                                </button>
+                                <form action="{{ url_for('commercial.delete_client', client_id=c._id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de inactivar este cliente?');" class="inline">
+                                    <button type="submit" class="px-2 py-1 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-600 dark:text-rose-400 rounded-lg text-[11px] font-semibold transition">Inactivar</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="py-8 text-center text-gray-400">No hay clientes registrados todavía.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- PAGINACIÓN -->
+        {% if pagination.total_pages > 1 %}
+        <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between flex-wrap gap-3">
+            <span class="text-[11px] text-gray-500 dark:text-gray-400">
+                Página {{ pagination.page }} de {{ pagination.total_pages }} &bull; {{ pagination.total_count }} cliente(s) en total
+            </span>
+            <div class="flex items-center gap-2">
+                <a href="{{ url_for('commercial.clients', page=pagination.page-1, search=filters.search) }}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 text-xs font-semibold transition {% if pagination.page <= 1 %}pointer-events-none opacity-40{% endif %}">
+                    <i class="fa-solid fa-chevron-left mr-1"></i> Anterior
+                </a>
+                <span class="px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 rounded-lg">{{ pagination.page }} / {{ pagination.total_pages }}</span>
+                <a href="{{ url_for('commercial.clients', page=pagination.page+1, search=filters.search) }}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 text-xs font-semibold transition {% if pagination.page >= pagination.total_pages %}pointer-events-none opacity-40{% endif %}">
+                    Siguiente <i class="fa-solid fa-chevron-right ml-1"></i>
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- MODAL: NUEVO CLIENTE -->
+<div id="clientModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-user-plus text-indigo-600"></i> Registrar Nuevo Cliente
+            </h3>
+            <button onclick="closeModal('clientModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form action="{{ url_for('commercial.save_client') }}" method="POST" class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Nombre / Razón Social *</label>
+                <input type="text" name="name" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">RIF / Cédula *</label>
+                    <input type="text" name="rif_cedula" required placeholder="J-12345678-9 / V-12345678" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Tipo de Cliente</label>
+                    <select name="client_type" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                        <option value="fiscal">Fiscal (RIF)</option>
+                        <option value="natural">Natural (Cédula)</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Correo</label>
+                <input type="email" name="email" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Teléfono</label>
+                    <input type="text" name="phone" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Límite de Crédito ($)</label>
+                    <input type="number" step="0.01" name="credit_limit" value="0" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Dirección</label>
+                <input type="text" name="address" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+            </div>
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" onclick="closeModal('clientModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl shadow">Guardar Cliente</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: EDITAR CLIENTE -->
+<div id="editClientModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-pen-to-square text-indigo-600"></i> Modificar Cliente
+            </h3>
+            <button onclick="closeModal('editClientModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form action="{{ url_for('commercial.save_client') }}" method="POST" class="p-6 space-y-4">
+            <input type="hidden" name="client_id" id="edit_client_id">
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Nombre / Razón Social *</label>
+                <input type="text" name="name" id="edit_client_name" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">RIF / Cédula *</label>
+                    <input type="text" name="rif_cedula" id="edit_client_rif" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Tipo de Cliente</label>
+                    <select name="client_type" id="edit_client_type" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                        <option value="fiscal">Fiscal (RIF)</option>
+                        <option value="natural">Natural (Cédula)</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Correo</label>
+                <input type="email" name="email" id="edit_client_email" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Teléfono</label>
+                    <input type="text" name="phone" id="edit_client_phone" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Límite de Crédito ($)</label>
+                    <input type="number" step="0.01" name="credit_limit" id="edit_client_credit" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Dirección</label>
+                <input type="text" name="address" id="edit_client_address" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+            </div>
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" onclick="closeModal('editClientModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl shadow">Actualizar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
+    function closeModal(modalId) { document.getElementById(modalId).classList.add('hidden'); }
+
+    function openEditModal(id, name, rif, type, email, phone, address, creditLimit) {
+        document.getElementById('edit_client_id').value = id;
+        document.getElementById('edit_client_name').value = name;
+        document.getElementById('edit_client_rif').value = rif;
+        document.getElementById('edit_client_type').value = type;
+        document.getElementById('edit_client_email').value = email === 'None' ? '' : email;
+        document.getElementById('edit_client_phone').value = phone === 'None' ? '' : phone;
+        document.getElementById('edit_client_address').value = address === 'None' ? '' : address;
+        document.getElementById('edit_client_credit').value = creditLimit;
+        openModal('editClientModal');
+    }
+</script>
+{% endblock %}
