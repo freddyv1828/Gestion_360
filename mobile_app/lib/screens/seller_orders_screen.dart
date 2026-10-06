@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../models/seller_client.dart';
 import '../models/seller_order.dart';
 import '../models/seller_product.dart';
 import '../services/api_service.dart';
@@ -159,11 +158,9 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
   String _error = '';
   bool _saving = false;
 
-  List<SellerClient> _clients = [];
   List<SellerProduct> _products = [];
   List<SellerWarehouse> _warehouses = [];
 
-  SellerClient? _selectedClient;
   final _manualName = TextEditingController();
   final _manualRif = TextEditingController();
   final _comment = TextEditingController();
@@ -179,11 +176,9 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
 
   Future<void> _loadData() async {
     try {
-      final clients = await ApiService.fetchSellerClients();
       final warehouses = await ApiService.fetchWarehouses();
       final productsData = await ApiService.fetchSellerProducts(perPage: 200);
       setState(() {
-        _clients = clients.map((c) => SellerClient.fromJson(c)).toList();
         _warehouses = warehouses.map((w) => SellerWarehouse.fromJson(w)).toList();
         _products = List<Map<String, dynamic>>.from(productsData['products'] ?? [])
             .map((p) => SellerProduct.fromJson(p))
@@ -197,9 +192,9 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
   }
 
   Future<void> _submit() async {
-    final clientName = _selectedClient?.name ?? _manualName.text.trim();
+    final clientName = _manualName.text.trim();
     if (clientName.isEmpty) {
-      setState(() => _error = 'Seleccione un cliente o ingrese el nombre manualmente.');
+      setState(() => _error = 'Ingrese el nombre del cliente.');
       return;
     }
     if (_warehouseId == null) {
@@ -216,9 +211,8 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
     });
     try {
       await ApiService.createSellerOrder(
-        clientId: _selectedClient?.id ?? '',
         clientName: clientName,
-        clientRif: _selectedClient?.rifCedula ?? _manualRif.text.trim(),
+        clientRif: _manualRif.text.trim(),
         warehouseId: _warehouseId!,
         docType: _docType,
         comment: _comment.text.trim(),
@@ -249,21 +243,9 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
           children: [
             const Text('Nuevo Pedido', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDark)),
             const SizedBox(height: 16),
-            DropdownButtonFormField<SellerClient>(
-              initialValue: _selectedClient,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Cliente Registrado'),
-              items: _clients
-                  .map((c) => DropdownMenuItem(value: c, child: Text(c.name, overflow: TextOverflow.ellipsis)))
-                  .toList(),
-              onChanged: (c) => setState(() => _selectedClient = c),
-            ),
-            if (_selectedClient == null) ...[
-              const SizedBox(height: 10),
-              TextField(controller: _manualName, decoration: const InputDecoration(labelText: 'Cliente Ocasional (Nombre)')),
-              const SizedBox(height: 10),
-              TextField(controller: _manualRif, decoration: const InputDecoration(labelText: 'RIF / Cédula')),
-            ],
+            TextField(controller: _manualName, decoration: const InputDecoration(labelText: 'Cliente / Razón Social *')),
+            const SizedBox(height: 10),
+            TextField(controller: _manualRif, decoration: const InputDecoration(labelText: 'RIF / Cédula')),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               initialValue: _warehouseId,

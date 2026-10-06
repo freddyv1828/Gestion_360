@@ -107,31 +107,6 @@ class ApiService {
     return _authGet('/api/v1/seller/dashboard');
   }
 
-  static Future<List<Map<String, dynamic>>> fetchSellerClients() async {
-    final data = await _authGet('/api/v1/seller/clients');
-    return List<Map<String, dynamic>>.from(data['clients'] ?? []);
-  }
-
-  static Future<void> createSellerClient({
-    required String name,
-    required String rifCedula,
-    required String clientType,
-    String email = '',
-    String phone = '',
-    String address = '',
-    double creditLimit = 0,
-  }) async {
-    await _authPost('/api/v1/seller/clients', {
-      'name': name,
-      'rif_cedula': rifCedula,
-      'client_type': clientType,
-      'email': email,
-      'phone': phone,
-      'address': address,
-      'credit_limit': creditLimit,
-    });
-  }
-
   static Future<Map<String, dynamic>> fetchSellerProducts({
     int page = 1,
     int perPage = 50,

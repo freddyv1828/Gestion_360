@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/seller_budget.dart';
-import '../models/seller_client.dart';
 import '../models/seller_product.dart';
 import '../services/api_service.dart';
 import '../widgets/product_lines_editor.dart';
@@ -147,9 +146,7 @@ class _NewBudgetSheetState extends State<_NewBudgetSheet> {
   bool _saving = false;
   String _error = '';
 
-  List<SellerClient> _clients = [];
   List<SellerProduct> _products = [];
-  SellerClient? _selectedClient;
   final _manualName = TextEditingController();
   final _manualRif = TextEditingController();
   final _comment = TextEditingController();
@@ -163,10 +160,8 @@ class _NewBudgetSheetState extends State<_NewBudgetSheet> {
 
   Future<void> _loadData() async {
     try {
-      final clients = await ApiService.fetchSellerClients();
       final productsData = await ApiService.fetchSellerProducts(perPage: 200);
       setState(() {
-        _clients = clients.map((c) => SellerClient.fromJson(c)).toList();
         _products = List<Map<String, dynamic>>.from(productsData['products'] ?? [])
             .map((p) => SellerProduct.fromJson(p))
             .toList();
@@ -179,9 +174,9 @@ class _NewBudgetSheetState extends State<_NewBudgetSheet> {
   }
 
   Future<void> _submit() async {
-    final clientName = _selectedClient?.name ?? _manualName.text.trim();
+    final clientName = _manualName.text.trim();
     if (clientName.isEmpty) {
-      setState(() => _error = 'Seleccione un cliente o ingrese el nombre manualmente.');
+      setState(() => _error = 'Ingrese el nombre del cliente.');
       return;
     }
     if (_items.isEmpty) {
@@ -194,9 +189,8 @@ class _NewBudgetSheetState extends State<_NewBudgetSheet> {
     });
     try {
       await ApiService.createSellerBudget(
-        clientId: _selectedClient?.id ?? '',
         clientName: clientName,
-        clientRif: _selectedClient?.rifCedula ?? _manualRif.text.trim(),
+        clientRif: _manualRif.text.trim(),
         comment: _comment.text.trim(),
         items: _items,
       );
@@ -229,21 +223,9 @@ class _NewBudgetSheetState extends State<_NewBudgetSheet> {
               style: TextStyle(fontSize: 11, color: Colors.grey),
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<SellerClient>(
-              initialValue: _selectedClient,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Cliente Registrado'),
-              items: _clients
-                  .map((c) => DropdownMenuItem(value: c, child: Text(c.name, overflow: TextOverflow.ellipsis)))
-                  .toList(),
-              onChanged: (c) => setState(() => _selectedClient = c),
-            ),
-            if (_selectedClient == null) ...[
-              const SizedBox(height: 10),
-              TextField(controller: _manualName, decoration: const InputDecoration(labelText: 'Cliente Ocasional (Nombre)')),
-              const SizedBox(height: 10),
-              TextField(controller: _manualRif, decoration: const InputDecoration(labelText: 'RIF / Cédula')),
-            ],
+            TextField(controller: _manualName, decoration: const InputDecoration(labelText: 'Cliente / Razón Social *')),
+            const SizedBox(height: 10),
+            TextField(controller: _manualRif, decoration: const InputDecoration(labelText: 'RIF / Cédula')),
             const SizedBox(height: 14),
             const Text('Artículos', style: TextStyle(fontWeight: FontWeight.bold, color: _kDark)),
             const SizedBox(height: 8),

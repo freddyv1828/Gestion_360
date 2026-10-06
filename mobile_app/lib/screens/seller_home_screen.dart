@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
 import 'seller_budgets_screen.dart';
-import 'seller_clients_screen.dart';
 import 'seller_dashboard_tab.dart';
 import 'seller_orders_screen.dart';
 
@@ -25,13 +24,12 @@ class SellerHomeScreen extends StatefulWidget {
 class _SellerHomeScreenState extends State<SellerHomeScreen> {
   int _tabIndex = 0;
 
-  static const _titles = ['Dashboard', 'Pedidos', 'Presupuestos', 'Clientes'];
+  static const _titles = ['Dashboard', 'Pedidos', 'Presupuestos'];
 
   List<Widget> get _tabs => const [
         SellerDashboardTab(),
         SellerOrdersScreen(),
         SellerBudgetsScreen(),
-        SellerClientsScreen(),
       ];
 
   void _logout() {
@@ -76,7 +74,6 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
           BottomNavigationBarItem(icon: Icon(Icons.inbox_outlined), label: 'Pedidos'),
           BottomNavigationBarItem(icon: Icon(Icons.request_quote_outlined), label: 'Presupuestos'),
-          BottomNavigationBarItem(icon: Icon(Icons.groups_outlined), label: 'Clientes'),
         ],
       ),
     );
