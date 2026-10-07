@@ -10,6 +10,7 @@ from services.client_service import ClientService
 from services.order_service import OrderService, OPEN_STATUSES
 from services.budget_service import BudgetService
 from services.financial_service import FinancialService
+from utils import json_safe
 
 api_bp = Blueprint('api_bp', __name__, url_prefix='/api/v1')
 
@@ -114,7 +115,7 @@ def seller_dashboard():
         "open_orders_count": open_orders_count,
         "accounts_receivable_total": total_receivable,
         "accounts_receivable_top": receivables[:5],
-        "recent_orders": recent_orders,
+        "recent_orders": json_safe(recent_orders),
     }), 200
 
 
@@ -192,7 +193,7 @@ def seller_list_orders():
     if own_only:
         orders = [o for o in orders if o.get('created_by') == request.jwt_user['email']]
     return jsonify({
-        "orders": orders,
+        "orders": json_safe(orders),
         "pagination": {
             "page": page, "per_page": per_page, "total_count": total_count,
             "total_pages": (total_count + per_page - 1) // per_page if total_count > 0 else 1

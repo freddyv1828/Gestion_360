@@ -69,7 +69,6 @@ class OrderService:
         total_count = orders_col.count_documents(query)
         skip = (page - 1) * per_page
         orders = list(orders_col.find(query).sort('created_at', -1).skip(skip).limit(per_page))
-        orders = json_safe(orders)
         return orders, total_count
 
     @staticmethod
