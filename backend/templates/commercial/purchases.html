@@ -22,6 +22,12 @@
             <a href="{{ url_for('commercial.products') }}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
                 <i class="fa-solid fa-boxes-stacked"></i> Ver Catálogo
             </a>
+            <a href="{{ url_for('commercial.export_purchases', format='pdf') }}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-file-pdf text-rose-500"></i> PDF
+            </a>
+            <a href="{{ url_for('commercial.export_purchases', format='excel') }}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-file-excel text-emerald-600"></i> Excel
+            </a>
             <button onclick="openModal('purchaseModal')" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
                 <i class="fa-solid fa-cart-plus"></i> Nueva Orden de Compra
             </button>

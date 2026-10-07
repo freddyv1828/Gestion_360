@@ -21,6 +21,12 @@
             <button onclick="openModal('manageCouponsModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
                 <i class="fa-solid fa-tags text-amber-500"></i> Cupones & Ofertas
             </button>
+            <a href="{{ url_for('commercial.export_invoices', format='pdf') }}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-file-pdf text-rose-500"></i> PDF
+            </a>
+            <a href="{{ url_for('commercial.export_invoices', format='excel') }}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-file-excel text-emerald-600"></i> Excel
+            </a>
             <button onclick="openModal('invoiceModal')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
                 <i class="fa-solid fa-file-circle-plus"></i> Nueva Factura
             </button>

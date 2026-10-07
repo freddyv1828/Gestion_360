@@ -45,6 +45,54 @@ def financial():
         receivables=receivables
     )
 
+@commercial_bp.route('/financial/export')
+def export_financial():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    export_format = request.args.get('format', 'excel')
+    dataset = request.args.get('dataset', 'transactions')
+
+    if dataset == 'receivables':
+        rows_data = FinancialService.get_accounts_receivable(company_db_name)
+        if export_format == 'pdf':
+            headers = ['Cliente', 'RIF', 'Facturado', 'Cobrado', 'Saldo Pendiente']
+            rows = [[r.get('client_name', ''), r.get('client_rif', ''), f"${r.get('invoiced_total', 0):.2f}",
+                     f"${r.get('collected_total', 0):.2f}", f"${r.get('balance_due', 0):.2f}"] for r in rows_data]
+            pdf_bytes = generate_table_pdf("Cuentas por Cobrar", session.get('company_name', 'Gestión 360'), headers, rows)
+            return Response(pdf_bytes, mimetype='application/pdf',
+                             headers={'Content-Disposition': 'attachment; filename="cuentas_por_cobrar.pdf"'})
+        headers_map = {'client_name': 'Cliente', 'client_rif': 'RIF', 'invoiced_total': 'Facturado',
+                       'collected_total': 'Cobrado', 'balance_due': 'Saldo Pendiente'}
+        csv_bytes = rows_to_csv(rows_data, headers_map)
+        return Response(csv_bytes, mimetype='text/csv',
+                         headers={'Content-Disposition': 'attachment; filename="cuentas_por_cobrar.csv"'})
+
+    transactions = FinancialService.get_recent_transactions(company_db_name, limit=100000)
+    for tx in transactions:
+        tx['created_at_str'] = tx.get('created_at').strftime('%Y-%m-%d %H:%M') if tx.get('created_at') else ''
+
+    if export_format == 'pdf':
+        headers = ['Fecha', 'Tipo', 'Cuenta', 'Monto', 'Moneda', 'Equiv. Base', 'Dif. Cambiaria', 'Contraparte', 'Referencia']
+        rows = [[
+            tx.get('created_at_str', ''), tx.get('type', ''), tx.get('account_name', ''), f"{tx.get('amount', 0):.2f}",
+            tx.get('currency', ''), f"{tx.get('amount_base_equivalent', 0) or 0:.2f}",
+            f"{tx.get('exchange_difference', 0) or 0:.2f}", tx.get('counterparty', ''), tx.get('reference', ''),
+        ] for tx in transactions]
+        pdf_bytes = generate_table_pdf("Movimientos de Tesorería", session.get('company_name', 'Gestión 360'), headers, rows)
+        return Response(pdf_bytes, mimetype='application/pdf',
+                         headers={'Content-Disposition': 'attachment; filename="tesoreria.pdf"'})
+
+    headers_map = {
+        'created_at_str': 'Fecha', 'type': 'Tipo', 'account_name': 'Cuenta', 'amount': 'Monto', 'currency': 'Moneda',
+        'amount_base_equivalent': 'Equiv. Base', 'exchange_difference': 'Dif. Cambiaria',
+        'counterparty': 'Contraparte', 'reference': 'Referencia', 'notes': 'Notas',
+    }
+    csv_bytes = rows_to_csv(transactions, headers_map)
+    return Response(csv_bytes, mimetype='text/csv',
+                     headers={'Content-Disposition': 'attachment; filename="tesoreria.csv"'})
+
 @commercial_bp.route('/financial/currency/save', methods=['POST'])
 def save_base_currency():
     company_db_name = get_active_company_db()
@@ -221,6 +269,34 @@ def clients():
         }
     )
 
+@commercial_bp.route('/clients/export')
+def export_clients():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    export_format = request.args.get('format', 'excel')
+    search = request.args.get('search', '')
+    clients_list, _ = ClientService.get_paginated_clients(company_db_name, filters={'search': search}, page=1, per_page=100000)
+
+    if export_format == 'pdf':
+        headers = ['Nombre', 'RIF/Cédula', 'Tipo', 'Email', 'Teléfono', 'Límite de Crédito']
+        rows = [[
+            c.get('name', ''), c.get('rif_cedula', ''), 'Fiscal' if c.get('client_type') == 'fiscal' else 'Natural',
+            c.get('email', ''), c.get('phone', ''), f"${c.get('credit_limit', 0):.2f}",
+        ] for c in clients_list]
+        pdf_bytes = generate_table_pdf("Directorio de Clientes", session.get('company_name', 'Gestión 360'), headers, rows)
+        return Response(pdf_bytes, mimetype='application/pdf',
+                         headers={'Content-Disposition': 'attachment; filename="clientes.pdf"'})
+
+    headers_map = {
+        'name': 'Nombre', 'rif_cedula': 'RIF/Cédula', 'client_type': 'Tipo',
+        'email': 'Email', 'phone': 'Teléfono', 'address': 'Dirección', 'credit_limit': 'Límite de Crédito',
+    }
+    csv_bytes = rows_to_csv(clients_list, headers_map)
+    return Response(csv_bytes, mimetype='text/csv',
+                     headers={'Content-Disposition': 'attachment; filename="clientes.csv"'})
+
 @commercial_bp.route('/clients/save', methods=['POST'])
 def save_client():
     company_db_name = get_active_company_db()
@@ -269,6 +345,39 @@ def orders():
             'total_pages': (total_count + per_page - 1) // per_page if total_count > 0 else 1
         }
     )
+
+@commercial_bp.route('/orders/export')
+def export_orders():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    export_format = request.args.get('format', 'excel')
+    status = request.args.get('status', 'all')
+    orders_list, _ = OrderService.get_paginated_orders(company_db_name, status=status, page=1, per_page=100000)
+
+    for o in orders_list:
+        o['created_at_str'] = o.get('created_at', '')[:16].replace('T', ' ') if o.get('created_at') else ''
+        o['doc_type_label'] = 'Nota de Entrega' if o.get('doc_type') == 'nota_entrega' else 'Factura Fiscal'
+        o['item_count'] = len(o.get('items', []))
+
+    if export_format == 'pdf':
+        headers = ['N° Pedido', 'Fecha', 'Cliente', 'RIF', 'Documento', 'Estado', 'Líneas', 'Comentario']
+        rows = [[
+            o.get('order_number', ''), o.get('created_at_str', ''), o.get('client_name', ''), o.get('client_rif', ''),
+            o.get('doc_type_label', ''), o.get('status', '').upper(), str(o.get('item_count', 0)), o.get('comment', ''),
+        ] for o in orders_list]
+        pdf_bytes = generate_table_pdf("Pedidos", session.get('company_name', 'Gestión 360'), headers, rows)
+        return Response(pdf_bytes, mimetype='application/pdf',
+                         headers={'Content-Disposition': 'attachment; filename="pedidos.pdf"'})
+
+    headers_map = {
+        'order_number': 'N° Pedido', 'created_at_str': 'Fecha', 'client_name': 'Cliente', 'client_rif': 'RIF',
+        'doc_type_label': 'Documento', 'status': 'Estado', 'item_count': 'Líneas', 'comment': 'Comentario',
+    }
+    csv_bytes = rows_to_csv(orders_list, headers_map)
+    return Response(csv_bytes, mimetype='text/csv',
+                     headers={'Content-Disposition': 'attachment; filename="pedidos.csv"'})
 
 @commercial_bp.route('/orders/save', methods=['POST'])
 def save_order():
@@ -463,6 +572,36 @@ def purchases():
         }
     )
 
+@commercial_bp.route('/purchases/export')
+def export_purchases():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    export_format = request.args.get('format', 'excel')
+    orders_list, _ = CommercialService.get_paginated_purchase_orders(company_db_name, page=1, per_page=100000)
+
+    for o in orders_list:
+        o['timestamp_str'] = o.get('timestamp').strftime('%Y-%m-%d %H:%M') if o.get('timestamp') else ''
+
+    if export_format == 'pdf':
+        headers = ['Fecha', 'Artículo', 'SKU', 'Proveedor', 'Almacén', 'Cantidad', 'Costo Unit.', 'Costo Total']
+        rows = [[
+            o.get('timestamp_str', ''), o.get('product_name', ''), o.get('product_sku', ''), o.get('supplier_name', ''),
+            o.get('warehouse_name', ''), str(o.get('quantity', 0)), f"${o.get('unit_cost', 0):.2f}", f"${o.get('total_cost', 0):.2f}",
+        ] for o in orders_list]
+        pdf_bytes = generate_table_pdf("Órdenes de Compra", session.get('company_name', 'Gestión 360'), headers, rows)
+        return Response(pdf_bytes, mimetype='application/pdf',
+                         headers={'Content-Disposition': 'attachment; filename="compras.pdf"'})
+
+    headers_map = {
+        'timestamp_str': 'Fecha', 'product_name': 'Artículo', 'product_sku': 'SKU', 'supplier_name': 'Proveedor',
+        'warehouse_name': 'Almacén', 'quantity': 'Cantidad', 'unit_cost': 'Costo Unit.', 'total_cost': 'Costo Total', 'user': 'Usuario',
+    }
+    csv_bytes = rows_to_csv(orders_list, headers_map)
+    return Response(csv_bytes, mimetype='text/csv',
+                     headers={'Content-Disposition': 'attachment; filename="compras.csv"'})
+
 @commercial_bp.route('/purchases/save', methods=['POST'])
 def save_purchase():
     company_db_name = get_active_company_db()
@@ -511,6 +650,39 @@ def invoicing():
             'total_pages': (total_count + per_page - 1) // per_page if total_count > 0 else 1
         }
     )
+
+@commercial_bp.route('/invoicing/export')
+def export_invoices():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    export_format = request.args.get('format', 'excel')
+    invoices_list, _ = InvoicingService.get_paginated_invoices(company_db_name, page=1, per_page=100000)
+
+    for inv in invoices_list:
+        inv['created_at_str'] = inv.get('created_at', '')[:16].replace('T', ' ') if inv.get('created_at') else ''
+        inv['doc_type_label'] = 'Nota de Entrega' if inv.get('doc_type') == 'nota_entrega' else 'Factura Fiscal'
+
+    if export_format == 'pdf':
+        headers = ['N° Factura', 'Fecha', 'Cliente', 'RIF', 'Documento', 'Subtotal', 'IVA', 'Total', 'Moneda', 'Estado']
+        rows = [[
+            inv.get('invoice_number', ''), inv.get('created_at_str', ''), inv.get('client_name', ''), inv.get('client_rif', ''),
+            inv.get('doc_type_label', ''), f"{inv.get('subtotal', 0):.2f}", f"{inv.get('iva_total', 0):.2f}",
+            f"{inv.get('total', 0):.2f}", inv.get('currency', 'USD'), inv.get('status', '').upper(),
+        ] for inv in invoices_list]
+        pdf_bytes = generate_table_pdf("Facturas Emitidas", session.get('company_name', 'Gestión 360'), headers, rows)
+        return Response(pdf_bytes, mimetype='application/pdf',
+                         headers={'Content-Disposition': 'attachment; filename="facturas.pdf"'})
+
+    headers_map = {
+        'invoice_number': 'N° Factura', 'created_at_str': 'Fecha', 'client_name': 'Cliente', 'client_rif': 'RIF',
+        'doc_type_label': 'Documento', 'payment_method': 'Método de Pago', 'subtotal': 'Subtotal',
+        'iva_total': 'IVA', 'total': 'Total', 'currency': 'Moneda', 'status': 'Estado', 'seller': 'Vendedor',
+    }
+    csv_bytes = rows_to_csv(invoices_list, headers_map)
+    return Response(csv_bytes, mimetype='text/csv',
+                     headers={'Content-Disposition': 'attachment; filename="facturas.csv"'})
 
 @commercial_bp.route('/invoicing/save', methods=['POST'])
 def save_invoice():

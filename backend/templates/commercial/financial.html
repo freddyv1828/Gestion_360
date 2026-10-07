@@ -160,7 +160,11 @@
             <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <i class="fa-solid fa-scale-balanced text-emerald-600"></i> Cuentas por Cobrar (Facturas a Crédito)
             </h3>
-            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">{{ receivables|length }} cliente(s) con saldo pendiente</span>
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">{{ receivables|length }} cliente(s) con saldo pendiente</span>
+                <a href="{{ url_for('commercial.export_financial', format='pdf', dataset='receivables') }}" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] font-semibold rounded-lg transition"><i class="fa-solid fa-file-pdf text-rose-500"></i></a>
+                <a href="{{ url_for('commercial.export_financial', format='excel', dataset='receivables') }}" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] font-semibold rounded-lg transition"><i class="fa-solid fa-file-excel text-emerald-600"></i></a>
+            </div>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-xs text-left">
@@ -199,6 +203,8 @@
             <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <i class="fa-solid fa-right-left text-emerald-600"></i> Movimientos Recientes de Tesorería
             </h3>
+            <a href="{{ url_for('commercial.export_financial', format='pdf', dataset='transactions') }}" class="px-2 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] font-semibold rounded-lg transition"><i class="fa-solid fa-file-pdf text-rose-500"></i></a>
+            <a href="{{ url_for('commercial.export_financial', format='excel', dataset='transactions') }}" class="px-2 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] font-semibold rounded-lg transition"><i class="fa-solid fa-file-excel text-emerald-600"></i></a>
             <button onclick="openModal('transactionModal')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
                 <i class="fa-solid fa-plus"></i> Registrar Cobro / Pago
             </button>

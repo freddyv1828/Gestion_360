@@ -43,6 +43,12 @@
             <button onclick="openModal('routeModal')" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
                 <i class="fa-solid fa-route"></i> Planificar Ruta
             </button>
+            <a href="{{ url_for('logistics_bp.export_routes', format='pdf') }}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-file-pdf text-rose-500"></i> PDF
+            </a>
+            <a href="{{ url_for('logistics_bp.export_routes', format='excel') }}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-file-excel text-emerald-600"></i> Excel
+            </a>
         </div>
     </div>
 

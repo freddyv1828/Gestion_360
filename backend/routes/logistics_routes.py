@@ -1,5 +1,7 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, Response
 from services.logistics_service import LogisticsService
+from services.pdf_service import generate_table_pdf
+from services.export_service import rows_to_csv
 
 logistics_bp = Blueprint('logistics_bp', __name__, url_prefix='/logistics')
 
@@ -41,6 +43,36 @@ def index():
             'total_pages': (total_count + per_page - 1) // per_page if total_count > 0 else 1
         }
     )
+
+@logistics_bp.route('/export')
+def export_routes():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    export_format = request.args.get('format', 'excel')
+    routes_list, _ = LogisticsService.get_routes(company_db_name, page=1, per_page=100000)
+
+    for r in routes_list:
+        r['created_at_str'] = r.get('created_at').strftime('%Y-%m-%d %H:%M') if r.get('created_at') else ''
+
+    if export_format == 'pdf':
+        headers = ['Ruta', 'Vehículo', 'Chofer', 'Destino', 'Estado', 'Fecha']
+        rows = [[
+            r.get('route_code', ''), r.get('vehicle_plate', ''), r.get('driver_name', ''),
+            r.get('destination', ''), r.get('status', '').upper(), r.get('created_at_str', ''),
+        ] for r in routes_list]
+        pdf_bytes = generate_table_pdf("Hojas de Ruta & Despachos", session.get('company_name', 'Gestión 360'), headers, rows)
+        return Response(pdf_bytes, mimetype='application/pdf',
+                         headers={'Content-Disposition': 'attachment; filename="logistica_rutas.pdf"'})
+
+    headers_map = {
+        'route_code': 'Ruta', 'vehicle_plate': 'Vehículo', 'driver_name': 'Chofer',
+        'destination': 'Destino', 'status': 'Estado', 'created_at_str': 'Fecha', 'notes': 'Notas',
+    }
+    csv_bytes = rows_to_csv(routes_list, headers_map)
+    return Response(csv_bytes, mimetype='text/csv',
+                     headers={'Content-Disposition': 'attachment; filename="logistica_rutas.csv"'})
 
 @logistics_bp.route('/vehicles/save', methods=['POST'])
 def save_vehicle():
