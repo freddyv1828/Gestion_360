@@ -316,26 +316,66 @@ class CommercialService:
         return {"zero_stock_count": zero_count, "low_stock_count": low_count}
 
     @staticmethod
-    def get_paginated_purchase_orders(company_db_name, page=1, per_page=15):
+    def get_paginated_purchase_orders(company_db_name, filters=None, page=1, per_page=15):
         db = get_company_db(company_db_name)
         if db is None:
             return [], 0
 
         purchases_col = db['purchase_orders']
-        total_count = purchases_col.count_documents({})
-        skip = (page - 1) * per_page
 
-        pipeline = [
-            {"$sort": {"timestamp": -1}},
-            {"$skip": skip},
-            {"$limit": per_page},
+        match = {}
+        if filters:
+            warehouse_id = (filters.get('warehouse_id') or '').strip()
+            if warehouse_id:
+                match['warehouse_id'] = warehouse_id
+
+            date_from = (filters.get('date_from') or '').strip()
+            date_to = (filters.get('date_to') or '').strip()
+            if date_from or date_to:
+                date_query = {}
+                if date_from:
+                    try:
+                        date_query["$gte"] = datetime.strptime(date_from, '%Y-%m-%d')
+                    except ValueError:
+                        pass
+                if date_to:
+                    try:
+                        date_query["$lte"] = datetime.strptime(date_to, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+                    except ValueError:
+                        pass
+                if date_query:
+                    match['timestamp'] = date_query
+
+        search = (filters.get('search') or '').strip() if filters else ''
+        post_lookup_match = None
+        if search:
+            post_lookup_match = {"$or": [
+                {"supplier_name": {"$regex": search, "$options": "i"}},
+                {"product.name": {"$regex": search, "$options": "i"}},
+                {"product.sku": {"$regex": search, "$options": "i"}},
+            ]}
+
+        base_pipeline = [{"$match": match}] if match else []
+        base_pipeline += [
             {"$lookup": {
                 "from": "products",
                 "localField": "product_id",
                 "foreignField": "_id",
                 "as": "product"
             }},
-            {"$unwind": {"path": "$product", "preserveNullAndEmptyArrays": True}}
+            {"$unwind": {"path": "$product", "preserveNullAndEmptyArrays": True}},
+        ]
+        if post_lookup_match:
+            base_pipeline.append({"$match": post_lookup_match})
+
+        count_result = list(purchases_col.aggregate(base_pipeline + [{"$count": "total"}]))
+        total_count = count_result[0]['total'] if count_result else 0
+
+        skip = (page - 1) * per_page
+        pipeline = base_pipeline + [
+            {"$sort": {"timestamp": -1}},
+            {"$skip": skip},
+            {"$limit": per_page},
         ]
         orders = list(purchases_col.aggregate(pipeline))
 

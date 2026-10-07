@@ -127,10 +127,16 @@ def seller_list_clients():
     company_db_name = request.jwt_user['company_db']
     search = request.args.get('search', '').strip()
     limit = request.args.get('limit', 20, type=int)
+    page = request.args.get('page', 1, type=int)
     clients, total_count = ClientService.get_paginated_clients(
-        company_db_name, filters={'search': search}, page=1, per_page=limit
+        company_db_name, filters={'search': search}, page=page, per_page=limit
     )
-    return jsonify({"clients": clients, "total_count": total_count}), 200
+    return jsonify({
+        "clients": clients,
+        "total_count": total_count,
+        "page": page,
+        "total_pages": (total_count + limit - 1) // limit if total_count > 0 else 1
+    }), 200
 
 
 @api_bp.route('/seller/clients', methods=['POST'])

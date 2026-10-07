@@ -26,6 +26,27 @@ class ClientService:
                     {"email": {"$regex": search, "$options": "i"}}
                 ]
 
+            client_type = (filters.get('client_type') or '').strip()
+            if client_type in CLIENT_TYPES:
+                query["client_type"] = client_type
+
+            credit_min = (filters.get('credit_min') or '').strip()
+            credit_max = (filters.get('credit_max') or '').strip()
+            if credit_min or credit_max:
+                credit_query = {}
+                if credit_min:
+                    try:
+                        credit_query["$gte"] = float(credit_min)
+                    except ValueError:
+                        pass
+                if credit_max:
+                    try:
+                        credit_query["$lte"] = float(credit_max)
+                    except ValueError:
+                        pass
+                if credit_query:
+                    query["credit_limit"] = credit_query
+
         skip = (page - 1) * per_page
         cursor = clients_col.find(query).sort('name', 1).skip(skip).limit(per_page)
         clients = list(cursor)

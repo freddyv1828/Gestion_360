@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import '../models/seller_order.dart';
 import '../services/api_service.dart';
 import '../widgets/status_badge.dart';
+import '../widgets/app_states.dart';
+import '../theme/app_theme.dart';
 
-const _kDark = Color(0xFF0F172A);
-const _kGreen = Color(0xFF10B981);
+const _kDark = AppColors.dark;
+const _kGreen = AppColors.green;
 
 class SellerOrderDetailScreen extends StatefulWidget {
   final String orderId;
@@ -66,15 +68,13 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: _kDark,
-        title: Text(_order?.orderNumber ?? 'Pedido', style: const TextStyle(color: Colors.white)),
+        title: Text(_order?.orderNumber ?? 'Pedido'),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoading(message: 'Cargando pedido…')
           : _error.isNotEmpty
-              ? Center(child: Text(_error, style: const TextStyle(color: Colors.red)))
+              ? AppErrorState(message: _error, onRetry: _load)
               : _order == null
                   ? const SizedBox()
                   : RefreshIndicator(

@@ -113,13 +113,24 @@ class ApiService {
     String search = '',
     int limit = 20,
   }) async {
+    final data = await fetchSellerClientsPage(search: search, limit: limit);
+    return List<Map<String, dynamic>>.from(data['clients'] ?? []);
+  }
+
+  /// Igual que [fetchSellerClients] pero retorna el sobre completo con
+  /// paginación (`total_pages`), para el directorio completo de clientes.
+  static Future<Map<String, dynamic>> fetchSellerClientsPage({
+    String search = '',
+    int limit = 20,
+    int page = 1,
+  }) async {
     final uri = Uri.parse('$baseUrl/api/v1/seller/clients').replace(queryParameters: {
       if (search.isNotEmpty) 'search': search,
       'limit': '$limit',
+      'page': '$page',
     });
     final response = await http.get(uri, headers: _authHeaders);
-    final data = _decode(response);
-    return List<Map<String, dynamic>>.from(data['clients'] ?? []);
+    return _decode(response);
   }
 
   static Future<Map<String, dynamic>> fetchSellerProducts({

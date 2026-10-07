@@ -251,7 +251,12 @@ def clients():
 
     page = request.args.get('page', 1, type=int)
     per_page = 15
-    filters = {'search': request.args.get('search', '')}
+    filters = {
+        'search': request.args.get('search', ''),
+        'client_type': request.args.get('client_type', ''),
+        'credit_min': request.args.get('credit_min', ''),
+        'credit_max': request.args.get('credit_max', ''),
+    }
 
     clients_list, total_count = ClientService.get_paginated_clients(
         company_db_name, filters=filters, page=page, per_page=per_page
@@ -276,8 +281,13 @@ def export_clients():
         return redirect(url_for('auth_bp.index'))
 
     export_format = request.args.get('format', 'excel')
-    search = request.args.get('search', '')
-    clients_list, _ = ClientService.get_paginated_clients(company_db_name, filters={'search': search}, page=1, per_page=100000)
+    filters = {
+        'search': request.args.get('search', ''),
+        'client_type': request.args.get('client_type', ''),
+        'credit_min': request.args.get('credit_min', ''),
+        'credit_max': request.args.get('credit_max', ''),
+    }
+    clients_list, _ = ClientService.get_paginated_clients(company_db_name, filters=filters, page=1, per_page=100000)
 
     if export_format == 'pdf':
         headers = ['Nombre', 'RIF/Cédula', 'Tipo', 'Email', 'Teléfono', 'Límite de Crédito']
@@ -327,8 +337,14 @@ def orders():
     page = request.args.get('page', 1, type=int)
     per_page = 15
     status = request.args.get('status', 'all')
+    filters = {
+        'search': request.args.get('search', ''),
+        'warehouse_id': request.args.get('warehouse_id', ''),
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
 
-    orders_list, total_count = OrderService.get_paginated_orders(company_db_name, status=status, page=page, per_page=per_page)
+    orders_list, total_count = OrderService.get_paginated_orders(company_db_name, status=status, filters=filters, page=page, per_page=per_page)
     status_counts = OrderService.get_status_counts(company_db_name)
     warehouses = CommercialService.get_warehouses(company_db_name)
 
@@ -336,6 +352,7 @@ def orders():
         'commercial/orders.html',
         orders=orders_list,
         status=status,
+        filters=filters,
         status_counts=status_counts,
         warehouses=warehouses,
         pagination={
@@ -354,7 +371,13 @@ def export_orders():
 
     export_format = request.args.get('format', 'excel')
     status = request.args.get('status', 'all')
-    orders_list, _ = OrderService.get_paginated_orders(company_db_name, status=status, page=1, per_page=100000)
+    filters = {
+        'search': request.args.get('search', ''),
+        'warehouse_id': request.args.get('warehouse_id', ''),
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
+    orders_list, _ = OrderService.get_paginated_orders(company_db_name, status=status, filters=filters, page=1, per_page=100000)
 
     for o in orders_list:
         o['created_at_str'] = o.get('created_at', '')[:16].replace('T', ' ') if o.get('created_at') else ''
@@ -556,14 +579,21 @@ def purchases():
 
     page = request.args.get('page', 1, type=int)
     per_page = 15
+    filters = {
+        'search': request.args.get('search', ''),
+        'warehouse_id': request.args.get('warehouse_id', ''),
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
 
-    orders, total_count = CommercialService.get_paginated_purchase_orders(company_db_name, page=page, per_page=per_page)
+    orders, total_count = CommercialService.get_paginated_purchase_orders(company_db_name, filters=filters, page=page, per_page=per_page)
     warehouses = CommercialService.get_warehouses(company_db_name)
 
     return render_template(
         'commercial/purchases.html',
         orders=orders,
         warehouses=warehouses,
+        filters=filters,
         pagination={
             'page': page,
             'per_page': per_page,
@@ -579,7 +609,13 @@ def export_purchases():
         return redirect(url_for('auth_bp.index'))
 
     export_format = request.args.get('format', 'excel')
-    orders_list, _ = CommercialService.get_paginated_purchase_orders(company_db_name, page=1, per_page=100000)
+    filters = {
+        'search': request.args.get('search', ''),
+        'warehouse_id': request.args.get('warehouse_id', ''),
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
+    orders_list, _ = CommercialService.get_paginated_purchase_orders(company_db_name, filters=filters, page=1, per_page=100000)
 
     for o in orders_list:
         o['timestamp_str'] = o.get('timestamp').strftime('%Y-%m-%d %H:%M') if o.get('timestamp') else ''
@@ -621,8 +657,16 @@ def invoicing():
 
     page = request.args.get('page', 1, type=int)
     per_page = 15
+    filters = {
+        'search': request.args.get('search', ''),
+        'status': request.args.get('status', ''),
+        'seller': request.args.get('seller', ''),
+        'doc_type': request.args.get('doc_type', ''),
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
 
-    invoices, total_count = InvoicingService.get_paginated_invoices(company_db_name, page=page, per_page=per_page)
+    invoices, total_count = InvoicingService.get_paginated_invoices(company_db_name, filters=filters, page=page, per_page=per_page)
     warehouses = CommercialService.get_warehouses(company_db_name)
     accounts = FinancialService.get_bank_accounts(company_db_name)
     summary = InvoicingService.get_sales_summary(company_db_name)
@@ -643,6 +687,7 @@ def invoicing():
         summary=summary,
         coupons=coupons,
         sellers=sellers,
+        filters=filters,
         pagination={
             'page': page,
             'per_page': per_page,
@@ -658,7 +703,15 @@ def export_invoices():
         return redirect(url_for('auth_bp.index'))
 
     export_format = request.args.get('format', 'excel')
-    invoices_list, _ = InvoicingService.get_paginated_invoices(company_db_name, page=1, per_page=100000)
+    filters = {
+        'search': request.args.get('search', ''),
+        'status': request.args.get('status', ''),
+        'seller': request.args.get('seller', ''),
+        'doc_type': request.args.get('doc_type', ''),
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
+    invoices_list, _ = InvoicingService.get_paginated_invoices(company_db_name, filters=filters, page=1, per_page=100000)
 
     for inv in invoices_list:
         inv['created_at_str'] = inv.get('created_at', '')[:16].replace('T', ' ') if inv.get('created_at') else ''

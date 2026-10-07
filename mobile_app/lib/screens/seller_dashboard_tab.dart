@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import '../models/account_receivable.dart';
 import '../services/api_service.dart';
 import '../widgets/status_badge.dart';
+import '../widgets/app_states.dart';
+import '../theme/app_theme.dart';
 
-const _kDark = Color(0xFF0F172A);
-const _kGreen = Color(0xFF10B981);
-const _kBlue = Color(0xFF38BDF8);
+const _kDark = AppColors.dark;
+const _kGreen = AppColors.green;
+const _kBlue = AppColors.blue;
 
 class SellerDashboardTab extends StatefulWidget {
   const SellerDashboardTab({super.key});
@@ -42,9 +44,9 @@ class _SellerDashboardTabState extends State<SellerDashboardTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_isLoading) return const AppLoading(message: 'Cargando tu panel…');
     if (_error.isNotEmpty) {
-      return Center(child: Text(_error, style: const TextStyle(color: Colors.red)));
+      return AppErrorState(message: _error, onRetry: _load);
     }
     final summary = _summary;
     if (summary == null) return const SizedBox();

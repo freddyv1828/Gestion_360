@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/seller_product.dart';
 import 'product_picker_sheet.dart';
+import '../theme/app_theme.dart';
 
-const _kGreen = Color(0xFF10B981);
-const _kDark = Color(0xFF0F172A);
+const _kGreen = AppColors.green;
+const _kDark = AppColors.dark;
 
 class ProductLineDraft {
   SellerProduct product;

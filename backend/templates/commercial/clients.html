@@ -21,20 +21,36 @@
             <button onclick="openModal('clientModal')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
                 <i class="fa-solid fa-user-plus"></i> Nuevo Cliente
             </button>
-            <a href="{{ url_for('commercial.export_clients', format='pdf', search=filters.search) }}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+            <a href="{{ url_for('commercial.export_clients', format='pdf', **filters) }}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
                 <i class="fa-solid fa-file-pdf text-rose-500"></i> PDF
             </a>
-            <a href="{{ url_for('commercial.export_clients', format='excel', search=filters.search) }}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+            <a href="{{ url_for('commercial.export_clients', format='excel', **filters) }}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
                 <i class="fa-solid fa-file-excel text-emerald-600"></i> Excel
             </a>
         </div>
     </div>
 
-    <!-- BARRA DE BÚSQUEDA -->
-    <form method="GET" action="{{ url_for('commercial.clients') }}" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-2xl shadow-sm flex flex-col md:flex-row gap-3 items-center">
-        <div class="flex-1 w-full">
+    <!-- BARRA DE BÚSQUEDA Y FILTROS -->
+    <form method="GET" action="{{ url_for('commercial.clients') }}" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-2xl shadow-sm flex flex-col md:flex-row flex-wrap gap-3 items-center">
+        <div class="flex-1 w-full md:min-w-[220px]">
             <input type="text" name="search" value="{{ filters.search }}" placeholder="Buscar por Nombre, RIF/Cédula o Email..." class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 focus:outline-none focus:border-indigo-500">
         </div>
+
+        <div class="w-full md:w-48">
+            <select name="client_type" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 focus:outline-none focus:border-indigo-500">
+                <option value="">Todos los Tipos</option>
+                <option value="fiscal" {% if filters.client_type == 'fiscal' %}selected{% endif %}>Fiscal (RIF)</option>
+                <option value="natural" {% if filters.client_type == 'natural' %}selected{% endif %}>Natural (Cédula)</option>
+            </select>
+        </div>
+
+        <div class="w-full md:w-36">
+            <input type="number" step="0.01" name="credit_min" value="{{ filters.credit_min }}" placeholder="Crédito mín." class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 focus:outline-none focus:border-indigo-500">
+        </div>
+        <div class="w-full md:w-36">
+            <input type="number" step="0.01" name="credit_max" value="{{ filters.credit_max }}" placeholder="Crédito máx." class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 focus:outline-none focus:border-indigo-500">
+        </div>
+
         <div class="flex items-center gap-2 w-full md:w-auto">
             <button type="submit" class="flex-1 md:flex-none px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm">
                 <i class="fa-solid fa-filter mr-1"></i> Buscar
@@ -113,11 +129,11 @@
                 Página {{ pagination.page }} de {{ pagination.total_pages }} &bull; {{ pagination.total_count }} cliente(s) en total
             </span>
             <div class="flex items-center gap-2">
-                <a href="{{ url_for('commercial.clients', page=pagination.page-1, search=filters.search) }}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 text-xs font-semibold transition {% if pagination.page <= 1 %}pointer-events-none opacity-40{% endif %}">
+                <a href="{{ url_for('commercial.clients', page=pagination.page-1, **filters) }}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 text-xs font-semibold transition {% if pagination.page <= 1 %}pointer-events-none opacity-40{% endif %}">
                     <i class="fa-solid fa-chevron-left mr-1"></i> Anterior
                 </a>
                 <span class="px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 rounded-lg">{{ pagination.page }} / {{ pagination.total_pages }}</span>
-                <a href="{{ url_for('commercial.clients', page=pagination.page+1, search=filters.search) }}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 text-xs font-semibold transition {% if pagination.page >= pagination.total_pages %}pointer-events-none opacity-40{% endif %}">
+                <a href="{{ url_for('commercial.clients', page=pagination.page+1, **filters) }}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 text-xs font-semibold transition {% if pagination.page >= pagination.total_pages %}pointer-events-none opacity-40{% endif %}">
                     Siguiente <i class="fa-solid fa-chevron-right ml-1"></i>
                 </a>
             </div>

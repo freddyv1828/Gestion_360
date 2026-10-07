@@ -26,15 +26,55 @@ def _next_invoice_number(db):
 class InvoicingService:
 
     @staticmethod
-    def get_paginated_invoices(company_db_name, page=1, per_page=15):
+    def get_paginated_invoices(company_db_name, filters=None, page=1, per_page=15):
         db = get_company_db(company_db_name)
         if db is None:
             return [], 0
 
         invoices_col = db['invoices']
-        total_count = invoices_col.count_documents({})
+        query = {}
+
+        if filters:
+            search = (filters.get('search') or '').strip()
+            if search:
+                query["$or"] = [
+                    {"invoice_number": {"$regex": search, "$options": "i"}},
+                    {"client_name": {"$regex": search, "$options": "i"}},
+                    {"client_rif": {"$regex": search, "$options": "i"}},
+                ]
+
+            status = (filters.get('status') or '').strip()
+            if status in INVOICE_STATUSES:
+                query['status'] = status
+
+            seller = (filters.get('seller') or '').strip()
+            if seller:
+                query['seller'] = seller
+
+            doc_type = (filters.get('doc_type') or '').strip()
+            if doc_type in DOC_TYPES:
+                query['doc_type'] = doc_type
+
+            date_from = (filters.get('date_from') or '').strip()
+            date_to = (filters.get('date_to') or '').strip()
+            if date_from or date_to:
+                date_query = {}
+                if date_from:
+                    try:
+                        date_query["$gte"] = datetime.strptime(date_from, '%Y-%m-%d')
+                    except ValueError:
+                        pass
+                if date_to:
+                    try:
+                        date_query["$lte"] = datetime.strptime(date_to, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+                    except ValueError:
+                        pass
+                if date_query:
+                    query["created_at"] = date_query
+
+        total_count = invoices_col.count_documents(query)
         skip = (page - 1) * per_page
-        invoices = list(invoices_col.find({}).sort('created_at', -1).skip(skip).limit(per_page))
+        invoices = list(invoices_col.find(query).sort('created_at', -1).skip(skip).limit(per_page))
         for inv in invoices:
             inv['_id'] = str(inv['_id'])
         return invoices, total_count

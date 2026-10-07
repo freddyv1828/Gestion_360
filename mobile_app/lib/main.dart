@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'screens/auth_screen.dart';
 import 'screens/home_catalog_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(const Gestion360App());
@@ -15,11 +16,7 @@ class Gestion360App extends StatelessWidget {
     return MaterialApp(
       title: 'Gestión 360 - Vitrina & Fuerza de Ventas',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF10B981)),
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-      ),
+      theme: AppTheme.light,
       // Build de prueba enfocado en el vendedor: arranca directo en el login
       // corporativo. La vitrina pública (B2C) queda desactivada por ahora.
       initialRoute: '/auth',

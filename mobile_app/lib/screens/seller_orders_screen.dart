@@ -6,11 +6,12 @@ import '../services/api_service.dart';
 import '../widgets/client_search_field.dart';
 import '../widgets/product_lines_editor.dart';
 import '../widgets/status_badge.dart';
+import '../widgets/app_states.dart';
 import 'seller_order_detail_screen.dart';
+import '../theme/app_theme.dart';
 
-const _kDark = Color(0xFF0F172A);
-const _kGreen = Color(0xFF10B981);
-const _kBg = Color(0xFFF8FAFC);
+const _kDark = AppColors.dark;
+const _kGreen = AppColors.green;
 
 const _kStatusTabs = ['all', 'pendiente', 'en_picking', 'listo_facturar', 'facturado', 'anulado'];
 const _kStatusTabLabels = {
@@ -71,11 +72,9 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kBg,
       floatingActionButton: FloatingActionButton(
-        backgroundColor: _kGreen,
         onPressed: _openCreateSheet,
-        child: const Icon(Icons.add, color: Colors.white),
+        child: const Icon(Icons.add),
       ),
       body: Column(
         children: [
@@ -104,16 +103,20 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
           ),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const AppLoading(message: 'Cargando pedidos…')
                 : _error.isNotEmpty
-                    ? Center(child: Text(_error, style: const TextStyle(color: Colors.red)))
+                    ? AppErrorState(message: _error, onRetry: _load)
                     : RefreshIndicator(
                         onRefresh: _load,
                         child: _orders.isEmpty
                             ? ListView(
                                 children: const [
-                                  SizedBox(height: 120),
-                                  Center(child: Text('No hay pedidos en este estado.', style: TextStyle(color: Colors.grey))),
+                                  SizedBox(height: 100),
+                                  AppEmptyState(
+                                    icon: Icons.inbox_outlined,
+                                    title: 'No hay pedidos en este estado',
+                                    subtitle: 'Crea uno nuevo con el botón +.',
+                                  ),
                                 ],
                               )
                             : ListView.builder(
@@ -123,11 +126,6 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
                                   final o = _orders[i];
                                   return Card(
                                     margin: const EdgeInsets.only(bottom: 10),
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      side: BorderSide(color: Colors.grey.shade200),
-                                    ),
                                     child: ListTile(
                                       onTap: () => Navigator.push(
                                         context,

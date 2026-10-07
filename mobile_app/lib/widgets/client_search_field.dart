@@ -2,9 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/seller_client.dart';
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
 
-const _kGreen = Color(0xFF10B981);
-const _kDark = Color(0xFF0F172A);
+const _kGreen = AppColors.green;
+const _kDark = AppColors.dark;
 
 /// Campo de cliente con búsqueda contra los clientes YA guardados en la BD
 /// (se vincula por client_id si se selecciona uno) con respaldo de cliente

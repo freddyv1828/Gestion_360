@@ -5,10 +5,11 @@ import '../models/seller_product.dart';
 import '../services/api_service.dart';
 import '../widgets/client_search_field.dart';
 import '../widgets/product_lines_editor.dart';
+import '../widgets/app_states.dart';
+import '../theme/app_theme.dart';
 
-const _kDark = Color(0xFF0F172A);
-const _kGreen = Color(0xFF10B981);
-const _kBg = Color(0xFFF8FAFC);
+const _kDark = AppColors.dark;
+const _kGreen = AppColors.green;
 
 const _kBudgetStatusColors = {
   'borrador': Color(0xFF64748B),
@@ -80,23 +81,25 @@ class _SellerBudgetsScreenState extends State<SellerBudgetsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kBg,
       floatingActionButton: FloatingActionButton(
-        backgroundColor: _kGreen,
         onPressed: _openCreateSheet,
-        child: const Icon(Icons.add, color: Colors.white),
+        child: const Icon(Icons.add),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoading(message: 'Cargando presupuestos…')
           : _error.isNotEmpty
-              ? Center(child: Text(_error, style: const TextStyle(color: Colors.red)))
+              ? AppErrorState(message: _error, onRetry: _load)
               : RefreshIndicator(
                   onRefresh: _load,
                   child: _budgets.isEmpty
                       ? ListView(
                           children: const [
-                            SizedBox(height: 120),
-                            Center(child: Text('No hay presupuestos todavía.', style: TextStyle(color: Colors.grey))),
+                            SizedBox(height: 100),
+                            AppEmptyState(
+                              icon: Icons.request_quote_outlined,
+                              title: 'No hay presupuestos todavía',
+                              subtitle: 'Crea uno nuevo con el botón +.',
+                            ),
                           ],
                         )
                       : ListView.builder(
@@ -107,11 +110,6 @@ class _SellerBudgetsScreenState extends State<SellerBudgetsScreen> {
                             final color = _kBudgetStatusColors[b.status] ?? Colors.grey;
                             return Card(
                               margin: const EdgeInsets.only(bottom: 10),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                side: BorderSide(color: Colors.grey.shade200),
-                              ),
                               child: ListTile(
                                 onTap: b.status == 'borrador' ? () => _openConvertSheet(b) : null,
                                 title: Text(b.budgetNumber, style: const TextStyle(fontWeight: FontWeight.bold)),

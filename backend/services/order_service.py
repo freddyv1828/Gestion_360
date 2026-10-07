@@ -26,7 +26,7 @@ def _next_order_number(db):
 class OrderService:
 
     @staticmethod
-    def get_paginated_orders(company_db_name, status=None, page=1, per_page=15):
+    def get_paginated_orders(company_db_name, status=None, filters=None, page=1, per_page=15):
         db = get_company_db(company_db_name)
         if db is None:
             return [], 0
@@ -35,6 +35,36 @@ class OrderService:
         query = {}
         if status and status != 'all':
             query['status'] = status
+
+        if filters:
+            search = (filters.get('search') or '').strip()
+            if search:
+                query["$or"] = [
+                    {"order_number": {"$regex": search, "$options": "i"}},
+                    {"client_name": {"$regex": search, "$options": "i"}},
+                    {"client_rif": {"$regex": search, "$options": "i"}},
+                ]
+
+            warehouse_id = (filters.get('warehouse_id') or '').strip()
+            if warehouse_id:
+                query['warehouse_id'] = warehouse_id
+
+            date_from = (filters.get('date_from') or '').strip()
+            date_to = (filters.get('date_to') or '').strip()
+            if date_from or date_to:
+                date_query = {}
+                if date_from:
+                    try:
+                        date_query["$gte"] = datetime.strptime(date_from, '%Y-%m-%d')
+                    except ValueError:
+                        pass
+                if date_to:
+                    try:
+                        date_query["$lte"] = datetime.strptime(date_to, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+                    except ValueError:
+                        pass
+                if date_query:
+                    query["created_at"] = date_query
 
         total_count = orders_col.count_documents(query)
         skip = (page - 1) * per_page

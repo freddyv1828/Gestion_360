@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/brand_mark.dart';
 import 'seller_budgets_screen.dart';
+import 'seller_catalog_screen.dart';
+import 'seller_clients_screen.dart';
 import 'seller_dashboard_tab.dart';
 import 'seller_orders_screen.dart';
 
-const _kDark = Color(0xFF0F172A);
-const _kGreen = Color(0xFF10B981);
-const _kBg = Color(0xFFF8FAFC);
-
 /// Shell principal de la App Móvil del Vendedor: Dashboard, Pedidos,
-/// Presupuestos y Clientes, con la misma paleta de marca que el panel web.
+/// Presupuestos, Clientes y Catálogo, con la misma paleta de marca que el
+/// panel web.
 class SellerHomeScreen extends StatefulWidget {
   final UserProfile user;
   final AuthService authService;
@@ -24,56 +25,75 @@ class SellerHomeScreen extends StatefulWidget {
 class _SellerHomeScreenState extends State<SellerHomeScreen> {
   int _tabIndex = 0;
 
-  static const _titles = ['Dashboard', 'Pedidos', 'Presupuestos'];
+  static const _titles = ['Dashboard', 'Pedidos', 'Presupuestos', 'Clientes', 'Catálogo'];
 
   List<Widget> get _tabs => const [
         SellerDashboardTab(),
         SellerOrdersScreen(),
         SellerBudgetsScreen(),
+        SellerClientsScreen(),
+        SellerCatalogScreen(),
       ];
 
-  void _logout() {
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Cerrar sesión?'),
+        content: const Text('Tendrás que volver a ingresar tus credenciales para continuar.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Cerrar sesión')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
     widget.authService.signOut();
-    Navigator.pushNamedAndRemoveUntil(context, '/auth', (route) => false);
+    if (mounted) Navigator.pushNamedAndRemoveUntil(context, '/auth', (route) => false);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kBg,
       appBar: AppBar(
-        backgroundColor: _kDark,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
-            Text(_titles[_tabIndex], style: const TextStyle(color: Colors.white, fontSize: 16)),
-            Text(
-              widget.user.businessName ?? 'Gestión 360',
-              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+            const BrandMark(size: 32, background: Colors.white10),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_titles[_tabIndex], style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+                  Text(
+                    widget.user.businessName ?? 'Gestión 360',
+                    style: const TextStyle(color: AppColors.mutedLight, fontSize: 11),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: _logout,
+            icon: const Icon(Icons.logout, color: Colors.white, size: 20),
+            onPressed: _confirmLogout,
             tooltip: 'Cerrar Sesión',
           ),
         ],
       ),
       body: IndexedStack(index: _tabIndex, children: _tabs),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _tabIndex,
-        onTap: (i) => setState(() => _tabIndex = i),
-        selectedItemColor: _kGreen,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.inbox_outlined), label: 'Pedidos'),
-          BottomNavigationBarItem(icon: Icon(Icons.request_quote_outlined), label: 'Presupuestos'),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tabIndex,
+        onDestinationSelected: (i) => setState(() => _tabIndex = i),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Dashboard'),
+          NavigationDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox), label: 'Pedidos'),
+          NavigationDestination(icon: Icon(Icons.request_quote_outlined), selectedIcon: Icon(Icons.request_quote), label: 'Presupuestos'),
+          NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: 'Clientes'),
+          NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'Catálogo'),
         ],
       ),
     );
