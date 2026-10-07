@@ -316,32 +316,6 @@ class CommercialService:
         return {"zero_stock_count": zero_count, "low_stock_count": low_count}
 
     @staticmethod
-    def get_active_products_lite(company_db_name):
-        """Lista ligera de artículos activos (para selects de Compras/Facturación/Pedidos)."""
-        db = get_company_db(company_db_name)
-        if db is None:
-            return []
-        projection = {
-            "name": 1, "sku": 1, "price": 1, "cost": 1, "iva_rate": 1, "unit_type": 1,
-            "stock": 1, "stock_by_warehouse": 1, "reserved_by_warehouse": 1, "weight_kg": 1
-        }
-        products = list(db['products'].find({"is_active": {"$ne": False}}, projection).sort('name', 1))
-        for p in products:
-            p['_id'] = str(p['_id'])
-            p.setdefault('price', 0.0)
-            p.setdefault('cost', 0.0)
-            p.setdefault('iva_rate', 16.0)
-            p.setdefault('unit_type', 'unidad')
-            stock_by_wh = p.get('stock_by_warehouse', {}) or {}
-            reserved_by_wh = p.get('reserved_by_warehouse', {}) or {}
-            p['availability_by_warehouse'] = {
-                wh_id: round(float(qty) - float(reserved_by_wh.get(wh_id, 0.0)), 2)
-                for wh_id, qty in stock_by_wh.items()
-            }
-            p['requires_weighing'] = p.get('unit_type') in ('kg', 'litros')
-        return products
-
-    @staticmethod
     def get_paginated_purchase_orders(company_db_name, page=1, per_page=15):
         db = get_company_db(company_db_name)
         if db is None:

@@ -39,14 +39,11 @@ class ClientService:
         return json_safe(clients), total_count
 
     @staticmethod
-    def get_active_clients_lite(company_db_name):
-        """Lista ligera de clientes activos para selects (Facturación / Pedidos)."""
+    def count_active_clients(company_db_name):
         db = get_company_db(company_db_name)
         if db is None:
-            return []
-        projection = {"name": 1, "rif_cedula": 1, "email": 1, "phone": 1, "client_type": 1, "credit_limit": 1}
-        clients = list(db['clients'].find({"is_active": {"$ne": False}}, projection).sort('name', 1))
-        return json_safe(clients)
+            return 0
+        return db['clients'].count_documents({"is_active": {"$ne": False}})
 
     @staticmethod
     def get_client(company_db_name, client_id):

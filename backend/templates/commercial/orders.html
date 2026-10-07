@@ -129,14 +129,10 @@
             <input type="hidden" name="client_id" id="order_client_id">
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="md:col-span-2">
-                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Cliente Registrado</label>
-                    <select id="order_client_picker" onchange="applyOrderClientSelection()" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-                        <option value="">-- Cliente ocasional (llenar manualmente) --</option>
-                        {% for c in clients %}
-                            <option value="{{ c._id }}" data-name="{{ c.name }}" data-rif="{{ c.rif_cedula }}" data-email="{{ c.email }}">{{ c.name }} ({{ c.rif_cedula }})</option>
-                        {% endfor %}
-                    </select>
+                <div class="md:col-span-2 relative">
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Buscar Cliente Registrado <span class="text-gray-400 font-normal">(o deje vacío para cliente ocasional)</span></label>
+                    <input type="text" id="order_client_search" autocomplete="off" placeholder="Buscar por nombre, RIF o correo..." class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    <div id="order_client_search_results" class="hidden absolute z-20 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg max-h-48 overflow-y-auto"></div>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Cliente / Razón Social *</label>
@@ -184,7 +180,7 @@
                 <table class="w-full text-left text-xs">
                     <thead class="bg-gray-50 dark:bg-gray-900/30 text-gray-500 uppercase text-[10px]">
                         <tr>
-                            <th class="py-2 px-3">Artículo</th>
+                            <th class="py-2 px-3 w-1/2">Artículo</th>
                             <th class="py-2 px-3 w-28">Disponible</th>
                             <th class="py-2 px-3 w-24">Cantidad</th>
                             <th class="py-2 px-3 w-10"></th>
@@ -208,81 +204,70 @@
 </div>
 
 <script>
-    const ORDER_PRODUCTS = {{ products | tojson }};
     let orderLineCounter = 0;
 
     function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
     function closeModal(modalId) { document.getElementById(modalId).classList.add('hidden'); }
 
-    function applyOrderClientSelection() {
-        const picker = document.getElementById('order_client_picker');
-        const opt = picker.options[picker.selectedIndex];
-        document.getElementById('order_client_id').value = opt.value || '';
-        if (opt.value) {
-            document.getElementById('order_client_name').value = opt.getAttribute('data-name') || '';
-            document.getElementById('order_client_rif').value = opt.getAttribute('data-rif') || '';
-            document.getElementById('order_client_email').value = opt.getAttribute('data-email') || '';
-        }
-    }
+    document.addEventListener('DOMContentLoaded', () => {
+        initSearchPicker({
+            inputEl: document.getElementById('order_client_search'),
+            resultsEl: document.getElementById('order_client_search_results'),
+            hiddenIdEl: document.getElementById('order_client_id'),
+            endpoint: '{{ url_for("commercial.search_clients_json") }}',
+            renderLabel: (c) => `${c.name} (${c.rif_cedula})`,
+            renderResult: (c) => `<div class="font-semibold text-gray-800 dark:text-gray-200">${c.name}</div><div class="text-gray-400">${c.rif_cedula}</div>`,
+            onSelect: (c) => {
+                document.getElementById('order_client_name').value = c.name || '';
+                document.getElementById('order_client_rif').value = c.rif_cedula || '';
+                document.getElementById('order_client_email').value = c.email || '';
+            }
+        });
+    });
 
     function selectedWarehouse() {
         return document.getElementById('order_warehouse_select').value;
     }
 
-    function availabilityFor(product) {
-        const wh = selectedWarehouse();
-        if (!wh || !product.availability_by_warehouse) return null;
-        const val = product.availability_by_warehouse[wh];
-        return (val === undefined) ? 0 : val;
-    }
-
-    function productOptions() {
-        return ORDER_PRODUCTS.map(p => `<option value="${p._id}" data-unit="${p.unit_type}">${p.name} (${p.sku})</option>`).join('');
+    function refreshAvailability() {
+        // El almacén elegido se manda como filtro al buscador de artículos
+        // (cada línea ya wireada recalcula "Disponible" al buscar de nuevo).
     }
 
     function addOrderLine() {
         orderLineCounter++;
+        const id = orderLineCounter;
         const row = document.createElement('tr');
-        row.id = `order-line-${orderLineCounter}`;
+        row.id = `order-line-${id}`;
         row.innerHTML = `
-            <td class="py-2 px-3">
-                <select class="line-product w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs" onchange="recalcOrderLine(${orderLineCounter})">
-                    <option value="" disabled selected>-- Artículo --</option>
-                    ${productOptions()}
-                </select>
+            <td class="py-2 px-3 relative">
+                <input type="text" class="line-product-search w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs" placeholder="Buscar artículo o SKU..." autocomplete="off">
+                <input type="hidden" class="line-product-id">
+                <div class="line-product-results hidden absolute z-20 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg max-h-48 overflow-y-auto"></div>
             </td>
             <td class="py-2 px-3 text-center font-mono available-cell">—</td>
             <td class="py-2 px-3"><input type="number" step="any" min="0.01" value="1" class="line-qty w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"></td>
-            <td class="py-2 px-3 text-center"><button type="button" onclick="removeOrderLine(${orderLineCounter})" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash"></i></button></td>
+            <td class="py-2 px-3 text-center"><button type="button" onclick="removeOrderLine(${id})" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash"></i></button></td>
         `;
         document.getElementById('orderLinesBody').appendChild(row);
+
+        initSearchPicker({
+            inputEl: row.querySelector('.line-product-search'),
+            resultsEl: row.querySelector('.line-product-results'),
+            hiddenIdEl: row.querySelector('.line-product-id'),
+            endpoint: '{{ url_for("commercial.search_products_json") }}',
+            extraParams: { get warehouse_id() { return selectedWarehouse(); } },
+            renderLabel: (p) => `${p.name} (${p.sku})`,
+            renderResult: (p) => `<div class="font-semibold text-gray-800 dark:text-gray-200">${p.name}</div><div class="text-gray-400">SKU: ${p.sku} · Disp: ${p.available ?? p.stock ?? 0}</div>`,
+            onSelect: (p) => {
+                row.querySelector('.available-cell').textContent = (p.available ?? p.stock ?? 0);
+            }
+        });
     }
 
     function removeOrderLine(id) {
         const row = document.getElementById(`order-line-${id}`);
         if (row) row.remove();
-    }
-
-    function recalcOrderLine(id) {
-        const row = document.getElementById(`order-line-${id}`);
-        const select = row.querySelector('.line-product');
-        const productId = select.value;
-        const product = ORDER_PRODUCTS.find(p => p._id === productId);
-        const cell = row.querySelector('.available-cell');
-        if (product) {
-            const avail = availabilityFor(product);
-            cell.textContent = (avail === null) ? 'Seleccione almacén' : avail;
-        }
-    }
-
-    function refreshAvailability() {
-        document.querySelectorAll('#orderLinesBody tr').forEach(row => {
-            const select = row.querySelector('.line-product');
-            if (select && select.value) {
-                const id = row.id.replace('order-line-', '');
-                recalcOrderLine(id);
-            }
-        });
     }
 
     function prepareOrderSubmit() {

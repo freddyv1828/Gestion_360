@@ -359,6 +359,66 @@
             }
         }
 
+        /**
+         * Picker de búsqueda genérico e inteligente: convierte un <input> en un
+         * buscador en vivo contra un endpoint JSON del backend. Sin escribir nada
+         * muestra los primeros registros (de referencia); al escribir, filtra en
+         * el servidor — así nunca se carga la tabla completa en el navegador.
+         *
+         * config: { inputEl, resultsEl, hiddenIdEl, endpoint, renderLabel(item),
+         *           renderResult(item) -> HTML string, onSelect(item), extraParams }
+         */
+        function initSearchPicker(config) {
+            const { inputEl, resultsEl, hiddenIdEl, endpoint, renderLabel, renderResult, onSelect } = config;
+            const extraParams = config.extraParams || {};
+            let debounceTimer = null;
+
+            function buildUrl(q) {
+                const params = new URLSearchParams(Object.assign({ q: q || '', limit: 10 }, extraParams));
+                return `${endpoint}?${params.toString()}`;
+            }
+
+            function search(q) {
+                fetch(buildUrl(q))
+                    .then(r => r.json())
+                    .then(data => {
+                        const results = data.results || [];
+                        resultsEl.innerHTML = '';
+                        if (results.length === 0) {
+                            resultsEl.innerHTML = '<div class="px-3 py-2 text-[11px] text-gray-400">Sin resultados.</div>';
+                            resultsEl.classList.remove('hidden');
+                            return;
+                        }
+                        results.forEach(item => {
+                            const row = document.createElement('div');
+                            row.className = 'px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-xs border-b border-gray-100 dark:border-gray-700 last:border-0';
+                            row.innerHTML = renderResult(item);
+                            row.addEventListener('mousedown', (e) => {
+                                e.preventDefault();
+                                if (hiddenIdEl) hiddenIdEl.value = item._id;
+                                inputEl.value = renderLabel(item);
+                                resultsEl.classList.add('hidden');
+                                if (onSelect) onSelect(item);
+                            });
+                            resultsEl.appendChild(row);
+                        });
+                        resultsEl.classList.remove('hidden');
+                    })
+                    .catch(() => resultsEl.classList.add('hidden'));
+            }
+
+            inputEl.addEventListener('focus', () => search(inputEl.value));
+            inputEl.addEventListener('input', () => {
+                if (hiddenIdEl) hiddenIdEl.value = '';
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => search(inputEl.value), 300);
+            });
+            document.addEventListener('click', (e) => {
+                if (inputEl.contains(e.target) || resultsEl.contains(e.target)) return;
+                resultsEl.classList.add('hidden');
+            });
+        }
+
         // Cargar preferencia persistente de tema
         (function initTheme() {
             const savedTheme = localStorage.getItem('gestion360_theme');

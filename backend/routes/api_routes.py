@@ -7,7 +7,7 @@ from services.login_service import login_business_user
 from services.marketplace_service import MarketplaceService
 from services.commercial_service import CommercialService
 from services.client_service import ClientService
-from services.order_service import OrderService
+from services.order_service import OrderService, OPEN_STATUSES
 from services.budget_service import BudgetService
 from services.financial_service import FinancialService
 
@@ -99,13 +99,10 @@ def seller_dashboard():
     company_db_name = request.jwt_user['company_db']
     user_email = request.jwt_user['email']
 
-    clients = ClientService.get_active_clients_lite(company_db_name)
-
-    open_orders, _ = OrderService.get_paginated_orders(company_db_name, status='all', page=1, per_page=200)
-    own_open_orders = [
-        o for o in open_orders
-        if o.get('created_by') == user_email and o.get('status') in ('pendiente', 'en_picking', 'listo_facturar')
-    ]
+    clients_count = ClientService.count_active_clients(company_db_name)
+    open_orders_count = OrderService.count_orders(
+        company_db_name, created_by=user_email, statuses=OPEN_STATUSES
+    )
 
     receivables = FinancialService.get_accounts_receivable(company_db_name)
     total_receivable = round(sum(r['balance_due'] for r in receivables), 2)
@@ -113,8 +110,8 @@ def seller_dashboard():
     recent_orders, _ = OrderService.get_paginated_orders(company_db_name, status='all', page=1, per_page=5)
 
     return jsonify({
-        "clients_count": len(clients),
-        "open_orders_count": len(own_open_orders),
+        "clients_count": clients_count,
+        "open_orders_count": open_orders_count,
         "accounts_receivable_total": total_receivable,
         "accounts_receivable_top": receivables[:5],
         "recent_orders": recent_orders,

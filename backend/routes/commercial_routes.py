@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, Response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, Response, jsonify
 from services.commercial_service import CommercialService
 from services.dropi_service import DropiService
 from services.financial_service import FinancialService
@@ -255,8 +255,6 @@ def orders():
     orders_list, total_count = OrderService.get_paginated_orders(company_db_name, status=status, page=page, per_page=per_page)
     status_counts = OrderService.get_status_counts(company_db_name)
     warehouses = CommercialService.get_warehouses(company_db_name)
-    products = CommercialService.get_active_products_lite(company_db_name)
-    clients = ClientService.get_active_clients_lite(company_db_name)
 
     return render_template(
         'commercial/orders.html',
@@ -264,8 +262,6 @@ def orders():
         status=status,
         status_counts=status_counts,
         warehouses=warehouses,
-        products=products,
-        clients=clients,
         pagination={
             'page': page,
             'per_page': per_page,
@@ -373,6 +369,38 @@ def convert_order(order_id):
         return redirect(url_for('commercial.invoice_detail', invoice_id=invoice_id))
     return redirect(url_for('commercial.order_detail', order_id=order_id))
 
+@commercial_bp.route('/products/search.json')
+def search_products_json():
+    """
+    Buscador en vivo de artículos para los selects de Compras/Facturación/
+    Pedidos — sin 'q' trae solo los primeros `limit` (de referencia), con 'q'
+    filtra en el servidor. Así el navegador nunca carga el catálogo completo.
+    """
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return jsonify({"results": []}), 401
+
+    q = request.args.get('q', '').strip()
+    limit = request.args.get('limit', 10, type=int)
+    products, _ = CommercialService.get_paginated_products(
+        company_db_name, filters={'search': q}, page=1, per_page=limit
+    )
+    return jsonify({"results": products})
+
+@commercial_bp.route('/clients/search.json')
+def search_clients_json():
+    """Buscador en vivo de clientes para los selects de Facturación/Pedidos."""
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return jsonify({"results": []}), 401
+
+    q = request.args.get('q', '').strip()
+    limit = request.args.get('limit', 10, type=int)
+    clients, _ = ClientService.get_paginated_clients(
+        company_db_name, filters={'search': q}, page=1, per_page=limit
+    )
+    return jsonify({"results": clients})
+
 @commercial_bp.route('/products/export')
 def export_products():
     company_db_name = get_active_company_db()
@@ -422,13 +450,11 @@ def purchases():
 
     orders, total_count = CommercialService.get_paginated_purchase_orders(company_db_name, page=page, per_page=per_page)
     warehouses = CommercialService.get_warehouses(company_db_name)
-    products = CommercialService.get_active_products_lite(company_db_name)
 
     return render_template(
         'commercial/purchases.html',
         orders=orders,
         warehouses=warehouses,
-        products=products,
         pagination={
             'page': page,
             'per_page': per_page,
@@ -459,10 +485,8 @@ def invoicing():
 
     invoices, total_count = InvoicingService.get_paginated_invoices(company_db_name, page=page, per_page=per_page)
     warehouses = CommercialService.get_warehouses(company_db_name)
-    products = CommercialService.get_active_products_lite(company_db_name)
     accounts = FinancialService.get_bank_accounts(company_db_name)
     summary = InvoicingService.get_sales_summary(company_db_name)
-    clients = ClientService.get_active_clients_lite(company_db_name)
     coupons = CouponService.get_active_coupons(company_db_name)
 
     db = get_company_db(company_db_name)
@@ -476,10 +500,8 @@ def invoicing():
         'commercial/invoicing.html',
         invoices=invoices,
         warehouses=warehouses,
-        products=products,
         accounts=accounts,
         summary=summary,
-        clients=clients,
         coupons=coupons,
         sellers=sellers,
         pagination={

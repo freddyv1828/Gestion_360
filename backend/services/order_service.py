@@ -43,6 +43,18 @@ class OrderService:
         return orders, total_count
 
     @staticmethod
+    def count_orders(company_db_name, created_by=None, statuses=None):
+        db = get_company_db(company_db_name)
+        if db is None:
+            return 0
+        query = {}
+        if created_by:
+            query['created_by'] = created_by
+        if statuses:
+            query['status'] = {"$in": list(statuses)}
+        return db['orders'].count_documents(query)
+
+    @staticmethod
     def get_status_counts(company_db_name):
         db = get_company_db(company_db_name)
         if db is None:
