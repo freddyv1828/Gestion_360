@@ -1,16 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}Finanzas, Tesorería & Bancos — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
-{% block header_title %}Centro Financiero & Tesorería — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
+{% block title %}Centro de Mando Financiero — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
+{% block header_title %}Centro de Mando Financiero — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
 
 {% block content %}
 {% set base_currency = settings.get('base_currency', 'USD') %}
+{% set feed_meta = {
+    'venta': {'icon': 'fa-file-invoice-dollar', 'color': 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40'},
+    'compra': {'icon': 'fa-cart-shopping', 'color': 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/40'},
+    'cobro': {'icon': 'fa-arrow-down', 'color': 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40'},
+    'pago': {'icon': 'fa-arrow-up', 'color': 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40'},
+    'abono': {'icon': 'fa-hand-holding-dollar', 'color': 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40'},
+} %}
 <div class="space-y-6 max-w-7xl mx-auto">
 
     <!-- BANNER SUPERIOR FINANCIERO -->
     <div class="bg-gradient-to-r from-emerald-700 via-teal-700 to-indigo-800 rounded-3xl p-7 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center relative overflow-hidden">
         <div class="absolute -right-8 -bottom-8 opacity-10 text-9xl">
-            <i class="fa-solid fa-file-invoice-dollar"></i>
+            <i class="fa-solid fa-chart-line"></i>
         </div>
 
         <div class="relative z-10">
@@ -21,9 +28,9 @@
                 </span>
                 <span class="text-xs text-teal-200 font-mono">{{ session.get('company_rif', '') }}</span>
             </div>
-            <h2 class="text-2xl md:text-3xl font-black tracking-tight">Centro de Mando Financiero & Tesorería</h2>
+            <h2 class="text-2xl md:text-3xl font-black tracking-tight">Centro de Mando Financiero</h2>
             <p class="text-teal-100 text-xs md:text-sm mt-1 max-w-2xl leading-relaxed">
-                Supervisión de flujo de caja, cobranzas, cuentas por pagar, conciliación bancaria y política bimoneda (USD / VES / EUR / COP).
+                Bitácora auditable de ventas, compras, cobros y pagos de toda la empresa, con acceso directo a Cuentas por Cobrar y Tesorería.
             </p>
         </div>
 
@@ -45,78 +52,46 @@
                 </div>
             </div>
             {% endfor %}
-            <form action="{{ url_for('commercial.sync_bcv_rates') }}" method="POST" class="inline">
-                <button type="submit" class="bg-emerald-500/20 hover:bg-emerald-500/30 transition px-3 py-2.5 rounded-2xl border border-emerald-300/30 text-xs font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-rotate"></i> Sincronizar BCV
-                </button>
-            </form>
-            <button onclick="openModal('rateModal')" class="bg-white/15 hover:bg-white/25 transition px-3 py-2.5 rounded-2xl border border-white/20 text-xs font-bold flex items-center gap-2">
-                <i class="fa-solid fa-pen"></i> Ajustar
-            </button>
-        </div>
-    </div>
-
-    <!-- RESUMEN DE CONCILIACIÓN -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-            <div class="text-[10px] uppercase font-bold text-slate-400">Total Cobros ({{ base_currency }})</div>
-            <div class="text-lg font-black text-emerald-600 dark:text-emerald-400">{{ "%.2f"|format(summary.total_cobros_base) }}</div>
-        </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-            <div class="text-[10px] uppercase font-bold text-slate-400">Total Pagos ({{ base_currency }})</div>
-            <div class="text-lg font-black text-rose-600 dark:text-rose-400">{{ "%.2f"|format(summary.total_pagos_base) }}</div>
-        </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-            <div class="text-[10px] uppercase font-bold text-slate-400">Flujo Neto ({{ base_currency }})</div>
-            <div class="text-lg font-black {{ 'text-emerald-600 dark:text-emerald-400' if summary.net_flow_base >= 0 else 'text-rose-600 dark:text-rose-400' }}">{{ "%.2f"|format(summary.net_flow_base) }}</div>
-        </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-            <div class="text-[10px] uppercase font-bold text-slate-400">Diferencial Cambiario</div>
-            <div class="text-lg font-black {{ 'text-emerald-600 dark:text-emerald-400' if summary.total_exchange_difference >= 0 else 'text-rose-600 dark:text-rose-400' }}">{{ "%.2f"|format(summary.total_exchange_difference) }}</div>
         </div>
     </div>
 
     <!-- TARJETAS PRINCIPALES DEL MÓDULO FINANCIERO -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-        <a href="{{ url_for('commercial.products') }}"
-           class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 p-6 rounded-2xl shadow-sm hover:shadow-lg transition group block">
-            <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition transform">
-                <i class="fa-solid fa-boxes-stacked"></i>
-            </div>
-            <h3 class="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
-                Catálogo, Costos & Precios
-            </h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Fijación de costos de compra, cálculo automático de márgenes de utilidad (30%+) y precios de venta al público con IVA.
-            </p>
-            <div class="mt-4 flex items-center text-xs font-bold text-indigo-600 dark:text-indigo-400 gap-1 group-hover:gap-2 transition-all">
-                <span>Ir al catálogo</span>
-                <span>→</span>
-            </div>
-        </a>
-
-        <a href="#cxc" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 p-6 rounded-2xl shadow-sm hover:shadow-lg transition group block">
-            <div class="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition transform">
-                <i class="fa-solid fa-scale-balanced"></i>
+        <a href="{{ url_for('commercial.receivables') }}"
+           class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 p-6 rounded-2xl shadow-sm hover:shadow-lg transition group block">
+            <div class="flex items-start justify-between">
+                <div class="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition transform">
+                    <i class="fa-solid fa-scale-balanced"></i>
+                </div>
+                <div class="text-right">
+                    <div class="text-xl font-black text-rose-600 dark:text-rose-400">${{ "%.2f"|format(aging.total_balance) }}</div>
+                    <div class="text-[10px] text-slate-400 uppercase font-bold">{{ aging.total_invoices }} factura(s) abiertas</div>
+                </div>
             </div>
             <h3 class="text-sm font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">Cuentas por Cobrar (CxC)</h3>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Saldos pendientes por cliente a partir de facturas a Crédito y los cobros registrados en Tesorería.
+                Saldos pendientes por factura a Crédito, antigüedad de la deuda y registro de abonos.
             </p>
             <div class="mt-4 flex items-center text-xs font-bold text-emerald-600 dark:text-emerald-400 gap-1 group-hover:gap-2 transition-all">
-                <span>Ver cartera</span>
+                <span>Ver cartera y cobrar</span>
                 <span>→</span>
             </div>
         </a>
 
-        <a href="#bancos" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-purple-500 dark:hover:border-purple-500 p-6 rounded-2xl shadow-sm hover:shadow-lg transition group block">
-            <div class="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition transform">
-                <i class="fa-solid fa-building-columns"></i>
+        <a href="{{ url_for('commercial.treasury') }}" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-purple-500 dark:hover:border-purple-500 p-6 rounded-2xl shadow-sm hover:shadow-lg transition group block">
+            <div class="flex items-start justify-between">
+                <div class="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition transform">
+                    <i class="fa-solid fa-building-columns"></i>
+                </div>
+                <div class="text-right">
+                    <div class="text-xl font-black text-slate-900 dark:text-white">${{ "%.2f"|format(total_accounts_base) }}</div>
+                    <div class="text-[10px] text-slate-400 uppercase font-bold">Saldo total en cuentas ({{ base_currency }})</div>
+                </div>
             </div>
-            <h3 class="text-sm font-bold text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition">Bancos & Conciliación</h3>
+            <h3 class="text-sm font-bold text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition">Tesorería & Bancos</h3>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Cuentas bancarias en moneda nacional y extranjera, registro de cobros/pagos y cálculo automático de diferencial cambiario.
+                Cuentas bancarias y caja chica, registro de cobros/pagos y conciliación con diferencial cambiario.
             </p>
             <div class="mt-4 flex items-center text-xs font-bold text-purple-600 dark:text-purple-400 gap-1 group-hover:gap-2 transition-all">
                 <span>Ir a Tesorería</span>
@@ -126,88 +101,34 @@
 
     </div>
 
-    <!-- SECCIÓN: CUENTAS BANCARIAS -->
-    <div id="bancos" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
-        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-wrap gap-3">
-            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <i class="fa-solid fa-building-columns text-purple-600"></i> Cuentas Bancarias & Caja Chica
-            </h3>
-            <button onclick="openModal('accountModal')" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
-                <i class="fa-solid fa-plus"></i> Nueva Cuenta
-            </button>
+    <!-- RESUMEN GENERAL DE LA EMPRESA -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+            <div class="text-[10px] uppercase font-bold text-slate-400">Ventas Totales (USD)</div>
+            <div class="text-lg font-black text-indigo-600 dark:text-indigo-400">${{ "%.2f"|format(sales_summary.total_sales) }}</div>
+            <div class="text-[10px] text-slate-400">{{ sales_summary.count }} factura(s) emitidas</div>
         </div>
-        <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-            {% for acc in accounts %}
-            <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <div class="text-sm font-bold text-gray-900 dark:text-white">{{ acc.name }}</div>
-                        <div class="text-[11px] text-gray-400">{{ acc.bank_name or 'Caja Chica' }} · {{ acc.account_number or 'S/N' }}</div>
-                    </div>
-                    <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">{{ acc.currency }}</span>
-                </div>
-                <div class="mt-3 text-xl font-black text-gray-900 dark:text-white">{{ "%.2f"|format(acc.balance) }}</div>
-            </div>
-            {% else %}
-            <div class="col-span-3 text-center text-gray-400 text-xs py-6">No hay cuentas bancarias registradas aún.</div>
-            {% endfor %}
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+            <div class="text-[10px] uppercase font-bold text-slate-400">Compras Totales (USD)</div>
+            <div class="text-lg font-black text-cyan-600 dark:text-cyan-400">${{ "%.2f"|format(purchases_total) }}</div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+            <div class="text-[10px] uppercase font-bold text-slate-400">Flujo Neto de Tesorería ({{ base_currency }})</div>
+            <div class="text-lg font-black {{ 'text-emerald-600 dark:text-emerald-400' if summary.net_flow_base >= 0 else 'text-rose-600 dark:text-rose-400' }}">{{ "%.2f"|format(summary.net_flow_base) }}</div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+            <div class="text-[10px] uppercase font-bold text-slate-400">Diferencial Cambiario</div>
+            <div class="text-lg font-black {{ 'text-emerald-600 dark:text-emerald-400' if summary.total_exchange_difference >= 0 else 'text-rose-600 dark:text-rose-400' }}">{{ "%.2f"|format(summary.total_exchange_difference) }}</div>
         </div>
     </div>
 
-    <!-- SECCIÓN: CUENTAS POR COBRAR -->
-    <div id="cxc" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
-        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-wrap gap-3">
-            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <i class="fa-solid fa-scale-balanced text-emerald-600"></i> Cuentas por Cobrar (Facturas a Crédito)
-            </h3>
-            <div class="flex items-center gap-2">
-                <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">{{ receivables|length }} cliente(s) con saldo pendiente</span>
-                <a href="{{ url_for('commercial.export_financial', format='pdf', dataset='receivables') }}" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] font-semibold rounded-lg transition"><i class="fa-solid fa-file-pdf text-rose-500"></i></a>
-                <a href="{{ url_for('commercial.export_financial', format='excel', dataset='receivables') }}" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] font-semibold rounded-lg transition"><i class="fa-solid fa-file-excel text-emerald-600"></i></a>
-            </div>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-xs text-left">
-                <thead class="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 uppercase text-[10px]">
-                    <tr>
-                        <th class="py-3 px-4 font-semibold">Cliente</th>
-                        <th class="py-3 px-4 font-semibold text-right">Facturado</th>
-                        <th class="py-3 px-4 font-semibold text-right">Cobrado</th>
-                        <th class="py-3 px-4 font-semibold text-right">Saldo Pendiente</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                    {% for r in receivables %}
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
-                        <td class="py-3 px-4">
-                            <div class="font-semibold text-gray-800 dark:text-gray-200">{{ r.client_name }}</div>
-                            <div class="text-[11px] text-gray-400 font-mono">{{ r.client_rif }}</div>
-                        </td>
-                        <td class="py-3 px-4 text-right font-mono">{{ "%.2f"|format(r.invoiced_total) }}</td>
-                        <td class="py-3 px-4 text-right font-mono text-emerald-600">{{ "%.2f"|format(r.collected_total) }}</td>
-                        <td class="py-3 px-4 text-right font-mono font-bold text-rose-600 dark:text-rose-400">{{ "%.2f"|format(r.balance_due) }}</td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="4" class="py-8 text-center text-gray-400">No hay cuentas por cobrar pendientes (sin facturas a crédito o todas cobradas).</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- SECCIÓN: MOVIMIENTOS DE TESORERÍA -->
+    <!-- BITÁCORA DE MOVIMIENTOS (AUDITORÍA) -->
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
         <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-wrap gap-3">
             <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <i class="fa-solid fa-right-left text-emerald-600"></i> Movimientos Recientes de Tesorería
+                <i class="fa-solid fa-right-left text-emerald-600"></i> Bitácora de Movimientos de la Empresa
             </h3>
-            <a href="{{ url_for('commercial.export_financial', format='pdf', dataset='transactions') }}" class="px-2 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] font-semibold rounded-lg transition"><i class="fa-solid fa-file-pdf text-rose-500"></i></a>
-            <a href="{{ url_for('commercial.export_financial', format='excel', dataset='transactions') }}" class="px-2 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] font-semibold rounded-lg transition"><i class="fa-solid fa-file-excel text-emerald-600"></i></a>
-            <button onclick="openModal('transactionModal')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
-                <i class="fa-solid fa-plus"></i> Registrar Cobro / Pago
-            </button>
+            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Últimos {{ feed|length }} movimientos — ventas, compras, cobros y pagos</span>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-xs text-left">
@@ -215,31 +136,32 @@
                     <tr>
                         <th class="py-3 px-4 font-semibold">Fecha</th>
                         <th class="py-3 px-4 font-semibold">Tipo</th>
-                        <th class="py-3 px-4 font-semibold">Cuenta</th>
-                        <th class="py-3 px-4 font-semibold">Monto</th>
-                        <th class="py-3 px-4 font-semibold">Equiv. {{ base_currency }}</th>
-                        <th class="py-3 px-4 font-semibold">Dif. Cambiaria</th>
+                        <th class="py-3 px-4 font-semibold">Referencia</th>
                         <th class="py-3 px-4 font-semibold">Contraparte</th>
+                        <th class="py-3 px-4 font-semibold text-right">Monto</th>
+                        <th class="py-3 px-4 font-semibold">Responsable</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                    {% for tx in transactions %}
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
-                        <td class="py-3 px-4 text-gray-500">{{ tx.created_at.strftime('%d/%m/%Y %H:%M') if tx.created_at else '' }}</td>
+                    {% for m in feed %}
+                    {% set meta = feed_meta.get(m.type, {'icon': 'fa-circle', 'color': 'text-slate-500 bg-slate-100'}) %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition {% if m.voided %}opacity-50{% endif %}">
+                        <td class="py-3 px-4 text-gray-500 font-mono">{{ m.created_at.strftime('%Y-%m-%d %H:%M') if m.created_at else '' }}</td>
                         <td class="py-3 px-4">
-                            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold {% if tx.type == 'COBRO' %}bg-emerald-500/10 text-emerald-600 border border-emerald-500/20{% else %}bg-rose-500/10 text-rose-600 border border-rose-500/20{% endif %}">{{ tx.type }}</span>
+                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold {{ meta.color }}">
+                                <i class="fa-solid {{ meta.icon }}"></i> {{ m.label }}{% if m.voided %} (Anulada){% endif %}
+                            </span>
                         </td>
-                        <td class="py-3 px-4 font-semibold text-gray-800 dark:text-gray-200">{{ tx.account_name }}</td>
-                        <td class="py-3 px-4 font-mono">{{ "%.2f"|format(tx.amount) }} {{ tx.currency }}</td>
-                        <td class="py-3 px-4 font-mono">{{ "%.2f"|format(tx.amount_base_equivalent) if tx.amount_base_equivalent is not none else 'N/D' }}</td>
-                        <td class="py-3 px-4 font-mono {% if tx.exchange_difference is not none %}{{ 'text-emerald-600' if tx.exchange_difference >= 0 else 'text-rose-600' }}{% endif %}">
-                            {{ "%.2f"|format(tx.exchange_difference) if tx.exchange_difference is not none else '—' }}
+                        <td class="py-3 px-4 font-mono text-gray-700 dark:text-gray-300">{{ m.reference or '—' }}</td>
+                        <td class="py-3 px-4 text-gray-600 dark:text-gray-300">{{ m.counterparty or '—' }}</td>
+                        <td class="py-3 px-4 text-right font-mono font-bold {% if m.type in ['venta','cobro'] %}text-emerald-600{% elif m.type in ['compra','pago'] %}text-rose-600{% else %}text-amber-600{% endif %}">
+                            {{ "%.2f"|format(m.amount) }} {{ m.currency }}
                         </td>
-                        <td class="py-3 px-4 text-gray-500">{{ tx.counterparty or '—' }}</td>
+                        <td class="py-3 px-4 text-gray-500">{{ m.user or '—' }}</td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="7" class="py-8 text-center text-gray-400">No se han registrado movimientos de tesorería.</td>
+                        <td colspan="6" class="py-8 text-center text-gray-400">Todavía no hay movimientos registrados.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -248,159 +170,4 @@
     </div>
 
 </div>
-
-<!-- MODAL: AJUSTAR MONEDA BASE Y TASAS -->
-<div id="rateModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col">
-        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
-            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <i class="fa-solid fa-coins text-emerald-600"></i> Configuración de Moneda
-            </h3>
-            <button onclick="closeModal('rateModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <form action="{{ url_for('commercial.save_base_currency') }}" method="POST" class="p-6 space-y-3 border-b border-gray-200 dark:border-gray-700">
-            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Moneda Base de la Empresa</label>
-            <div class="flex gap-2">
-                <select name="base_currency" class="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-                    {% for cur in ['USD', 'VES', 'EUR', 'COP'] %}
-                    <option value="{{ cur }}" {% if base_currency == cur %}selected{% endif %}>{{ cur }}</option>
-                    {% endfor %}
-                </select>
-                <button type="submit" class="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white text-xs font-semibold rounded-xl">Guardar</button>
-            </div>
-        </form>
-        <form action="{{ url_for('commercial.save_exchange_rate') }}" method="POST" class="p-6 space-y-4">
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Moneda</label>
-                <select name="currency" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-                    <option value="VES">Bolívares (VES) — Tasa BCV</option>
-                    <option value="EUR">Euros (EUR)</option>
-                    <option value="COP">Pesos Colombianos (COP)</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Tasa (unidades por 1 USD) *</label>
-                <input type="number" step="0.0001" name="rate" required placeholder="Ej. 50.2500" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-            </div>
-            <div class="flex justify-end space-x-3 pt-2">
-                <button type="button" onclick="closeModal('rateModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cerrar</button>
-                <button type="submit" class="px-4 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-xl shadow">Actualizar Tasa</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- MODAL: NUEVA CUENTA BANCARIA -->
-<div id="accountModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col">
-        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
-            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <i class="fa-solid fa-building-columns text-purple-600"></i> Nueva Cuenta Bancaria / Caja
-            </h3>
-            <button onclick="closeModal('accountModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <form action="{{ url_for('commercial.save_bank_account') }}" method="POST" class="p-6 space-y-4">
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Nombre de la Cuenta *</label>
-                <input type="text" name="name" required placeholder="Ej. Cuenta Corriente Principal" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Banco</label>
-                <input type="text" name="bank_name" placeholder="Ej. Banesco / Caja Chica" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Moneda *</label>
-                    <select name="currency" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-                        {% for cur in ['USD', 'VES', 'EUR', 'COP'] %}
-                        <option value="{{ cur }}">{{ cur }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Tipo</label>
-                    <select name="type" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-                        <option value="bank">Cuenta Bancaria</option>
-                        <option value="caja_chica">Caja Chica</option>
-                    </select>
-                </div>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Número de Cuenta</label>
-                <input type="text" name="account_number" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Saldo Inicial</label>
-                <input type="number" step="0.01" name="initial_balance" value="0" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-            </div>
-            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <button type="button" onclick="closeModal('accountModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
-                <button type="submit" class="px-4 py-2 bg-purple-600 text-white text-xs font-semibold rounded-xl shadow">Guardar Cuenta</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- MODAL: REGISTRAR COBRO / PAGO -->
-<div id="transactionModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col">
-        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
-            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <i class="fa-solid fa-right-left text-emerald-600"></i> Registrar Cobro / Pago
-            </h3>
-            <button onclick="closeModal('transactionModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <form action="{{ url_for('commercial.save_treasury_transaction') }}" method="POST" class="p-6 space-y-4">
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Cuenta *</label>
-                <select name="account_id" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-                    <option value="" disabled selected>-- Seleccionar Cuenta --</option>
-                    {% for acc in accounts %}
-                    <option value="{{ acc._id }}">{{ acc.name }} ({{ acc.currency }})</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Tipo *</label>
-                <select name="type" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-                    <option value="COBRO">Cobro (Entrada de Caja)</option>
-                    <option value="PAGO">Pago (Salida de Caja)</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Monto (en la moneda de la cuenta) *</label>
-                <input type="number" step="0.01" name="amount" required class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Monto Original de la Factura ({{ base_currency }})</label>
-                <input type="number" step="0.01" name="due_amount_base" placeholder="Opcional: para calcular diferencial cambiario" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Contraparte (Cliente / Proveedor)</label>
-                <input type="text" name="counterparty" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Referencia</label>
-                <input type="text" name="reference" placeholder="N° de factura, transferencia..." class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Notas</label>
-                <input type="text" name="notes" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
-            </div>
-            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <button type="button" onclick="closeModal('transactionModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
-                <button type="submit" class="px-4 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-xl shadow">Registrar Movimiento</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script>
-    function openModal(modalId) {
-        document.getElementById(modalId).classList.remove('hidden');
-    }
-    function closeModal(modalId) {
-        document.getElementById(modalId).classList.add('hidden');
-    }
-</script>
 {% endblock %}

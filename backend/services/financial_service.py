@@ -221,10 +221,12 @@ class FinancialService:
     @staticmethod
     def get_accounts_receivable(company_db_name, client_id=None):
         """
-        Cuentas por Cobrar (CxC) aproximadas por cliente: suma de facturas emitidas a
-        Crédito menos los cobros de Tesorería que referencian ese N° de factura.
-        Retorna una lista de {client_id, client_name, client_rif, invoiced_total,
-        collected_total, balance_due} ordenada por balance_due descendente.
+        Cuentas por Cobrar (CxC) agregadas por cliente, a partir del saldo real de
+        cada factura a Crédito (campo `amount_paid`, actualizado por
+        ReceivablesService.register_payment en cada abono). Retorna una lista de
+        {client_id, client_name, client_rif, invoiced_total, collected_total,
+        balance_due} ordenada por balance_due descendente. Usada por el Centro de
+        Mando, el módulo de Cuentas por Cobrar y el dashboard de la app móvil.
         """
         db = get_company_db(company_db_name)
         if db is None:
@@ -241,14 +243,6 @@ class FinancialService:
         if not invoices:
             return []
 
-        collected_by_ref = {}
-        invoice_numbers = [inv.get('invoice_number') for inv in invoices if inv.get('invoice_number')]
-        if invoice_numbers:
-            for tx in db['treasury_transactions'].find({"type": "COBRO", "reference": {"$in": invoice_numbers}}):
-                ref = tx.get('reference')
-                amt = float(tx.get('amount_base_equivalent') or tx.get('amount', 0.0))
-                collected_by_ref[ref] = collected_by_ref.get(ref, 0.0) + amt
-
         by_client = {}
         for inv in invoices:
             key = str(inv.get('client_id')) if inv.get('client_id') else f"walkin:{inv.get('client_rif')}"
@@ -260,7 +254,7 @@ class FinancialService:
                 "collected_total": 0.0,
             })
             entry["invoiced_total"] += float(inv.get('total', 0.0))
-            entry["collected_total"] += collected_by_ref.get(inv.get('invoice_number'), 0.0)
+            entry["collected_total"] += float(inv.get('amount_paid', 0.0))
 
         results = []
         for entry in by_client.values():
@@ -272,6 +266,77 @@ class FinancialService:
 
         results.sort(key=lambda e: e["balance_due"], reverse=True)
         return results
+
+    @staticmethod
+    def get_movements_feed(company_db_name, limit=40):
+        """
+        Bitácora auditable de movimientos de la empresa: ventas (facturas), compras
+        y cobros/pagos de Tesorería, unificados en una sola línea de tiempo con
+        tipo, referencia, monto, usuario responsable y fecha — para que el Centro
+        de Mando muestre de un vistazo qué está pasando con el dinero, sin tener
+        que entrar a cada submódulo por separado.
+        """
+        db = get_company_db(company_db_name)
+        if db is None:
+            return []
+
+        feed = []
+
+        for inv in db['invoices'].find({}).sort('created_at', -1).limit(limit):
+            feed.append({
+                "type": "venta",
+                "label": "Nota de Entrega" if inv.get('doc_type') == 'nota_entrega' else "Factura",
+                "reference": inv.get('invoice_number'),
+                "counterparty": inv.get('client_name'),
+                "amount": float(inv.get('total', 0.0)),
+                "currency": inv.get('currency', 'USD'),
+                "user": inv.get('seller') or inv.get('user'),
+                "created_at": inv.get('created_at'),
+                "voided": inv.get('status') == 'anulada',
+            })
+
+        for po in db['purchase_orders'].find({}).sort('timestamp', -1).limit(limit):
+            feed.append({
+                "type": "compra",
+                "label": "Compra",
+                "reference": po.get('supplier_name') or 'Proveedor',
+                "counterparty": po.get('supplier_name'),
+                "amount": float(po.get('total_cost', 0.0)),
+                "currency": "USD",
+                "user": po.get('user'),
+                "created_at": po.get('timestamp'),
+                "voided": False,
+            })
+
+        for tx in db['treasury_transactions'].find({}).sort('created_at', -1).limit(limit):
+            feed.append({
+                "type": "cobro" if tx.get('type') == 'COBRO' else "pago",
+                "label": "Cobro" if tx.get('type') == 'COBRO' else "Pago",
+                "reference": tx.get('reference') or tx.get('account_name'),
+                "counterparty": tx.get('counterparty'),
+                "amount": float(tx.get('amount', 0.0)),
+                "currency": tx.get('currency', 'USD'),
+                "user": tx.get('user'),
+                "created_at": tx.get('created_at'),
+                "voided": False,
+            })
+
+        for p in db['ar_payments'].find({"account_id": None}).sort('created_at', -1).limit(limit):
+            feed.append({
+                "type": "abono",
+                "label": "Abono CxC (pendiente de depósito)",
+                "reference": p.get('invoice_number'),
+                "counterparty": p.get('client_name'),
+                "amount": float(p.get('amount', 0.0)),
+                "currency": p.get('currency', 'USD'),
+                "user": p.get('user'),
+                "created_at": p.get('created_at'),
+                "voided": False,
+            })
+
+        feed = [f for f in feed if f.get('created_at')]
+        feed.sort(key=lambda f: f['created_at'], reverse=True)
+        return feed[:limit]
 
     @staticmethod
     def get_reconciliation_summary(company_db_name):

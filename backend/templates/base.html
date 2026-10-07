@@ -80,7 +80,7 @@
 
         <!-- Navegación Modular Corporativa: Listas Inteligentes por Módulo / Submódulo -->
         {% set comercial_active = '/commercial/products' in request.path or '/commercial/purchases' in request.path or '/commercial/invoicing' in request.path or '/commercial/clients' in request.path or '/commercial/orders' in request.path or '/inventory' in request.path %}
-        {% set finanzas_active = '/commercial/financial' in request.path %}
+        {% set finanzas_active = '/commercial/financial' in request.path or '/commercial/receivables' in request.path or '/commercial/treasury' in request.path %}
         {% set operaciones_active = '/personal' in request.path or '/logistics' in request.path or '/almacen' in request.path %}
         {% set integraciones_active = False %}
         <nav class="flex-1 px-3 py-5 space-y-1 text-xs font-semibold overflow-y-auto overflow-x-hidden">
@@ -142,6 +142,16 @@
                 <div id="group-finanzas" class="pl-4 mt-1 space-y-1 {% if not finanzas_active %}hidden{% endif %}">
                     <a href="{{ url_for('commercial.financial') }}"
                        class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/commercial/financial' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">
+                        <i class="fa-solid fa-chart-line w-5 text-center text-xs shrink-0"></i>
+                        <span class="ml-2.5 sidebar-text opacity-0 transition-opacity duration-300 whitespace-nowrap">Centro de Mando</span>
+                    </a>
+                    <a href="{{ url_for('commercial.receivables') }}"
+                       class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/commercial/receivables' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">
+                        <i class="fa-solid fa-scale-balanced w-5 text-center text-xs shrink-0"></i>
+                        <span class="ml-2.5 sidebar-text opacity-0 transition-opacity duration-300 whitespace-nowrap">Cuentas por Cobrar</span>
+                    </a>
+                    <a href="{{ url_for('commercial.treasury') }}"
+                       class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/commercial/treasury' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">
                         <i class="fa-solid fa-building-columns w-5 text-center text-xs shrink-0"></i>
                         <span class="ml-2.5 sidebar-text opacity-0 transition-opacity duration-300 whitespace-nowrap">Tesorería & Bancos</span>
                     </a>

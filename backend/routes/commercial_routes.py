@@ -7,10 +7,12 @@ from services.client_service import ClientService
 from services.exchange_rate_service import ExchangeRateService
 from services.order_service import OrderService
 from services.coupon_service import CouponService
+from services.receivables_service import ReceivablesService
 from services.pdf_service import generate_invoice_pdf, generate_dispatch_guide_pdf, generate_table_pdf
 from services.export_service import rows_to_csv
 from database import get_company_db
 from rbac import is_warehouse_only_role
+from utils import json_safe
 
 commercial_bp = Blueprint('commercial', __name__, template_folder='../../templates/commercial')
 
@@ -29,46 +31,123 @@ def financial():
         return redirect(url_for('auth_bp.index'))
 
     settings = FinancialService.get_company_settings(company_db_name)
+    base_currency = settings.get('base_currency', 'USD')
     rates = FinancialService.get_latest_rates(company_db_name)
     accounts = FinancialService.get_bank_accounts(company_db_name)
-    transactions = FinancialService.get_recent_transactions(company_db_name)
     summary = FinancialService.get_reconciliation_summary(company_db_name)
-    receivables = FinancialService.get_accounts_receivable(company_db_name)
+    aging = ReceivablesService.get_aging_summary(company_db_name)
+    sales_summary = InvoicingService.get_sales_summary(company_db_name)
+    feed = FinancialService.get_movements_feed(company_db_name, limit=40)
+
+    total_accounts_base = 0.0
+    for acc in accounts:
+        converted, _ = FinancialService.convert(company_db_name, acc.get('balance', 0.0), acc.get('currency', 'USD'), base_currency)
+        total_accounts_base += converted if converted is not None else 0.0
+
+    db = get_company_db(company_db_name)
+    purchases_total = 0.0
+    if db is not None:
+        agg = list(db['purchase_orders'].aggregate([{"$group": {"_id": None, "total": {"$sum": "$total_cost"}}}]))
+        purchases_total = agg[0]['total'] if agg else 0.0
 
     return render_template(
         'commercial/financial.html',
         settings=settings,
         rates=rates,
+        summary=summary,
+        aging=aging,
+        sales_summary=sales_summary,
+        purchases_total=purchases_total,
+        total_accounts_base=total_accounts_base,
+        feed=feed,
+    )
+
+@commercial_bp.route('/financial/currency/save', methods=['POST'])
+def save_base_currency():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    success, message = FinancialService.update_base_currency(company_db_name, request.form.get('base_currency'))
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('commercial.treasury'))
+
+@commercial_bp.route('/financial/rates/save', methods=['POST'])
+def save_exchange_rate():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    user_email = session.get('user_email', 'admin@gestion360.com')
+    success, message = FinancialService.set_exchange_rate(
+        company_db_name,
+        request.form.get('currency'),
+        request.form.get('rate'),
+        user_email
+    )
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('commercial.treasury'))
+
+@commercial_bp.route('/financial/rates/sync-bcv', methods=['POST'])
+def sync_bcv_rates():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    user_email = session.get('user_email', 'admin@gestion360.com')
+    success, message = ExchangeRateService.sync_bcv_rates(company_db_name, user_email)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('commercial.treasury'))
+
+@commercial_bp.route('/financial/accounts/save', methods=['POST'])
+def save_bank_account():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    success, message = FinancialService.create_bank_account(company_db_name, request.form)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('commercial.treasury'))
+
+@commercial_bp.route('/financial/transaction/save', methods=['POST'])
+def save_treasury_transaction():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    user_email = session.get('user_email', 'admin@gestion360.com')
+    success, message = FinancialService.register_transaction(company_db_name, request.form, user_email)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('commercial.treasury'))
+
+@commercial_bp.route('/treasury')
+def treasury():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    settings = FinancialService.get_company_settings(company_db_name)
+    rates = FinancialService.get_latest_rates(company_db_name)
+    accounts = FinancialService.get_bank_accounts(company_db_name)
+    transactions = FinancialService.get_recent_transactions(company_db_name)
+    summary = FinancialService.get_reconciliation_summary(company_db_name)
+
+    return render_template(
+        'commercial/treasury.html',
+        settings=settings,
+        rates=rates,
         accounts=accounts,
         transactions=transactions,
         summary=summary,
-        receivables=receivables
     )
 
-@commercial_bp.route('/financial/export')
-def export_financial():
+@commercial_bp.route('/treasury/export')
+def export_treasury():
     company_db_name = get_active_company_db()
     if not company_db_name:
         return redirect(url_for('auth_bp.index'))
 
     export_format = request.args.get('format', 'excel')
-    dataset = request.args.get('dataset', 'transactions')
-
-    if dataset == 'receivables':
-        rows_data = FinancialService.get_accounts_receivable(company_db_name)
-        if export_format == 'pdf':
-            headers = ['Cliente', 'RIF', 'Facturado', 'Cobrado', 'Saldo Pendiente']
-            rows = [[r.get('client_name', ''), r.get('client_rif', ''), f"${r.get('invoiced_total', 0):.2f}",
-                     f"${r.get('collected_total', 0):.2f}", f"${r.get('balance_due', 0):.2f}"] for r in rows_data]
-            pdf_bytes = generate_table_pdf("Cuentas por Cobrar", session.get('company_name', 'Gestión 360'), headers, rows)
-            return Response(pdf_bytes, mimetype='application/pdf',
-                             headers={'Content-Disposition': 'attachment; filename="cuentas_por_cobrar.pdf"'})
-        headers_map = {'client_name': 'Cliente', 'client_rif': 'RIF', 'invoiced_total': 'Facturado',
-                       'collected_total': 'Cobrado', 'balance_due': 'Saldo Pendiente'}
-        csv_bytes = rows_to_csv(rows_data, headers_map)
-        return Response(csv_bytes, mimetype='text/csv',
-                         headers={'Content-Disposition': 'attachment; filename="cuentas_por_cobrar.csv"'})
-
     transactions = FinancialService.get_recent_transactions(company_db_name, limit=100000)
     for tx in transactions:
         tx['created_at_str'] = tx.get('created_at').strftime('%Y-%m-%d %H:%M') if tx.get('created_at') else ''
@@ -93,63 +172,104 @@ def export_financial():
     return Response(csv_bytes, mimetype='text/csv',
                      headers={'Content-Disposition': 'attachment; filename="tesoreria.csv"'})
 
-@commercial_bp.route('/financial/currency/save', methods=['POST'])
-def save_base_currency():
+@commercial_bp.route('/receivables')
+def receivables():
     company_db_name = get_active_company_db()
     if not company_db_name:
         return redirect(url_for('auth_bp.index'))
 
-    success, message = FinancialService.update_base_currency(company_db_name, request.form.get('base_currency'))
-    flash(message, 'success' if success else 'danger')
-    return redirect(url_for('commercial.financial'))
+    filters = {
+        'search': request.args.get('search', ''),
+        'seller': request.args.get('seller', ''),
+        'bucket': request.args.get('bucket', ''),
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
+    items = ReceivablesService.get_invoice_receivables(company_db_name, filters=filters)
+    aging = ReceivablesService.get_aging_summary(company_db_name)
+    accounts = FinancialService.get_bank_accounts(company_db_name)
 
-@commercial_bp.route('/financial/rates/save', methods=['POST'])
-def save_exchange_rate():
-    company_db_name = get_active_company_db()
-    if not company_db_name:
-        return redirect(url_for('auth_bp.index'))
+    db = get_company_db(company_db_name)
+    sellers = []
+    if db is not None:
+        sellers = list(db['users'].find({}, {"name": 1, "email": 1}))
+        for s in sellers:
+            s['_id'] = str(s['_id'])
 
-    user_email = session.get('user_email', 'admin@gestion360.com')
-    success, message = FinancialService.set_exchange_rate(
-        company_db_name,
-        request.form.get('currency'),
-        request.form.get('rate'),
-        user_email
+    return render_template(
+        'commercial/receivables.html',
+        items=items,
+        aging=aging,
+        accounts=accounts,
+        sellers=sellers,
+        filters=filters,
     )
-    flash(message, 'success' if success else 'danger')
-    return redirect(url_for('commercial.financial'))
 
-@commercial_bp.route('/financial/rates/sync-bcv', methods=['POST'])
-def sync_bcv_rates():
+@commercial_bp.route('/receivables/payment/save', methods=['POST'])
+def save_receivable_payment():
     company_db_name = get_active_company_db()
     if not company_db_name:
         return redirect(url_for('auth_bp.index'))
 
     user_email = session.get('user_email', 'admin@gestion360.com')
-    success, message = ExchangeRateService.sync_bcv_rates(company_db_name, user_email)
+    success, message = ReceivablesService.register_payment(company_db_name, request.form, user_email)
     flash(message, 'success' if success else 'danger')
-    return redirect(url_for('commercial.financial'))
+    return redirect(url_for('commercial.receivables'))
 
-@commercial_bp.route('/financial/accounts/save', methods=['POST'])
-def save_bank_account():
+@commercial_bp.route('/receivables/invoice/<invoice_id>/payments.json')
+def receivable_invoice_payments_json(invoice_id):
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return jsonify({"error": "No autorizado"}), 401
+    payments = ReceivablesService.get_payments_for_invoice(company_db_name, invoice_id)
+    return jsonify({"payments": json_safe(payments)})
+
+@commercial_bp.route('/receivables/client/<client_id>/statement.json')
+def receivable_client_statement_json(client_id):
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return jsonify({"error": "No autorizado"}), 401
+    statement = ReceivablesService.get_client_statement(company_db_name, client_id)
+    return jsonify(json_safe(statement))
+
+@commercial_bp.route('/receivables/export')
+def export_receivables():
     company_db_name = get_active_company_db()
     if not company_db_name:
         return redirect(url_for('auth_bp.index'))
 
-    success, message = FinancialService.create_bank_account(company_db_name, request.form)
-    flash(message, 'success' if success else 'danger')
-    return redirect(url_for('commercial.financial'))
+    export_format = request.args.get('format', 'excel')
+    filters = {
+        'search': request.args.get('search', ''),
+        'seller': request.args.get('seller', ''),
+        'bucket': request.args.get('bucket', ''),
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
+    items = ReceivablesService.get_invoice_receivables(company_db_name, filters=filters)
+    for r in items:
+        r['created_at_str'] = r['created_at'].strftime('%Y-%m-%d') if r.get('created_at') else ''
+        r['seller_label'] = r.get('seller') or 'S/A'
 
-@commercial_bp.route('/financial/transaction/save', methods=['POST'])
-def save_treasury_transaction():
-    company_db_name = get_active_company_db()
-    if not company_db_name:
-        return redirect(url_for('auth_bp.index'))
+    if export_format == 'pdf':
+        headers = ['Factura', 'Cliente', 'RIF', 'Vendedor', 'Fecha', 'Días', 'Tramo', 'Facturado', 'Abonado', 'Saldo']
+        rows = [[
+            r.get('invoice_number', ''), r.get('client_name', ''), r.get('client_rif', ''), r.get('seller_label', ''),
+            r.get('created_at_str', ''), str(r.get('days_outstanding', 0)), r.get('aging_bucket', ''),
+            f"${r.get('total', 0):.2f}", f"${r.get('amount_paid', 0):.2f}", f"${r.get('balance_due', 0):.2f}",
+        ] for r in items]
+        pdf_bytes = generate_table_pdf("Cuentas por Cobrar — Detalle y Antigüedad de Saldos", session.get('company_name', 'Gestión 360'), headers, rows)
+        return Response(pdf_bytes, mimetype='application/pdf',
+                         headers={'Content-Disposition': 'attachment; filename="cuentas_por_cobrar_detalle.pdf"'})
 
-    user_email = session.get('user_email', 'admin@gestion360.com')
-    success, message = FinancialService.register_transaction(company_db_name, request.form, user_email)
-    flash(message, 'success' if success else 'danger')
-    return redirect(url_for('commercial.financial'))
+    headers_map = {
+        'invoice_number': 'Factura', 'client_name': 'Cliente', 'client_rif': 'RIF', 'seller_label': 'Vendedor',
+        'created_at_str': 'Fecha', 'days_outstanding': 'Días', 'aging_bucket': 'Tramo',
+        'total': 'Facturado', 'amount_paid': 'Abonado', 'balance_due': 'Saldo',
+    }
+    csv_bytes = rows_to_csv(items, headers_map)
+    return Response(csv_bytes, mimetype='text/csv',
+                     headers={'Content-Disposition': 'attachment; filename="cuentas_por_cobrar_detalle.csv"'})
 
 @commercial_bp.route('/products')
 def products():

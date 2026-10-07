@@ -302,6 +302,8 @@ class InvoicingService:
             "currency": final_currency,
             "exchange_rate_used": exchange_rate_used,
             "status": "emitida",
+            "amount_paid": 0.0 if payment_method == 'Crédito' else round(converted_total, 2),
+            "payment_status": 'pendiente' if payment_method == 'Crédito' else 'pagada',
             "user": user_email,
             "created_at": datetime.utcnow()
         }
