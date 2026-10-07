@@ -1,6 +1,7 @@
 from datetime import datetime
 from bson import ObjectId
 from database import get_company_db
+from utils import json_safe
 
 CLIENT_TYPES = {'fiscal', 'natural'}
 
@@ -29,14 +30,13 @@ class ClientService:
         cursor = clients_col.find(query).sort('name', 1).skip(skip).limit(per_page)
         clients = list(cursor)
         for c in clients:
-            c['_id'] = str(c['_id'])
             c.setdefault('client_type', 'fiscal')
             c.setdefault('credit_limit', 0.0)
             c.setdefault('phone', '')
             c.setdefault('address', '')
 
         total_count = clients_col.count_documents(query)
-        return clients, total_count
+        return json_safe(clients), total_count
 
     @staticmethod
     def get_active_clients_lite(company_db_name):
@@ -46,9 +46,7 @@ class ClientService:
             return []
         projection = {"name": 1, "rif_cedula": 1, "email": 1, "phone": 1, "client_type": 1, "credit_limit": 1}
         clients = list(db['clients'].find({"is_active": {"$ne": False}}, projection).sort('name', 1))
-        for c in clients:
-            c['_id'] = str(c['_id'])
-        return clients
+        return json_safe(clients)
 
     @staticmethod
     def get_client(company_db_name, client_id):
@@ -59,9 +57,7 @@ class ClientService:
             client = db['clients'].find_one({"_id": ObjectId(client_id)})
         except Exception:
             return None
-        if client:
-            client['_id'] = str(client['_id'])
-        return client
+        return json_safe(client) if client else None
 
     @staticmethod
     def create_or_update_client(company_db_name, form_data, creator_email):

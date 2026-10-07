@@ -124,8 +124,16 @@ def seller_dashboard():
 @api_bp.route('/seller/clients', methods=['GET'])
 @jwt_required
 def seller_list_clients():
+    """Búsqueda de clientes existentes para vincular en Pedidos/Presupuestos.
+    Sin 'search', retorna solo los primeros `limit` (no el directorio completo —
+    evita traer todos los clientes en cada apertura del formulario)."""
     company_db_name = request.jwt_user['company_db']
-    return jsonify({"clients": ClientService.get_active_clients_lite(company_db_name)}), 200
+    search = request.args.get('search', '').strip()
+    limit = request.args.get('limit', 20, type=int)
+    clients, total_count = ClientService.get_paginated_clients(
+        company_db_name, filters={'search': search}, page=1, per_page=limit
+    )
+    return jsonify({"clients": clients, "total_count": total_count}), 200
 
 
 @api_bp.route('/seller/clients', methods=['POST'])

@@ -4,6 +4,7 @@ from bson import ObjectId
 from database import get_company_db
 from services.commercial_service import CommercialService
 from services.invoicing_service import InvoicingService
+from utils import json_safe
 
 ORDER_STATUSES = ['pendiente', 'en_picking', 'listo_facturar', 'facturado', 'anulado']
 OPEN_STATUSES = ['pendiente', 'en_picking', 'listo_facturar']
@@ -38,10 +39,7 @@ class OrderService:
         total_count = orders_col.count_documents(query)
         skip = (page - 1) * per_page
         orders = list(orders_col.find(query).sort('created_at', -1).skip(skip).limit(per_page))
-        for o in orders:
-            o['_id'] = str(o['_id'])
-            if o.get('invoice_id'):
-                o['invoice_id'] = str(o['invoice_id'])
+        orders = json_safe(orders)
         return orders, total_count
 
     @staticmethod
@@ -62,11 +60,7 @@ class OrderService:
             order = db['orders'].find_one({"_id": ObjectId(order_id)})
         except Exception:
             return None
-        if order:
-            order['_id'] = str(order['_id'])
-            if order.get('invoice_id'):
-                order['invoice_id'] = str(order['invoice_id'])
-        return order
+        return json_safe(order) if order else None
 
     @staticmethod
     def create_order(company_db_name, form_data, user_email):

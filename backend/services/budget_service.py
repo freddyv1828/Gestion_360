@@ -3,6 +3,7 @@ from datetime import datetime
 from bson import ObjectId
 from database import get_company_db
 from services.order_service import OrderService
+from utils import json_safe
 
 BUDGET_STATUSES = ['borrador', 'convertido', 'descartado']
 
@@ -37,10 +38,7 @@ class BudgetService:
         total_count = db['budgets'].count_documents(query)
         skip = (page - 1) * per_page
         budgets = list(db['budgets'].find(query).sort('created_at', -1).skip(skip).limit(per_page))
-        for b in budgets:
-            b['_id'] = str(b['_id'])
-            if b.get('order_id'):
-                b['order_id'] = str(b['order_id'])
+        budgets = json_safe(budgets)
         return budgets, total_count
 
     @staticmethod
@@ -52,11 +50,7 @@ class BudgetService:
             budget = db['budgets'].find_one({"_id": ObjectId(budget_id)})
         except Exception:
             return None
-        if budget:
-            budget['_id'] = str(budget['_id'])
-            if budget.get('order_id'):
-                budget['order_id'] = str(budget['order_id'])
-        return budget
+        return json_safe(budget) if budget else None
 
     @staticmethod
     def create_budget(company_db_name, form_data, user_email):
