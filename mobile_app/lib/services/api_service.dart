@@ -107,6 +107,21 @@ class ApiService {
     return _authGet('/api/v1/seller/dashboard');
   }
 
+  /// Búsqueda de clientes existentes para vincular en Pedidos/Presupuestos.
+  /// Sin `search`, trae solo los primeros [limit] (no el directorio completo).
+  static Future<List<Map<String, dynamic>>> fetchSellerClients({
+    String search = '',
+    int limit = 20,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/v1/seller/clients').replace(queryParameters: {
+      if (search.isNotEmpty) 'search': search,
+      'limit': '$limit',
+    });
+    final response = await http.get(uri, headers: _authHeaders);
+    final data = _decode(response);
+    return List<Map<String, dynamic>>.from(data['clients'] ?? []);
+  }
+
   static Future<Map<String, dynamic>> fetchSellerProducts({
     int page = 1,
     int perPage = 50,

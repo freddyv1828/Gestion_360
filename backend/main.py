@@ -20,6 +20,9 @@ app.register_blueprint(commercial_bp, url_prefix='/commercial')
 from routes.logistics_routes import logistics_bp
 app.register_blueprint(logistics_bp)
 
+from routes.warehouse_routes import warehouse_bp
+app.register_blueprint(warehouse_bp)
+
 from routes.api_routes import api_bp
 app.register_blueprint(api_bp)
 

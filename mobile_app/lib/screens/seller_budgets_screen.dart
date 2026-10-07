@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/seller_budget.dart';
+import '../models/seller_client.dart';
 import '../models/seller_product.dart';
 import '../services/api_service.dart';
+import '../widgets/client_search_field.dart';
 import '../widgets/product_lines_editor.dart';
 
 const _kDark = Color(0xFF0F172A);
@@ -142,41 +144,19 @@ class _NewBudgetSheet extends StatefulWidget {
 }
 
 class _NewBudgetSheetState extends State<_NewBudgetSheet> {
-  bool _loadingData = true;
   bool _saving = false;
   String _error = '';
 
-  List<SellerProduct> _products = [];
+  SellerClient? _selectedClient;
   final _manualName = TextEditingController();
   final _manualRif = TextEditingController();
   final _comment = TextEditingController();
   List<Map<String, dynamic>> _items = [];
 
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    try {
-      final productsData = await ApiService.fetchSellerProducts(perPage: 200);
-      setState(() {
-        _products = List<Map<String, dynamic>>.from(productsData['products'] ?? [])
-            .map((p) => SellerProduct.fromJson(p))
-            .toList();
-      });
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _loadingData = false);
-    }
-  }
-
   Future<void> _submit() async {
-    final clientName = _manualName.text.trim();
+    final clientName = _selectedClient?.name ?? _manualName.text.trim();
     if (clientName.isEmpty) {
-      setState(() => _error = 'Ingrese el nombre del cliente.');
+      setState(() => _error = 'Seleccione un cliente o ingrese el nombre manualmente.');
       return;
     }
     if (_items.isEmpty) {
@@ -189,8 +169,9 @@ class _NewBudgetSheetState extends State<_NewBudgetSheet> {
     });
     try {
       await ApiService.createSellerBudget(
+        clientId: _selectedClient?.id ?? '',
         clientName: clientName,
-        clientRif: _manualRif.text.trim(),
+        clientRif: _selectedClient?.rifCedula ?? _manualRif.text.trim(),
         comment: _comment.text.trim(),
         items: _items,
       );
@@ -204,9 +185,6 @@ class _NewBudgetSheetState extends State<_NewBudgetSheet> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loadingData) {
-      return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
-    }
     return Padding(
       padding: EdgeInsets.only(
         left: 20, right: 20, top: 20,
@@ -223,13 +201,15 @@ class _NewBudgetSheetState extends State<_NewBudgetSheet> {
               style: TextStyle(fontSize: 11, color: Colors.grey),
             ),
             const SizedBox(height: 16),
-            TextField(controller: _manualName, decoration: const InputDecoration(labelText: 'Cliente / Razón Social *')),
-            const SizedBox(height: 10),
-            TextField(controller: _manualRif, decoration: const InputDecoration(labelText: 'RIF / Cédula')),
+            ClientSearchField(
+              manualNameController: _manualName,
+              manualRifController: _manualRif,
+              onClientSelected: (c) => setState(() => _selectedClient = c),
+            ),
             const SizedBox(height: 14),
             const Text('Artículos', style: TextStyle(fontWeight: FontWeight.bold, color: _kDark)),
             const SizedBox(height: 8),
-            ProductLinesEditor(products: _products, onChanged: (items) => _items = items),
+            ProductLinesEditor(onChanged: (items) => _items = items),
             const SizedBox(height: 10),
             TextField(controller: _comment, decoration: const InputDecoration(labelText: 'Comentario')),
             if (_error.isNotEmpty)

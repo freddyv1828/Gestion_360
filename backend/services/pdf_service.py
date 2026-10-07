@@ -19,6 +19,51 @@ def _base_styles():
     return styles
 
 
+def generate_table_pdf(title, company_name, headers, rows, subtitle=None, col_widths=None, landscape_mode=True):
+    """
+    Genera un PDF tabular genérico (listados de Productos/Almacén, Clientes,
+    Pedidos, Compras, etc.) a partir de encabezados y filas ya resueltas a texto.
+    `rows`: lista de listas de strings (mismo orden que `headers`). Retorna bytes.
+    """
+    from reportlab.lib.pagesizes import landscape as _landscape
+
+    buffer = BytesIO()
+    pagesize = _landscape(letter) if landscape_mode else letter
+    doc = SimpleDocTemplate(buffer, pagesize=pagesize, topMargin=1.2 * cm, bottomMargin=1.2 * cm,
+                             leftMargin=1.5 * cm, rightMargin=1.5 * cm)
+    styles = _base_styles()
+    elements = []
+
+    elements.append(Paragraph(f"<b>{company_name}</b>", styles['Normal']))
+    elements.append(Paragraph(f"<font size=14><b>{title}</b></font>", styles['Title2']))
+    if subtitle:
+        elements.append(Paragraph(subtitle, styles['Small']))
+    elements.append(Spacer(1, 0.4 * cm))
+
+    table_data = [headers] + rows
+    page_width = pagesize[0] - 3 * cm
+    if not col_widths:
+        col_widths = [page_width / len(headers)] * len(headers)
+    table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), BRAND_COLOR),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTSIZE', (0, 0), (-1, -1), 7.5),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.lightgrey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    elements.append(table)
+    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Paragraph(f"<font size=8 color=grey>Total de registros: {len(rows)}</font>", styles['Small']))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 def generate_invoice_pdf(invoice, company_name, company_rif):
     """Genera el PDF formal de una Factura Fiscal o Nota de Entrega. Retorna bytes."""
     buffer = BytesIO()

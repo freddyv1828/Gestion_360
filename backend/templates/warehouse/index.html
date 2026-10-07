@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}Almacén — Stock, Lotes & Vencimientos — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
+{% block header_title %}Almacén — Stock, Lotes & Vencimientos{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-7xl mx-auto">
+
+    <!-- ENCABEZADO SUPERIOR -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-widest bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800">
+                    Operaciones / Almacén
+                </span>
+            </div>
+            <h2 class="text-xl font-extrabold text-gray-900 dark:text-white">Control de Existencias, Lotes y Vencimientos</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Vista operativa de bodega — sin costos ni márgenes comerciales. Para precios y rentabilidad, ver Catálogo (acceso administrativo).</p>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+            <a href="{{ url_for('warehouse_bp.export_warehouse', format='pdf', **filters) }}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-file-pdf text-rose-500"></i> PDF
+            </a>
+            <a href="{{ url_for('warehouse_bp.export_warehouse', format='excel', **filters) }}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-file-excel text-emerald-600"></i> Excel
+            </a>
+        </div>
+    </div>
+
+    <!-- ALERTAS CLICABLES -->
+    {% set zero_stock_count = alert_counts.zero_stock_count if alert_counts else 0 %}
+    {% set low_stock_count = alert_counts.low_stock_count if alert_counts else 0 %}
+    {% if zero_stock_count > 0 or low_stock_count > 0 %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {% if zero_stock_count > 0 %}
+        <a href="{{ url_for('warehouse_bp.index', stock_filter='zero', warehouse_id=filters.warehouse_id) }}" class="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 p-4 rounded-2xl flex items-center gap-3 hover:border-rose-400 transition {% if filters.stock_filter == 'zero' %}ring-2 ring-rose-400{% endif %}">
+            <div class="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-triangle-exclamation text-base"></i>
+            </div>
+            <div>
+                <h4 class="text-xs font-bold text-rose-900 dark:text-rose-200">{{ zero_stock_count }} artículo(s) Sin Stock</h4>
+                <p class="text-[11px] text-rose-700 dark:text-rose-400">Click para ver la lista exacta.</p>
+            </div>
+        </a>
+        {% endif %}
+        {% if low_stock_count > 0 %}
+        <a href="{{ url_for('warehouse_bp.index', stock_filter='low', warehouse_id=filters.warehouse_id) }}" class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 p-4 rounded-2xl flex items-center gap-3 hover:border-amber-400 transition {% if filters.stock_filter == 'low' %}ring-2 ring-amber-400{% endif %}">
+            <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-gauge-high text-base"></i>
+            </div>
+            <div>
+                <h4 class="text-xs font-bold text-amber-900 dark:text-amber-200">{{ low_stock_count }} artículo(s) Bajo Mínimo</h4>
+                <p class="text-[11px] text-amber-700 dark:text-amber-400">Click para ver la lista exacta.</p>
+            </div>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- FILTROS -->
+    <form method="GET" action="{{ url_for('warehouse_bp.index') }}" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-2xl shadow-sm flex flex-col md:flex-row flex-wrap gap-3 items-center">
+        <div class="flex-1 w-full md:min-w-[180px]">
+            <input type="text" name="search" value="{{ filters.search }}" placeholder="Buscar por Nombre o SKU..." class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+        </div>
+        <div class="w-full md:w-48">
+            <select name="category" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                <option value="">Todas las Categorías</option>
+                {% for cat in categories %}<option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="w-full md:w-48">
+            <select name="brand" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                <option value="">Todas las Marcas</option>
+                {% for b in brands %}<option value="{{ b }}" {% if filters.brand == b %}selected{% endif %}>{{ b }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="w-full md:w-48">
+            <select name="stock_filter" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                <option value="" {% if not filters.stock_filter %}selected{% endif %}>Cualquier Stock</option>
+                <option value="zero" {% if filters.stock_filter == 'zero' %}selected{% endif %}>Solo Sin Stock (0)</option>
+                <option value="low" {% if filters.stock_filter == 'low' %}selected{% endif %}>Solo Bajo Mínimo</option>
+            </select>
+        </div>
+        <div class="w-full md:w-56">
+            <select name="warehouse_id" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                <option value="">Todos los Almacenes</option>
+                {% for wh in warehouses %}<option value="{{ wh._id }}" {% if filters.warehouse_id == wh._id|string %}selected{% endif %}>{{ wh.name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="flex items-center gap-2 w-full md:w-auto">
+            <button type="submit" class="flex-1 md:flex-none px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-semibold rounded-xl transition shadow-sm">
+                <i class="fa-solid fa-filter mr-1"></i> Filtrar
+            </button>
+            <a href="{{ url_for('warehouse_bp.index') }}" class="px-3 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-xl text-xs transition" title="Limpiar Filtros">
+                <i class="fa-solid fa-rotate-right"></i>
+            </a>
+        </div>
+    </form>
+
+    <!-- TABLA DE ALMACÉN -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-boxes-stacked text-cyan-600"></i> Existencias
+            </h3>
+            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Total Registros: {{ pagination.total_count }}</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-gray-600 dark:text-gray-300">
+                <thead class="bg-gray-50 dark:bg-gray-900/50 text-gray-500 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+                    <tr>
+                        <th class="py-3 px-4 font-semibold">Artículo / SKU</th>
+                        <th class="py-3 px-4 font-semibold">Categoría / Marca</th>
+                        <th class="py-3 px-4 font-semibold">Stock & Unidad</th>
+                        <th class="py-3 px-4 font-semibold">Lote / Vencimiento</th>
+                        <th class="py-3 px-4 font-semibold text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for product in products %}
+                    {% set stock_val = product.get('stock', 0) | float %}
+                    {% set min_stock_val = product.get('min_stock', 0) | float %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+                        <td class="py-3.5 px-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0 overflow-hidden border border-gray-200 dark:border-gray-600">
+                                    {% if product.get('image_url') %}
+                                        <img src="{{ product.get('image_url') }}" alt="" class="w-full h-full object-cover">
+                                    {% else %}
+                                        <i class="fa-solid fa-box text-gray-400 text-xs"></i>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <div class="font-bold text-gray-900 dark:text-white">{{ product.get('name') }}</div>
+                                    <div class="text-[11px] text-gray-400 font-mono">SKU: {{ product.get('sku') }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <div class="text-gray-800 dark:text-gray-200 font-medium">{{ product.get('category', 'General') }}</div>
+                            <div class="text-[11px] text-gray-400">{{ product.get('brand', 'N/D') }}</div>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold {% if stock_val == 0 %}text-rose-600 dark:text-rose-400{% elif min_stock_val > 0 and stock_val <= min_stock_val %}text-amber-600 dark:text-amber-400{% else %}text-gray-900 dark:text-white{% endif %}">
+                                    {{ product.get('stock', 0) }}
+                                </span>
+                                {% if stock_val == 0 %}
+                                    <span class="px-1.5 py-0.5 text-[9px] font-extrabold uppercase bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 rounded">Sin Stock</span>
+                                {% elif min_stock_val > 0 and stock_val <= min_stock_val %}
+                                    <span class="px-1.5 py-0.5 text-[9px] font-extrabold uppercase bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 rounded">Mínimo</span>
+                                {% endif %}
+                            </div>
+                            {% set reserved_val = product.get('reserved', 0) | float %}
+                            {% if reserved_val > 0 %}
+                            <div class="text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
+                                <i class="fa-solid fa-lock text-[9px]"></i> {{ reserved_val }} reservado · {{ product.get('available', stock_val) }} disponible
+                            </div>
+                            {% endif %}
+                            <span class="text-[10px] uppercase font-semibold text-cyan-600 bg-cyan-50 dark:bg-cyan-950/50 px-1.5 py-0.5 rounded">
+                                {{ product.get('unit_type', 'unidad') }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            {% set nb = product.get('nearest_batch') %}
+                            <div class="font-mono text-gray-800 dark:text-gray-200 text-[11px]">L: {{ nb.batch_code if nb else product.get('batch', 'N/A') }}</div>
+                            <div class="text-[11px] text-gray-400"><i class="fa-regular fa-calendar mr-1"></i>{{ (nb.exp_date if nb and nb.exp_date else product.get('expiration_date', 'N/A')) }}</div>
+                            {% if product.get('lot_count', 0) > 1 %}
+                            <div class="text-[10px] text-cyan-600 font-semibold">+{{ product.lot_count - 1 }} lote(s) más</div>
+                            {% endif %}
+                        </td>
+                        <td class="py-3.5 px-4 text-center">
+                            <button onclick="openMovementModal('{{ product.get('_id') }}', '{{ product.get('name') }}')" class="px-2 py-1 bg-cyan-50 dark:bg-cyan-950/50 hover:bg-cyan-100 text-cyan-600 dark:text-cyan-400 rounded-lg text-[11px] font-semibold transition" title="Movimiento / Traslado">
+                                Movimiento
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="py-8 text-center text-gray-400">No se encontraron artículos con estos filtros.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if pagination.total_pages > 1 %}
+        <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between flex-wrap gap-3">
+            <span class="text-[11px] text-gray-500 dark:text-gray-400">
+                Página {{ pagination.page }} de {{ pagination.total_pages }} &bull; {{ pagination.total_count }} artículo(s) en total
+            </span>
+            <div class="flex items-center gap-2">
+                <a href="{{ url_for('warehouse_bp.index', page=pagination.page-1, search=filters.search, category=filters.category, brand=filters.brand, warehouse_id=filters.warehouse_id, stock_filter=filters.stock_filter) }}"
+                   class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 text-xs font-semibold transition {% if pagination.page <= 1 %}pointer-events-none opacity-40{% endif %}">
+                    <i class="fa-solid fa-chevron-left mr-1"></i> Anterior
+                </a>
+                <span class="px-3 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/50 rounded-lg">{{ pagination.page }} / {{ pagination.total_pages }}</span>
+                <a href="{{ url_for('warehouse_bp.index', page=pagination.page+1, search=filters.search, category=filters.category, brand=filters.brand, warehouse_id=filters.warehouse_id, stock_filter=filters.stock_filter) }}"
+                   class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 text-xs font-semibold transition {% if pagination.page >= pagination.total_pages %}pointer-events-none opacity-40{% endif %}">
+                    Siguiente <i class="fa-solid fa-chevron-right ml-1"></i>
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- MODAL: MOVIMIENTOS Y TRASLADOS ENTRE ALMACENES -->
+<div id="movementModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-right-left text-cyan-600"></i> Movimiento / Traslado de Mercancía
+            </h3>
+            <button onclick="closeModal('movementModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form action="{{ url_for('warehouse_bp.register_movement') }}" method="POST" class="p-6 space-y-4">
+            <input type="hidden" name="product_id" id="movement_product_id">
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Artículo Seleccionado</label>
+                <input type="text" id="movement_product_name" disabled class="w-full px-3 py-2 bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-cyan-600 dark:text-cyan-400">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Tipo de Movimiento *</label>
+                <select name="movement_type" id="movement_type_select" required onchange="updateMovementFormVisibility()" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    <option value="ENTRADA">Entrada de Inventario (Compra)</option>
+                    <option value="SALIDA">Salida de Inventario (Venta)</option>
+                    <option value="TRASLADO">Traslado entre Almacenes</option>
+                    <option value="CARGO">Cargo (Ajuste a favor)</option>
+                    <option value="DESCARGO">Descargo (Merma / Daño / Ajuste en contra)</option>
+                </select>
+            </div>
+            <div id="source_warehouse_wrap" class="hidden">
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Almacén Origen *</label>
+                <select name="source_warehouse_id" id="source_warehouse_select" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    <option value="" disabled selected>-- Seleccionar Almacén --</option>
+                    {% for wh in warehouses %}<option value="{{ wh._id }}">{{ wh.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div id="target_warehouse_wrap" class="hidden">
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Almacén Destino *</label>
+                <select name="target_warehouse_id" id="target_warehouse_select" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    <option value="" disabled selected>-- Seleccionar Almacén --</option>
+                    {% for wh in warehouses %}<option value="{{ wh._id }}">{{ wh.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Cantidad *</label>
+                <input type="number" step="any" name="quantity" required placeholder="Ej. 10" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Lote (Código)</label>
+                    <input type="text" name="batch_code" placeholder="Auto si se deja vacío" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Vencimiento del Lote</label>
+                    <input type="date" name="expiration_date" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                </div>
+            </div>
+            <p class="text-[10px] text-gray-400 -mt-2">En Salida / Traslado / Descargo, si deja el lote vacío se consume automáticamente por FEFO.</p>
+            <div>
+                <label id="movement_notes_label" class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Motivo u Observación</label>
+                <input type="text" name="notes" id="movement_notes" placeholder="Ej. Reubicación a sede principal..." class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+            </div>
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" onclick="closeModal('movementModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-cyan-600 text-white text-xs font-semibold rounded-xl shadow">Ejecutar Movimiento</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
+    function closeModal(modalId) { document.getElementById(modalId).classList.add('hidden'); }
+
+    function openMovementModal(productId, productName) {
+        document.getElementById('movement_product_id').value = productId;
+        document.getElementById('movement_product_name').value = productName;
+        document.getElementById('movement_type_select').value = 'ENTRADA';
+        updateMovementFormVisibility();
+        openModal('movementModal');
+    }
+
+    function updateMovementFormVisibility() {
+        const type = document.getElementById('movement_type_select').value;
+        const sourceWrap = document.getElementById('source_warehouse_wrap');
+        const targetWrap = document.getElementById('target_warehouse_wrap');
+        const sourceSelect = document.getElementById('source_warehouse_select');
+        const targetSelect = document.getElementById('target_warehouse_select');
+        const notesInput = document.getElementById('movement_notes');
+        const notesLabel = document.getElementById('movement_notes_label');
+
+        const needsSource = ['SALIDA', 'TRASLADO', 'DESCARGO'].includes(type);
+        const needsTarget = ['ENTRADA', 'TRASLADO', 'CARGO'].includes(type);
+        const needsActa = ['CARGO', 'DESCARGO'].includes(type);
+
+        sourceWrap.classList.toggle('hidden', !needsSource);
+        sourceSelect.required = needsSource;
+        targetWrap.classList.toggle('hidden', !needsTarget);
+        targetSelect.required = needsTarget;
+
+        notesInput.required = needsActa;
+        notesLabel.textContent = needsActa ? 'Acta / Justificación de Ajuste *' : 'Motivo u Observación';
+        notesInput.placeholder = needsActa
+            ? 'Obligatorio: describa el motivo del ajuste (merma, daño, conteo físico...)'
+            : 'Ej. Reubicación a sede principal...';
+    }
+</script>
+{% endblock %}

@@ -7,8 +7,10 @@ from services.client_service import ClientService
 from services.exchange_rate_service import ExchangeRateService
 from services.order_service import OrderService
 from services.coupon_service import CouponService
-from services.pdf_service import generate_invoice_pdf, generate_dispatch_guide_pdf
+from services.pdf_service import generate_invoice_pdf, generate_dispatch_guide_pdf, generate_table_pdf
+from services.export_service import rows_to_csv
 from database import get_company_db
+from rbac import is_warehouse_only_role
 
 commercial_bp = Blueprint('commercial', __name__, template_folder='../../templates/commercial')
 
@@ -106,28 +108,36 @@ def products():
     company_db_name = get_active_company_db()
     if not company_db_name:
         return redirect(url_for('auth_bp.index'))
-    
+
+    if is_warehouse_only_role(session.get('user_role')):
+        flash("Tu rol (Almacenista) no tiene acceso al Catálogo administrativo (costos/márgenes). Usa el módulo de Almacén.", "warning")
+        return redirect(url_for('warehouse_bp.index'))
+
     page = request.args.get('page', 1, type=int)
     per_page = 15
-    
+
     filters = {
         'search': request.args.get('search', ''),
         'category': request.args.get('category', ''),
         'brand': request.args.get('brand', ''),
-        'warehouse_id': request.args.get('warehouse_id', '')
+        'warehouse_id': request.args.get('warehouse_id', ''),
+        'stock_filter': request.args.get('stock_filter', ''),
     }
-    
+
     products_list, total_count = CommercialService.get_paginated_products(
         company_db_name, filters=filters, page=page, per_page=per_page
     )
 
     warehouses = CommercialService.get_warehouses(company_db_name)
+    categories, brands = CommercialService.get_distinct_categories_and_brands(company_db_name)
     alert_counts = CommercialService.get_stock_alert_counts(company_db_name, filters.get('warehouse_id'))
 
     return render_template(
         'commercial/products.html',
         products=products_list,
         warehouses=warehouses,
+        categories=categories,
+        brands=brands,
         filters=filters,
         alert_counts=alert_counts,
         pagination={
@@ -362,6 +372,44 @@ def convert_order(order_id):
     if success and invoice_id:
         return redirect(url_for('commercial.invoice_detail', invoice_id=invoice_id))
     return redirect(url_for('commercial.order_detail', order_id=order_id))
+
+@commercial_bp.route('/products/export')
+def export_products():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    export_format = request.args.get('format', 'excel')
+    filters = {
+        'search': request.args.get('search', ''),
+        'category': request.args.get('category', ''),
+        'brand': request.args.get('brand', ''),
+        'warehouse_id': request.args.get('warehouse_id', ''),
+        'stock_filter': request.args.get('stock_filter', ''),
+    }
+    # A diferencia de la vista paginada, un export trae TODO lo que matchea el
+    # filtro (es una acción explícita del usuario, no una carga de página).
+    products_list, _ = CommercialService.get_paginated_products(company_db_name, filters=filters, page=1, per_page=100000)
+
+    if export_format == 'pdf':
+        headers = ['Nombre', 'SKU', 'Categoría', 'Marca', 'Costo', 'Precio', 'Margen %', 'Stock', 'Mínimo', 'Unidad']
+        rows = [[
+            p.get('name', ''), p.get('sku', ''), p.get('category', ''), p.get('brand', ''),
+            f"${p.get('cost', 0):.2f}", f"${p.get('price', 0):.2f}", f"{p.get('profit_margin', 0):.1f}%",
+            str(p.get('stock', 0)), str(p.get('min_stock', 0)), p.get('unit_type', ''),
+        ] for p in products_list]
+        pdf_bytes = generate_table_pdf("Catálogo de Productos", session.get('company_name', 'Gestión 360'), headers, rows)
+        return Response(pdf_bytes, mimetype='application/pdf',
+                         headers={'Content-Disposition': 'attachment; filename="catalogo_productos.pdf"'})
+
+    headers_map = {
+        'name': 'Nombre', 'sku': 'SKU', 'category': 'Categoría', 'brand': 'Marca',
+        'cost': 'Costo', 'price': 'Precio', 'profit_margin': 'Margen %',
+        'stock': 'Stock', 'min_stock': 'Mínimo', 'unit_type': 'Unidad',
+    }
+    csv_bytes = rows_to_csv(products_list, headers_map)
+    return Response(csv_bytes, mimetype='text/csv',
+                     headers={'Content-Disposition': 'attachment; filename="catalogo_productos.csv"'})
 
 @commercial_bp.route('/purchases')
 def purchases():

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../models/seller_client.dart';
 import '../models/seller_order.dart';
 import '../models/seller_product.dart';
 import '../services/api_service.dart';
+import '../widgets/client_search_field.dart';
 import '../widgets/product_lines_editor.dart';
 import '../widgets/status_badge.dart';
 import 'seller_order_detail_screen.dart';
@@ -158,9 +160,9 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
   String _error = '';
   bool _saving = false;
 
-  List<SellerProduct> _products = [];
   List<SellerWarehouse> _warehouses = [];
 
+  SellerClient? _selectedClient;
   final _manualName = TextEditingController();
   final _manualRif = TextEditingController();
   final _comment = TextEditingController();
@@ -177,12 +179,8 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
   Future<void> _loadData() async {
     try {
       final warehouses = await ApiService.fetchWarehouses();
-      final productsData = await ApiService.fetchSellerProducts(perPage: 200);
       setState(() {
         _warehouses = warehouses.map((w) => SellerWarehouse.fromJson(w)).toList();
-        _products = List<Map<String, dynamic>>.from(productsData['products'] ?? [])
-            .map((p) => SellerProduct.fromJson(p))
-            .toList();
       });
     } catch (e) {
       setState(() => _error = e.toString());
@@ -192,9 +190,9 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
   }
 
   Future<void> _submit() async {
-    final clientName = _manualName.text.trim();
+    final clientName = _selectedClient?.name ?? _manualName.text.trim();
     if (clientName.isEmpty) {
-      setState(() => _error = 'Ingrese el nombre del cliente.');
+      setState(() => _error = 'Seleccione un cliente o ingrese el nombre manualmente.');
       return;
     }
     if (_warehouseId == null) {
@@ -211,8 +209,9 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
     });
     try {
       await ApiService.createSellerOrder(
+        clientId: _selectedClient?.id ?? '',
         clientName: clientName,
-        clientRif: _manualRif.text.trim(),
+        clientRif: _selectedClient?.rifCedula ?? _manualRif.text.trim(),
         warehouseId: _warehouseId!,
         docType: _docType,
         comment: _comment.text.trim(),
@@ -243,9 +242,11 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
           children: [
             const Text('Nuevo Pedido', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDark)),
             const SizedBox(height: 16),
-            TextField(controller: _manualName, decoration: const InputDecoration(labelText: 'Cliente / Razón Social *')),
-            const SizedBox(height: 10),
-            TextField(controller: _manualRif, decoration: const InputDecoration(labelText: 'RIF / Cédula')),
+            ClientSearchField(
+              manualNameController: _manualName,
+              manualRifController: _manualRif,
+              onClientSelected: (c) => setState(() => _selectedClient = c),
+            ),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               initialValue: _warehouseId,
@@ -282,7 +283,6 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
             const Text('Artículos', style: TextStyle(fontWeight: FontWeight.bold, color: _kDark)),
             const SizedBox(height: 8),
             ProductLinesEditor(
-              products: _products,
               warehouseId: _warehouseId,
               onChanged: (items) => _items = items,
             ),

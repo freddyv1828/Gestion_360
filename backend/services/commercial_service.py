@@ -143,15 +143,21 @@ class CommercialService:
             return False, f"Error al crear el almacén: {str(e)}"
     
     @staticmethod
-    def get_paginated_products(company_db_name, filters=None, page=1, per_page=15):
+    def get_paginated_products(company_db_name, filters=None, page=1, per_page=15, include_pricing=True):
+        """
+        `include_pricing=False` oculta costo/precio/margen/IVA de los documentos
+        devueltos — usado por el módulo de Almacén para que un Almacenista pueda
+        ver stock/lotes/vencimientos sin exponer información comercial sensible.
+        """
         db = get_company_db(company_db_name)
         if db is None:
             return [], 0
-            
+
         products_col = db['products']
         query = {"is_active": {"$ne": False}}
-        
+
         target_warehouse_id = None
+        stock_filter = ''
         if filters:
             search = filters.get('search', '').strip()
             if search:
@@ -165,7 +171,7 @@ class CommercialService:
             brand = filters.get('brand', '').strip()
             if brand:
                 query["brand"] = {"$regex": f"^{brand}$", "$options": "i"}
-            
+
             target_warehouse_id = filters.get('warehouse_id', '').strip()
             if target_warehouse_id and target_warehouse_id != "all":
                 warehouse_filter = [
@@ -176,6 +182,19 @@ class CommercialService:
                     query = {"$and": [query, {"$or": warehouse_filter}]}
                 else:
                     query["$or"] = warehouse_filter
+
+            stock_filter = (filters.get('stock_filter') or '').strip().lower()
+            if stock_filter in ('zero', 'low'):
+                if target_warehouse_id and target_warehouse_id != "all":
+                    stock_expr = {"$ifNull": [f"$stock_by_warehouse.{target_warehouse_id}", 0]}
+                else:
+                    stock_expr = {"$ifNull": ["$stock", 0]}
+
+                if stock_filter == 'zero':
+                    query["$expr"] = {"$lte": [stock_expr, 0]}
+                else:  # 'low' — por debajo o igual al mínimo configurado (y mínimo > 0)
+                    query["min_stock"] = {"$gt": 0}
+                    query["$expr"] = {"$lte": [stock_expr, "$min_stock"]}
 
         try:
             skip = (page - 1) * per_page
@@ -221,11 +240,26 @@ class CommercialService:
                 prod['nearest_batch'] = upcoming[0] if upcoming else (pending_batches[0] if pending_batches else None)
                 prod['lot_count'] = len(pending_batches)
 
+                if not include_pricing:
+                    for sensitive_field in ('cost', 'price', 'profit_margin', 'iva_rate'):
+                        prod.pop(sensitive_field, None)
+
             total_count = products_col.count_documents(query)
             return products, total_count
         except Exception as e:
             print(f"Error en catálogo multi-almacén: {e}")
             return [], 0
+
+    @staticmethod
+    def get_distinct_categories_and_brands(company_db_name):
+        """Para poblar los <select> de filtro por Categoría/Marca con los valores
+        reales en uso, en vez de texto libre."""
+        db = get_company_db(company_db_name)
+        if db is None:
+            return [], []
+        categories = sorted([c for c in db['products'].distinct('category', {"is_active": {"$ne": False}}) if c])
+        brands = sorted([b for b in db['products'].distinct('brand', {"is_active": {"$ne": False}}) if b])
+        return categories, brands
 
     @staticmethod
     def get_zero_stock_products(company_db_name, warehouse_id=None):
