@@ -112,8 +112,8 @@ class ReceivablesService:
         return results
 
     @staticmethod
-    def get_aging_summary(company_db_name):
-        items = ReceivablesService.get_invoice_receivables(company_db_name)
+    def get_aging_summary(company_db_name, filters=None):
+        items = ReceivablesService.get_invoice_receivables(company_db_name, filters=filters)
         buckets = {label: {"label": label, "count": 0, "total": 0.0} for label, _, _ in AGING_BUCKETS}
         for r in items:
             buckets[r['aging_bucket']]['count'] += 1

@@ -10,6 +10,7 @@ from services.client_service import ClientService
 from services.order_service import OrderService, OPEN_STATUSES
 from services.budget_service import BudgetService
 from services.financial_service import FinancialService
+from services.receivables_service import ReceivablesService
 from utils import json_safe
 
 api_bp = Blueprint('api_bp', __name__, url_prefix='/api/v1')
@@ -300,3 +301,48 @@ def seller_convert_budget(budget_id):
 def seller_accounts_receivable():
     company_db_name = request.jwt_user['company_db']
     return jsonify({"receivables": FinancialService.get_accounts_receivable(company_db_name)}), 200
+
+
+@api_bp.route('/seller/receivables', methods=['GET'])
+@jwt_required
+def seller_receivables():
+    """Cuentas por Cobrar a nivel de factura, con antigüedad de saldo, para que
+    el vendedor pueda ver y cobrar su propia cartera desde la app. Por defecto
+    solo trae las facturas de las que él es el vendedor (?mine=false para ver
+    todas, si el rol lo permite)."""
+    company_db_name = request.jwt_user['company_db']
+    mine = request.args.get('mine', 'true').lower() != 'false'
+    filters = {
+        'search': request.args.get('search', ''),
+        'bucket': request.args.get('bucket', ''),
+    }
+    if mine:
+        filters['seller'] = request.jwt_user['email']
+
+    items = ReceivablesService.get_invoice_receivables(company_db_name, filters=filters)
+    aging_filters = {'seller': request.jwt_user['email']} if mine else None
+    aging = ReceivablesService.get_aging_summary(company_db_name, filters=aging_filters)
+
+    return jsonify({
+        "items": json_safe(items),
+        "aging": aging,
+    }), 200
+
+
+@api_bp.route('/seller/receivables/payment', methods=['POST'])
+@jwt_required
+def seller_register_receivable_payment():
+    company_db_name = request.jwt_user['company_db']
+    data = request.get_json(silent=True) or {}
+    success, message = ReceivablesService.register_payment(company_db_name, data, request.jwt_user['email'])
+    if not success:
+        return jsonify({"error": message}), 400
+    return jsonify({"message": message}), 201
+
+
+@api_bp.route('/seller/receivables/invoice/<invoice_id>/payments', methods=['GET'])
+@jwt_required
+def seller_receivable_invoice_payments(invoice_id):
+    company_db_name = request.jwt_user['company_db']
+    payments = ReceivablesService.get_payments_for_invoice(company_db_name, invoice_id)
+    return jsonify({"payments": json_safe(payments)}), 200

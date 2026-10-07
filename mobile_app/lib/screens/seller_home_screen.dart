@@ -8,10 +8,11 @@ import 'seller_catalog_screen.dart';
 import 'seller_clients_screen.dart';
 import 'seller_dashboard_tab.dart';
 import 'seller_orders_screen.dart';
+import 'seller_receivables_screen.dart';
 
 /// Shell principal de la App Móvil del Vendedor: Dashboard, Pedidos,
-/// Presupuestos, Clientes y Catálogo, con la misma paleta de marca que el
-/// panel web.
+/// Presupuestos, Clientes, Cobros y Catálogo, con la misma paleta de marca
+/// que el panel web.
 class SellerHomeScreen extends StatefulWidget {
   final UserProfile user;
   final AuthService authService;
@@ -25,13 +26,14 @@ class SellerHomeScreen extends StatefulWidget {
 class _SellerHomeScreenState extends State<SellerHomeScreen> {
   int _tabIndex = 0;
 
-  static const _titles = ['Dashboard', 'Pedidos', 'Presupuestos', 'Clientes', 'Catálogo'];
+  static const _titles = ['Dashboard', 'Pedidos', 'Presupuestos', 'Clientes', 'Cobros', 'Catálogo'];
 
   List<Widget> get _tabs => const [
         SellerDashboardTab(),
         SellerOrdersScreen(),
         SellerBudgetsScreen(),
         SellerClientsScreen(),
+        SellerReceivablesScreen(),
         SellerCatalogScreen(),
       ];
 
@@ -93,6 +95,7 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
           NavigationDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox), label: 'Pedidos'),
           NavigationDestination(icon: Icon(Icons.request_quote_outlined), selectedIcon: Icon(Icons.request_quote), label: 'Presupuestos'),
           NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: 'Clientes'),
+          NavigationDestination(icon: Icon(Icons.payments_outlined), selectedIcon: Icon(Icons.payments), label: 'Cobros'),
           NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'Catálogo'),
         ],
       ),

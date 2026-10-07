@@ -242,4 +242,41 @@ class ApiService {
     final data = await _authGet('/api/v1/seller/accounts-receivable');
     return List<Map<String, dynamic>>.from(data['receivables'] ?? []);
   }
+
+  /// Cuentas por Cobrar a nivel de factura con antigüedad de saldo. Por
+  /// defecto solo trae las facturas del vendedor autenticado.
+  static Future<Map<String, dynamic>> fetchSellerReceivables({
+    String search = '',
+    String bucket = '',
+    bool mine = true,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/v1/seller/receivables').replace(queryParameters: {
+      'mine': '$mine',
+      if (search.isNotEmpty) 'search': search,
+      if (bucket.isNotEmpty) 'bucket': bucket,
+    });
+    final response = await http.get(uri, headers: _authHeaders);
+    return _decode(response);
+  }
+
+  static Future<void> registerReceivablePayment({
+    required String invoiceId,
+    required double amount,
+    String paymentMethod = 'Efectivo',
+    String reference = '',
+    String notes = '',
+  }) async {
+    await _authPost('/api/v1/seller/receivables/payment', {
+      'invoice_id': invoiceId,
+      'amount': amount,
+      'payment_method': paymentMethod,
+      'reference': reference,
+      'notes': notes,
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> fetchReceivablePayments(String invoiceId) async {
+    final data = await _authGet('/api/v1/seller/receivables/invoice/$invoiceId/payments');
+    return List<Map<String, dynamic>>.from(data['payments'] ?? []);
+  }
 }
