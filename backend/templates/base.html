@@ -92,8 +92,11 @@
                 <span class="ml-3 sidebar-text opacity-0 transition-opacity duration-300 whitespace-nowrap">Dashboard Ejecutivo</span>
             </a>
 
+            {% if 'comercial' in allowed_modules or 'finanzas' in allowed_modules %}
             <div class="sidebar-text opacity-0 transition-opacity duration-300 pt-3 pb-1 px-3 text-[9px] font-black uppercase tracking-widest text-slate-400">Operación Comercial</div>
+            {% endif %}
 
+            {% if 'comercial' in allowed_modules %}
             <!-- GRUPO: Comercial (Catálogo, Compras, Facturación) -->
             <div>
                 <button type="button" onclick="toggleGroup('comercial')"
@@ -130,7 +133,9 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
 
+            {% if 'finanzas' in allowed_modules %}
             <!-- GRUPO: Finanzas -->
             <div>
                 <button type="button" onclick="toggleGroup('finanzas')"
@@ -157,9 +162,13 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
 
+            {% if 'operaciones' in allowed_modules or 'almacen' in allowed_modules %}
             <div class="sidebar-text opacity-0 transition-opacity duration-300 pt-3 pb-1 px-3 text-[9px] font-black uppercase tracking-widest text-slate-400">Operaciones & Talento</div>
+            {% endif %}
 
+            {% if 'operaciones' in allowed_modules or 'almacen' in allowed_modules %}
             <!-- GRUPO: Operaciones -->
             <div>
                 <button type="button" onclick="toggleGroup('operaciones')"
@@ -169,6 +178,7 @@
                     <i id="chevron-operaciones" class="fa-solid fa-chevron-down text-[10px] sidebar-text opacity-0 transition-transform duration-200 {% if operaciones_active %}rotate-180{% endif %}"></i>
                 </button>
                 <div id="group-operaciones" class="pl-4 mt-1 space-y-1 {% if not operaciones_active %}hidden{% endif %}">
+                    {% if 'operaciones' in allowed_modules %}
                     <a href="{{ url_for('personal_bp.personal_view') }}"
                        class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/personal' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">
                         <i class="fa-solid fa-users-gear w-5 text-center text-xs shrink-0"></i>
@@ -179,14 +189,19 @@
                         <i class="fa-solid fa-truck-ramp-box w-5 text-center text-xs shrink-0"></i>
                         <span class="ml-2.5 sidebar-text opacity-0 transition-opacity duration-300 whitespace-nowrap">Logística & Rutas</span>
                     </a>
+                    {% endif %}
+                    {% if 'almacen' in allowed_modules %}
                     <a href="{{ url_for('warehouse_bp.index') }}"
                        class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/almacen' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">
                         <i class="fa-solid fa-warehouse w-5 text-center text-xs shrink-0"></i>
                         <span class="ml-2.5 sidebar-text opacity-0 transition-opacity duration-300 whitespace-nowrap">Almacén</span>
                     </a>
+                    {% endif %}
                 </div>
             </div>
+            {% endif %}
 
+            {% if 'comercial' in allowed_modules %}
             <div class="sidebar-text opacity-0 transition-opacity duration-300 pt-3 pb-1 px-3 text-[9px] font-black uppercase tracking-widest text-slate-400">Integraciones</div>
 
             <!-- GRUPO: Integraciones (Dropi, App Móvil, BI) -->
@@ -212,6 +227,7 @@
                     </span>
                 </div>
             </div>
+            {% endif %}
 
         </nav>
 
