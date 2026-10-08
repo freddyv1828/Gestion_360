@@ -305,14 +305,16 @@ class FinancialService:
         }
 
     @staticmethod
-    def get_accounts_receivable(company_db_name, client_id=None):
+    def get_accounts_receivable(company_db_name, client_id=None, client_ids=None):
         """
         Cuentas por Cobrar (CxC) agregadas por cliente, a partir del saldo real de
         cada factura a Crédito (campo `amount_paid`, actualizado por
         ReceivablesService.register_payment en cada abono). Retorna una lista de
         {client_id, client_name, client_rif, invoiced_total, collected_total,
         balance_due} ordenada por balance_due descendente. Usada por el Centro de
-        Mando, el módulo de Cuentas por Cobrar y el dashboard de la app móvil.
+        Mando (sin filtro, cartera completa), el módulo de Cuentas por Cobrar y
+        el dashboard de la app móvil (con `client_ids` para acotar a la cartera
+        real del vendedor por su ruta de ventas — nunca cartera ajena).
         """
         db = get_company_db(company_db_name)
         if db is None:
@@ -324,6 +326,10 @@ class FinancialService:
                 invoice_query["client_id"] = ObjectId(client_id)
             except Exception:
                 return []
+        elif client_ids is not None:
+            if not client_ids:
+                return []
+            invoice_query["client_id"] = {"$in": client_ids}
 
         invoices = list(db['invoices'].find(invoice_query))
         if not invoices:

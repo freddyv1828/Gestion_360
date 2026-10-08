@@ -96,6 +96,40 @@ class ClientService:
         return json_safe(clients)
 
     @staticmethod
+    def get_route_number_for_user(company_db_name, email):
+        """Dado el email de un vendedor, devuelve su route_number (o None si
+        no tiene ruta asignada). Fuente única de verdad de 'de quién es este
+        vendedor' — usada para que Clientes, CxC y el Dashboard del vendedor
+        definan 'mi cartera' de la misma forma."""
+        db = get_company_db(company_db_name)
+        if db is None:
+            return None
+        user = db['users'].find_one({"email": email}, {"route_number": 1})
+        return user.get('route_number') if user else None
+
+    @staticmethod
+    def get_seller_email_for_route(company_db_name, route_number):
+        """Inverso de get_route_number_for_user: dado un route_number, el
+        email del vendedor dueño de esa ruta (o None)."""
+        db = get_company_db(company_db_name)
+        if db is None or route_number is None:
+            return None
+        user = db['users'].find_one({"route_number": route_number}, {"email": 1})
+        return user.get('email') if user else None
+
+    @staticmethod
+    def get_client_ids_for_route(company_db_name, route_number):
+        """IDs (ObjectId) de todos los clientes activos de una ruta — para
+        filtrar facturas/CxC por 'client_id' sin tener que depender de un
+        campo de texto libre como 'seller' en la factura."""
+        db = get_company_db(company_db_name)
+        if db is None or route_number is None:
+            return []
+        return [c['_id'] for c in db['clients'].find(
+            {"is_active": {"$ne": False}, "route_number": route_number}, {"_id": 1}
+        )]
+
+    @staticmethod
     def count_active_clients(company_db_name):
         db = get_company_db(company_db_name)
         if db is None:

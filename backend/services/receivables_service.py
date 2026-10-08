@@ -4,6 +4,7 @@ from datetime import datetime
 from bson import ObjectId
 from database import get_company_db
 from services.financial_service import FinancialService
+from services.client_service import ClientService
 from utils import get_r2_client, R2_BUCKET_NAME
 
 # Métodos de pago que no requieren cruce contra el estado de cuenta bancario
@@ -46,6 +47,7 @@ class ReceivablesService:
             return []
 
         query = {"status": "emitida", "payment_method": "Crédito"}
+        and_conditions = []
         if filters:
             client_id = (filters.get('client_id') or '').strip()
             if client_id:
@@ -54,17 +56,31 @@ class ReceivablesService:
                 except Exception:
                     return []
 
+            # "De qué vendedor es esta factura" se decide por DOS vías, porque
+            # el campo de texto libre `invoice.seller` depende de que alguien
+            # en el backoffice lo haya escrito bien al facturar (a veces queda
+            # vacío o con el email del admin que facturó). La fuente
+            # estructural y confiable es: el cliente de la factura está en la
+            # ruta de ventas de ese vendedor (mismo mecanismo que "Mis
+            # Clientes" en la app móvil). Se usan ambas con OR para no perder
+            # facturas correctamente atribuidas por texto pero cuyo cliente no
+            # tenga ruta asignada.
             seller = (filters.get('seller') or '').strip()
             if seller:
-                query['seller'] = seller
+                route_number = ClientService.get_route_number_for_user(company_db_name, seller)
+                client_ids_for_route = ClientService.get_client_ids_for_route(company_db_name, route_number) if route_number is not None else []
+                seller_or = [{"seller": seller}]
+                if client_ids_for_route:
+                    seller_or.append({"client_id": {"$in": client_ids_for_route}})
+                and_conditions.append(seller_or[0] if len(seller_or) == 1 else {"$or": seller_or})
 
             search = (filters.get('search') or '').strip()
             if search:
-                query['$or'] = [
+                and_conditions.append({"$or": [
                     {"invoice_number": {"$regex": search, "$options": "i"}},
                     {"client_name": {"$regex": search, "$options": "i"}},
                     {"client_rif": {"$regex": search, "$options": "i"}},
-                ]
+                ]})
 
             date_from = (filters.get('date_from') or '').strip()
             date_to = (filters.get('date_to') or '').strip()
@@ -82,6 +98,9 @@ class ReceivablesService:
                         pass
                 if date_query:
                     query["created_at"] = date_query
+
+        if and_conditions:
+            query['$and'] = and_conditions
 
         invoices = list(db['invoices'].find(query))
         now = datetime.utcnow()
@@ -232,7 +251,12 @@ class ReceivablesService:
 
         seller = (filters.get('seller') or '').strip()
         if seller:
-            query['seller'] = seller
+            route_number = ClientService.get_route_number_for_user(company_db_name, seller)
+            client_ids_for_route = ClientService.get_client_ids_for_route(company_db_name, route_number) if route_number is not None else []
+            seller_or = [{"seller": seller}]
+            if client_ids_for_route:
+                seller_or.append({"client_id": {"$in": client_ids_for_route}})
+            query.update(seller_or[0] if len(seller_or) == 1 else {"$or": seller_or})
 
         payments = list(db['ar_payments'].find(query).sort('created_at', -1))
 
@@ -286,6 +310,24 @@ class ReceivablesService:
             "unverified_count": len(unverified),
             "totals_by_currency": totals_by_currency,
         }
+
+    @staticmethod
+    def _resolve_seller(company_db_name, invoice):
+        """Vendedor a asociar a un abono/pago para fines de reporte y para la
+        Bandeja de Pagos. Se prioriza el dueño REAL de la ruta de ventas del
+        cliente (fuente estructural y confiable) sobre el campo de texto
+        libre `invoice.seller` (puede quedar vacío o con el email de quien
+        facturó, no necesariamente el vendedor real — ver get_invoice_receivables)."""
+        client_id = invoice.get('client_id')
+        if client_id:
+            db = get_company_db(company_db_name)
+            client = db['clients'].find_one({"_id": client_id}, {"route_number": 1}) if db is not None else None
+            route_number = client.get('route_number') if client else None
+            if route_number is not None:
+                route_seller = ClientService.get_seller_email_for_route(company_db_name, route_number)
+                if route_seller:
+                    return route_seller
+        return invoice.get('seller')
 
     @staticmethod
     def _upload_receipt(file, invoice_number):
@@ -441,13 +483,15 @@ class ReceivablesService:
         if receipt_file is not None and getattr(receipt_file, 'filename', ''):
             receipt_image_key = ReceivablesService._upload_receipt(receipt_file, invoice.get('invoice_number'))
 
+        payment_seller = ReceivablesService._resolve_seller(company_db_name, invoice)
+
         payment_doc = {
             "invoice_id": invoice['_id'],
             "invoice_number": invoice.get('invoice_number'),
             "client_id": invoice.get('client_id'),
             "client_name": invoice.get('client_name'),
             "client_rif": invoice.get('client_rif'),
-            "seller": invoice.get('seller'),
+            "seller": payment_seller,
             "amount": amount,
             "currency": payment_currency,
             "amount_usd": amount_usd,
@@ -583,7 +627,7 @@ class ReceivablesService:
             "client_id": invoice.get('client_id'),
             "client_name": invoice.get('client_name'),
             "client_rif": invoice.get('client_rif'),
-            "seller": invoice.get('seller'),
+            "seller": ReceivablesService._resolve_seller(company_db_name, invoice),
             "amount": apply_amount,
             "currency": invoice_currency,
             "amount_usd": apply_amount_usd,

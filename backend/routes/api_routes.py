@@ -110,7 +110,12 @@ def seller_dashboard():
         company_db_name, created_by=user_email, statuses=OPEN_STATUSES
     )
 
-    receivables = FinancialService.get_accounts_receivable(company_db_name)
+    # La cartera por cobrar del dashboard debe ser la del vendedor (su ruta de
+    # ventas), nunca la de toda la empresa — si no tiene ruta asignada no se
+    # le muestra cartera ajena.
+    route_number = ClientService.get_route_number_for_user(company_db_name, user_email)
+    client_ids = ClientService.get_client_ids_for_route(company_db_name, route_number) if route_number is not None else []
+    receivables = FinancialService.get_accounts_receivable(company_db_name, client_ids=client_ids)
     total_receivable = round(sum(r['balance_due'] for r in receivables), 2)
 
     recent_orders, _ = OrderService.get_paginated_orders(company_db_name, status='all', page=1, per_page=5)
@@ -139,9 +144,7 @@ def seller_list_clients():
 
     filters = {'search': search}
     if mine:
-        db = get_company_db(company_db_name)
-        seller = db['users'].find_one({"email": request.jwt_user['email']}, {"route_number": 1}) if db is not None else None
-        route_number = seller.get('route_number') if seller else None
+        route_number = ClientService.get_route_number_for_user(company_db_name, request.jwt_user['email'])
         if route_number is not None:
             filters['route_number'] = str(route_number)
 
