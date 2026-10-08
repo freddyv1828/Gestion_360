@@ -8,6 +8,8 @@ from services.exchange_rate_service import ExchangeRateService
 from services.order_service import OrderService
 from services.coupon_service import CouponService
 from services.receivables_service import ReceivablesService
+from services.reconciliation_service import ReconciliationService
+from services.accounting_categories import INCOME_CATEGORIES, EXPENSE_CATEGORIES
 from services.pdf_service import generate_invoice_pdf, generate_dispatch_guide_pdf, generate_table_pdf
 from services.export_service import rows_to_csv
 from database import get_company_db
@@ -193,7 +195,41 @@ def treasury():
         accounts=accounts,
         transactions=transactions,
         summary=summary,
+        income_categories=INCOME_CATEGORIES,
+        expense_categories=EXPENSE_CATEGORIES,
     )
+
+@commercial_bp.route('/treasury/reconciliation/<account_id>')
+def treasury_reconciliation(account_id):
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    view = ReconciliationService.get_reconciliation_view(company_db_name, account_id)
+    if view is None:
+        flash("Cuenta bancaria no encontrada.", "danger")
+        return redirect(url_for('commercial.treasury'))
+
+    return render_template('commercial/treasury_reconciliation.html', **view)
+
+@commercial_bp.route('/treasury/reconciliation/<account_id>/import', methods=['POST'])
+def import_bank_statement(account_id):
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    user_email = session.get('user_email', 'admin@gestion360.com')
+    uploaded_file = request.files.get('statement_file')
+    if not uploaded_file or not uploaded_file.filename:
+        flash("Selecciona un archivo .xlsx del estado de cuenta.", "danger")
+        return redirect(url_for('commercial.treasury_reconciliation', account_id=account_id))
+
+    file_bytes = uploaded_file.read()
+    success, message, _ = ReconciliationService.import_bank_statement(
+        company_db_name, account_id, file_bytes, uploaded_file.filename, user_email
+    )
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('commercial.treasury_reconciliation', account_id=account_id))
 
 @commercial_bp.route('/treasury/export')
 def export_treasury():
@@ -205,22 +241,23 @@ def export_treasury():
     transactions = FinancialService.get_recent_transactions(company_db_name, limit=100000)
     for tx in transactions:
         tx['created_at_str'] = tx.get('created_at').strftime('%Y-%m-%d %H:%M') if tx.get('created_at') else ''
+        tx['reconciled_label'] = 'Conciliado' if tx.get('reconciled') else 'Pendiente'
 
     if export_format == 'pdf':
-        headers = ['Fecha', 'Tipo', 'Cuenta', 'Monto', 'Moneda', 'Equiv. Base', 'Dif. Cambiaria', 'Contraparte', 'Referencia']
+        headers = ['Fecha', 'Tipo', 'Cuenta', 'Cuenta Contable', 'Monto', 'Moneda', 'Equiv. Base', 'Dif. Cambiaria', 'Beneficiario', 'N° Operación', 'Conciliado']
         rows = [[
-            tx.get('created_at_str', ''), tx.get('type', ''), tx.get('account_name', ''), f"{tx.get('amount', 0):.2f}",
-            tx.get('currency', ''), f"{tx.get('amount_base_equivalent', 0) or 0:.2f}",
-            f"{tx.get('exchange_difference', 0) or 0:.2f}", tx.get('counterparty', ''), tx.get('reference', ''),
+            tx.get('created_at_str', ''), tx.get('type', ''), tx.get('account_name', ''), tx.get('account_category', ''),
+            f"{tx.get('amount', 0):.2f}", tx.get('currency', ''), f"{tx.get('amount_base_equivalent', 0) or 0:.2f}",
+            f"{tx.get('exchange_difference', 0) or 0:.2f}", tx.get('counterparty', ''), tx.get('reference', ''), tx.get('reconciled_label', ''),
         ] for tx in transactions]
         pdf_bytes = generate_table_pdf("Movimientos de Tesorería", session.get('company_name', 'Gestión 360'), headers, rows)
         return Response(pdf_bytes, mimetype='application/pdf',
                          headers={'Content-Disposition': 'attachment; filename="tesoreria.pdf"'})
 
     headers_map = {
-        'created_at_str': 'Fecha', 'type': 'Tipo', 'account_name': 'Cuenta', 'amount': 'Monto', 'currency': 'Moneda',
-        'amount_base_equivalent': 'Equiv. Base', 'exchange_difference': 'Dif. Cambiaria',
-        'counterparty': 'Contraparte', 'reference': 'Referencia', 'notes': 'Notas',
+        'created_at_str': 'Fecha', 'type': 'Tipo', 'account_name': 'Cuenta', 'account_category': 'Cuenta Contable',
+        'amount': 'Monto', 'currency': 'Moneda', 'amount_base_equivalent': 'Equiv. Base', 'exchange_difference': 'Dif. Cambiaria',
+        'counterparty': 'Beneficiario', 'reference': 'N° Operación', 'notes': 'Notas', 'reconciled_label': 'Conciliado',
     }
     csv_bytes = rows_to_csv(transactions, headers_map)
     return Response(csv_bytes, mimetype='text/csv',

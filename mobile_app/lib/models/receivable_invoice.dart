@@ -93,6 +93,7 @@ class ReceivablePayment {
   final String? user;
   final DateTime? createdAt;
   final double? balanceAfter;
+  final bool? referenceVerified;
 
   ReceivablePayment({
     required this.id,
@@ -106,6 +107,7 @@ class ReceivablePayment {
     this.user,
     this.createdAt,
     this.balanceAfter,
+    this.referenceVerified,
   });
 
   factory ReceivablePayment.fromJson(Map<String, dynamic> json) {
@@ -121,6 +123,7 @@ class ReceivablePayment {
       user: json['user']?.toString(),
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
       balanceAfter: (json['balance_after'] as num?)?.toDouble(),
+      referenceVerified: json['reference_verified'] is bool ? json['reference_verified'] as bool : null,
     );
   }
 }

@@ -27,6 +27,7 @@ Jinja2==3.1.6
 jmespath==1.1.0
 MarkupSafe==3.0.3
 multidict==6.9.1
+openpyxl==3.1.5
 packaging==26.3
 propcache==0.5.4
 pycparser==3.0

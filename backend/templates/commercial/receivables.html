@@ -273,12 +273,19 @@
                     body.innerHTML = '<div class="text-center text-gray-400 py-6">Esta factura no tiene abonos registrados todavía.</div>';
                     return;
                 }
-                body.innerHTML = payments.map(p => `
+                body.innerHTML = payments.map(p => {
+                    let verifyBadge = '';
+                    if (p.reference_verified === true) {
+                        verifyBadge = '<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 ml-1.5"><i class="fa-solid fa-check"></i> Verificado en banco</span>';
+                    } else if (p.reference_verified === false) {
+                        verifyBadge = '<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 ml-1.5"><i class="fa-solid fa-triangle-exclamation"></i> Sin verificar en banco</span>';
+                    }
+                    return `
                     <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
                         <div class="flex justify-between items-start">
                             <div>
                                 <div class="font-bold text-gray-900 dark:text-white">$${Number(p.amount).toFixed(2)} ${p.currency || ''}</div>
-                                <div class="text-[11px] text-gray-400">${p.payment_method || ''}${p.reference ? ' · Ref: ' + p.reference : ''}</div>
+                                <div class="text-[11px] text-gray-400">${p.payment_method || ''}${p.reference ? ' · Ref: ' + p.reference : ''}${verifyBadge}</div>
                             </div>
                             <div class="text-right text-[11px] text-gray-400">
                                 ${p.created_at ? new Date(p.created_at).toLocaleString() : ''}<br>
@@ -287,8 +294,8 @@
                         </div>
                         ${p.notes ? `<div class="mt-1.5 text-[11px] text-gray-500 italic">"${p.notes}"</div>` : ''}
                         <div class="mt-1.5 text-[11px] text-gray-400">Saldo después del abono: <span class="font-semibold text-gray-600 dark:text-gray-300">$${Number(p.balance_after ?? 0).toFixed(2)}</span></div>
-                    </div>
-                `).join('');
+                    </div>`;
+                }).join('');
             })
             .catch(() => {
                 body.innerHTML = '<div class="text-center text-rose-500 py-6">No se pudo cargar el historial.</div>';

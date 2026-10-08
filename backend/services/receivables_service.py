@@ -228,6 +228,17 @@ class ReceivablesService:
         reference = (form_data.get('reference') or '').strip()
         notes = (form_data.get('notes') or '').strip()
 
+        # Cotejo contra el estado de cuenta bancario REAL ya importado (ver
+        # ReconciliationService): si la referencia que da el cliente coincide
+        # con un ingreso (NC) realmente recibido por el banco, el abono queda
+        # marcado como verificado — si no, no se bloquea el registro (puede
+        # que el banco aún no procese el movimiento), pero queda visible para
+        # que cobranza lo revise antes de confiar en el pago.
+        reference_verified = None
+        if reference:
+            bank_match = db['bank_statement_movements'].find_one({"reference": reference, "bank_type": "NC"})
+            reference_verified = bank_match is not None
+
         payment_doc = {
             "invoice_id": invoice['_id'],
             "invoice_number": invoice.get('invoice_number'),
@@ -240,6 +251,7 @@ class ReceivablesService:
             "payment_method": payment_method,
             "account_id": ObjectId(account_id) if account_id else None,
             "reference": reference,
+            "reference_verified": reference_verified,
             "notes": notes,
             "balance_after": new_balance,
             "user": user_email,
@@ -260,14 +272,26 @@ class ReceivablesService:
             return False, f"Error al registrar el abono: {str(e)}"
 
         if account_id:
+            # La referencia del movimiento de Tesorería debe ser la referencia
+            # BANCARIA real que dio el cliente (lo que efectivamente aparece en
+            # el estado de cuenta), no el N° de factura — si no, la
+            # conciliación bancaria nunca podría cruzar este cobro contra el
+            # banco real.
             FinancialService.register_transaction(company_db_name, {
                 "account_id": account_id,
                 "type": "COBRO",
+                "account_category": "INGRESO POR VENTAS",
                 "amount": str(amount),
                 "counterparty": invoice.get('client_name'),
-                "reference": invoice.get('invoice_number'),
+                "reference": reference or invoice.get('invoice_number'),
                 "notes": f"Abono a factura {invoice.get('invoice_number')}" + (f" — {notes}" if notes else ""),
             }, user_email)
 
+        verify_note = ""
+        if reference_verified is True:
+            verify_note = " Referencia verificada contra el banco ✓."
+        elif reference_verified is False:
+            verify_note = " Nota: esa referencia todavía no aparece en el último estado de cuenta importado."
+
         label = "Pago total" if payment_status == 'pagada' else "Abono parcial"
-        return True, f"{label} de ${amount:.2f} registrado para la factura {invoice.get('invoice_number')}. Saldo restante: ${new_balance:.2f}."
+        return True, f"{label} de ${amount:.2f} registrado para la factura {invoice.get('invoice_number')}. Saldo restante: ${new_balance:.2f}.{verify_note}"

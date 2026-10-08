@@ -456,6 +456,16 @@ class _HistorySheetState extends State<_HistorySheet> {
                                     ),
                                     Text('${p.paymentMethod}${p.reference?.isNotEmpty == true ? ' · Ref: ${p.reference}' : ''}',
                                         style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                                    if (p.referenceVerified == true)
+                                      const Padding(
+                                        padding: EdgeInsets.only(top: 2),
+                                        child: Text('✓ Verificado en banco', style: TextStyle(fontSize: 10, color: AppColors.greenDark, fontWeight: FontWeight.w700)),
+                                      )
+                                    else if (p.referenceVerified == false)
+                                      const Padding(
+                                        padding: EdgeInsets.only(top: 2),
+                                        child: Text('⚠ Sin verificar en banco', style: TextStyle(fontSize: 10, color: AppColors.amber, fontWeight: FontWeight.w700)),
+                                      ),
                                     if (p.user != null) Text(p.user!, style: const TextStyle(fontSize: 10, color: AppColors.mutedLight)),
                                     if (p.notes?.isNotEmpty == true)
                                       Padding(

@@ -1,6 +1,7 @@
 from datetime import datetime
 from bson import ObjectId
 from database import get_company_db
+from services.accounting_categories import normalize_category
 
 SUPPORTED_CURRENCIES = ['USD', 'VES', 'EUR', 'COP']
 RATE_CURRENCIES = ['VES', 'EUR', 'COP']
@@ -183,6 +184,9 @@ class FinancialService:
         if tx_type == 'PAGO' and new_balance < 0:
             return False, f"Saldo insuficiente en la cuenta (Disponible: {current_balance})."
 
+        account_category = normalize_category(form_data.get('account_category', ''), tx_type)
+        reference = form_data.get('reference', '').strip()
+
         try:
             db['banking_accounts'].update_one(
                 {"_id": account['_id']},
@@ -191,6 +195,7 @@ class FinancialService:
             db['treasury_transactions'].insert_one({
                 "account_id": account['_id'],
                 "account_name": account.get('name'),
+                "account_category": account_category,
                 "type": tx_type,
                 "amount": amount,
                 "currency": account_currency,
@@ -200,9 +205,11 @@ class FinancialService:
                 "due_amount_base": due_amount_base,
                 "exchange_difference": exchange_difference,
                 "counterparty": form_data.get('counterparty', '').strip(),
-                "reference": form_data.get('reference', '').strip(),
+                "reference": reference,
                 "notes": form_data.get('notes', '').strip(),
                 "user": user_email,
+                "reconciled": False,
+                "reconciled_bank_movement_id": None,
                 "created_at": datetime.utcnow()
             })
             return True, f"{tx_type} registrado con éxito. Nuevo saldo de la cuenta: {new_balance:.2f} {account_currency}"

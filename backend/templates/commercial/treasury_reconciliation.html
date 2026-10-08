@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Conciliación — {{ account.name }} — {{ session.get('company_name', 'Gestión 360') }}{% endblock %}
+{% block header_title %}Conciliación Bancaria — {{ account.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-7xl mx-auto">
+
+    <div class="flex items-center justify-between">
+        <a href="{{ url_for('commercial.treasury') }}" class="text-xs font-semibold text-indigo-600 hover:underline flex items-center gap-1">
+            <i class="fa-solid fa-arrow-left"></i> Volver a Tesorería
+        </a>
+    </div>
+
+    <!-- BANNER DE CUENTA -->
+    <div class="bg-gradient-to-r from-purple-700 via-indigo-700 to-slate-800 rounded-3xl p-7 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center relative overflow-hidden">
+        <div class="absolute -right-8 -bottom-8 opacity-10 text-9xl">
+            <i class="fa-solid fa-scale-balanced"></i>
+        </div>
+        <div class="relative z-10">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-white/20 backdrop-blur-md text-indigo-100 border border-white/20">
+                    Conciliación Bancaria
+                </span>
+            </div>
+            <h2 class="text-2xl md:text-3xl font-black tracking-tight">{{ account.name }}</h2>
+            <p class="text-indigo-100 text-xs md:text-sm mt-1">{{ account.bank_name or 'Caja Chica' }} · {{ account.account_number or 'S/N' }} · Saldo en sistema: {{ "%.2f"|format(account.balance) }} {{ account.currency }}</p>
+        </div>
+        <div class="mt-4 md:mt-0 relative z-10 flex flex-wrap gap-2.5 items-center">
+            <div class="bg-black/25 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/10 text-xs flex items-center gap-2">
+                <i class="fa-solid fa-check-double text-emerald-300 text-base"></i>
+                <div>
+                    <div class="text-[10px] text-indigo-200">Conciliados</div>
+                    <div class="font-bold">{{ matched_count }}</div>
+                </div>
+            </div>
+            <div class="bg-black/25 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/10 text-xs flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-amber-300 text-base"></i>
+                <div>
+                    <div class="text-[10px] text-indigo-200">Solo en Banco</div>
+                    <div class="font-bold">{{ bank_only|length }} · {{ "%.2f"|format(bank_only_total) }}</div>
+                </div>
+            </div>
+            <div class="bg-black/25 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/10 text-xs flex items-center gap-2">
+                <i class="fa-solid fa-hourglass-half text-cyan-300 text-base"></i>
+                <div>
+                    <div class="text-[10px] text-indigo-200">Solo en Sistema</div>
+                    <div class="font-bold">{{ system_only|length }} · {{ "%.2f"|format(system_only_total) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IMPORTAR ESTADO DE CUENTA -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5 rounded-2xl shadow-sm">
+        <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-1">
+            <i class="fa-solid fa-file-arrow-up text-purple-600"></i> Importar Estado de Cuenta del Banco
+        </h3>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Sube el archivo .xlsx descargado del banco (columnas Tipo / Fecha / Referencia / Descripción / Monto). Se cruza automáticamente contra lo registrado en Tesorería por N° de Operación.</p>
+        <form action="{{ url_for('commercial.import_bank_statement', account_id=account._id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-3 items-center">
+            <input type="file" name="statement_file" accept=".xlsx" required class="flex-1 w-full text-xs text-gray-600 dark:text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-50 dark:file:bg-purple-950/40 file:text-purple-700 dark:file:text-purple-400">
+            <button type="submit" class="w-full md:w-auto px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl transition shadow-sm">
+                <i class="fa-solid fa-upload mr-1"></i> Importar y Conciliar
+            </button>
+        </form>
+    </div>
+
+    <!-- SOLO EN BANCO -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation"></i> Solo en el Banco — sin registrar en Gestión 360
+            </h3>
+            <p class="text-[11px] text-gray-500 dark:text-gray-400">Movimientos reales del banco que no tienen una transacción equivalente registrada (con la misma referencia) en Tesorería. Revísalos: puede faltar registrarlos.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+                <thead class="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 uppercase text-[10px]">
+                    <tr>
+                        <th class="py-3 px-4 font-semibold">Fecha</th>
+                        <th class="py-3 px-4 font-semibold">Tipo</th>
+                        <th class="py-3 px-4 font-semibold">Referencia</th>
+                        <th class="py-3 px-4 font-semibold">Descripción</th>
+                        <th class="py-3 px-4 font-semibold text-right">Monto</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for b in bank_only %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+                        <td class="py-3 px-4 text-gray-500 font-mono">{{ b.date.strftime('%d/%m/%Y') if b.date else '' }}</td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold {% if b.bank_type == 'NC' %}bg-emerald-500/10 text-emerald-600 border border-emerald-500/20{% else %}bg-rose-500/10 text-rose-600 border border-rose-500/20{% endif %}">{{ b.bank_type }}</span>
+                        </td>
+                        <td class="py-3 px-4 font-mono text-gray-700 dark:text-gray-300">{{ b.reference }}</td>
+                        <td class="py-3 px-4 text-gray-600 dark:text-gray-300">{{ b.description }}</td>
+                        <td class="py-3 px-4 text-right font-mono font-bold {{ 'text-emerald-600' if b.bank_type == 'NC' else 'text-rose-600' }}">{{ "%.2f"|format(b.amount) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="py-8 text-center text-gray-400">No hay movimientos del banco pendientes por registrar.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SOLO EN SISTEMA -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-bold text-cyan-700 dark:text-cyan-400 flex items-center gap-2">
+                <i class="fa-solid fa-hourglass-half"></i> Solo en el Sistema — todavía no aparecen en el banco
+            </h3>
+            <p class="text-[11px] text-gray-500 dark:text-gray-400">Registrados en Tesorería pero sin movimiento equivalente en el último estado de cuenta importado. Puede ser normal (aún no procesa el banco) o un error de referencia.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+                <thead class="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 uppercase text-[10px]">
+                    <tr>
+                        <th class="py-3 px-4 font-semibold">Fecha</th>
+                        <th class="py-3 px-4 font-semibold">Tipo</th>
+                        <th class="py-3 px-4 font-semibold">N° Operación</th>
+                        <th class="py-3 px-4 font-semibold">Beneficiario</th>
+                        <th class="py-3 px-4 font-semibold">Cuenta Contable</th>
+                        <th class="py-3 px-4 font-semibold text-right">Monto</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for t in system_only %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+                        <td class="py-3 px-4 text-gray-500 font-mono">{{ t.created_at.strftime('%d/%m/%Y') if t.created_at else '' }}</td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold {% if t.type == 'COBRO' %}bg-emerald-500/10 text-emerald-600 border border-emerald-500/20{% else %}bg-rose-500/10 text-rose-600 border border-rose-500/20{% endif %}">{{ t.type }}</span>
+                        </td>
+                        <td class="py-3 px-4 font-mono text-gray-700 dark:text-gray-300">{{ t.reference or '—' }}</td>
+                        <td class="py-3 px-4 text-gray-600 dark:text-gray-300">{{ t.counterparty or '—' }}</td>
+                        <td class="py-3 px-4 text-gray-500">{{ t.account_category or '—' }}</td>
+                        <td class="py-3 px-4 text-right font-mono font-bold {{ 'text-emerald-600' if t.type == 'COBRO' else 'text-rose-600' }}">{{ "%.2f"|format(t.amount) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="py-8 text-center text-gray-400">No hay transacciones del sistema pendientes de aparecer en el banco.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- CONCILIADOS -->
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
+                <i class="fa-solid fa-check-double"></i> Conciliados (últimos {{ matched|length }})
+            </h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+                <thead class="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 uppercase text-[10px]">
+                    <tr>
+                        <th class="py-3 px-4 font-semibold">Fecha</th>
+                        <th class="py-3 px-4 font-semibold">Tipo</th>
+                        <th class="py-3 px-4 font-semibold">Referencia</th>
+                        <th class="py-3 px-4 font-semibold">Descripción (Banco)</th>
+                        <th class="py-3 px-4 font-semibold text-right">Monto</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for b in matched %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+                        <td class="py-3 px-4 text-gray-500 font-mono">{{ b.date.strftime('%d/%m/%Y') if b.date else '' }}</td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold {% if b.bank_type == 'NC' %}bg-emerald-500/10 text-emerald-600 border border-emerald-500/20{% else %}bg-rose-500/10 text-rose-600 border border-rose-500/20{% endif %}">{{ b.bank_type }}</span>
+                        </td>
+                        <td class="py-3 px-4 font-mono text-gray-700 dark:text-gray-300">{{ b.reference }}</td>
+                        <td class="py-3 px-4 text-gray-600 dark:text-gray-300">{{ b.description }}</td>
+                        <td class="py-3 px-4 text-right font-mono font-bold text-emerald-600">{{ "%.2f"|format(b.amount) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="py-8 text-center text-gray-400">Todavía no hay movimientos conciliados para esta cuenta.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
