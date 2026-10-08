@@ -465,16 +465,25 @@ def clients():
         'client_type': request.args.get('client_type', ''),
         'credit_min': request.args.get('credit_min', ''),
         'credit_max': request.args.get('credit_max', ''),
+        'route_number': request.args.get('route_number', ''),
     }
 
     clients_list, total_count = ClientService.get_paginated_clients(
         company_db_name, filters=filters, page=page, per_page=per_page
     )
 
+    db = get_company_db(company_db_name)
+    sellers = []
+    if db is not None:
+        sellers = list(db['users'].find({"route_number": {"$ne": None}}, {"name": 1, "route_number": 1, "email": 1}).sort('route_number', 1))
+        for s in sellers:
+            s['_id'] = str(s['_id'])
+
     return render_template(
         'commercial/clients.html',
         clients=clients_list,
         filters=filters,
+        sellers=sellers,
         pagination={
             'page': page,
             'per_page': per_page,
@@ -495,14 +504,19 @@ def export_clients():
         'client_type': request.args.get('client_type', ''),
         'credit_min': request.args.get('credit_min', ''),
         'credit_max': request.args.get('credit_max', ''),
+        'route_number': request.args.get('route_number', ''),
     }
     clients_list, _ = ClientService.get_paginated_clients(company_db_name, filters=filters, page=1, per_page=100000)
+    for c in clients_list:
+        c['route_label'] = f"Ruta {c['route_number']}" if c.get('route_number') is not None else 'Sin asignar'
+        c['seller_label'] = c.get('seller_name') or 'Sin asignar'
 
     if export_format == 'pdf':
-        headers = ['Nombre', 'RIF/Cédula', 'Tipo', 'Email', 'Teléfono', 'Límite de Crédito']
+        headers = ['Nombre', 'RIF/Cédula', 'Tipo', 'Email', 'Teléfono', 'Límite de Crédito', 'Ruta', 'Vendedor']
         rows = [[
             c.get('name', ''), c.get('rif_cedula', ''), 'Fiscal' if c.get('client_type') == 'fiscal' else 'Natural',
             c.get('email', ''), c.get('phone', ''), f"${c.get('credit_limit', 0):.2f}",
+            c.get('route_label', ''), c.get('seller_label', ''),
         ] for c in clients_list]
         pdf_bytes = generate_table_pdf("Directorio de Clientes", session.get('company_name', 'Gestión 360'), headers, rows)
         return Response(pdf_bytes, mimetype='application/pdf',
@@ -511,6 +525,7 @@ def export_clients():
     headers_map = {
         'name': 'Nombre', 'rif_cedula': 'RIF/Cédula', 'client_type': 'Tipo',
         'email': 'Email', 'phone': 'Teléfono', 'address': 'Dirección', 'credit_limit': 'Límite de Crédito',
+        'route_label': 'Ruta', 'seller_label': 'Vendedor',
     }
     csv_bytes = rows_to_csv(clients_list, headers_map)
     return Response(csv_bytes, mimetype='text/csv',

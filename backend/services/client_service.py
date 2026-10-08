@@ -47,6 +47,13 @@ class ClientService:
                 if credit_query:
                     query["credit_limit"] = credit_query
 
+            route_number = (filters.get('route_number') or '').strip()
+            if route_number:
+                try:
+                    query["route_number"] = int(route_number)
+                except ValueError:
+                    pass
+
         skip = (page - 1) * per_page
         cursor = clients_col.find(query).sort('name', 1).skip(skip).limit(per_page)
         clients = list(cursor)
@@ -55,9 +62,38 @@ class ClientService:
             c.setdefault('credit_limit', 0.0)
             c.setdefault('phone', '')
             c.setdefault('address', '')
+            c.setdefault('route_number', None)
 
         total_count = clients_col.count_documents(query)
+
+        # Enriquecer con el nombre del vendedor dueño de la ruta (una sola
+        # consulta extra, no N+1) — para que el directorio muestre de un
+        # vistazo de quién es cartera cada cliente.
+        route_numbers = {c['route_number'] for c in clients if c.get('route_number') is not None}
+        if route_numbers:
+            sellers = db['users'].find({"route_number": {"$in": list(route_numbers)}}, {"name": 1, "route_number": 1})
+            seller_by_route = {s['route_number']: s.get('name') for s in sellers}
+            for c in clients:
+                c['seller_name'] = seller_by_route.get(c.get('route_number'))
+
         return json_safe(clients), total_count
+
+    @staticmethod
+    def get_clients_by_route(company_db_name, route_number, search=None):
+        """Cartera de un vendedor: todos los clientes activos con su mismo
+        route_number. Usada por la app móvil para 'Mis Clientes'."""
+        db = get_company_db(company_db_name)
+        if db is None:
+            return []
+        query = {"is_active": {"$ne": False}, "route_number": route_number}
+        if search:
+            query["$or"] = [
+                {"name": {"$regex": search, "$options": "i"}},
+                {"rif_cedula": {"$regex": search, "$options": "i"}},
+                {"email": {"$regex": search, "$options": "i"}}
+            ]
+        clients = list(db['clients'].find(query).sort('name', 1))
+        return json_safe(clients)
 
     @staticmethod
     def count_active_clients(company_db_name):
@@ -92,6 +128,7 @@ class ClientService:
         email = (form_data.get('email') or '').strip()
         phone = (form_data.get('phone') or '').strip()
         address = (form_data.get('address') or '').strip()
+        route_number_raw = (form_data.get('route_number') or '').strip()
 
         if not name:
             return False, "El nombre o razón social del cliente es obligatorio."
@@ -104,6 +141,13 @@ class ClientService:
             credit_limit = float(form_data.get('credit_limit', 0) or 0)
         except ValueError:
             return False, "El límite de crédito debe ser numérico."
+
+        route_number = None
+        if route_number_raw:
+            try:
+                route_number = int(route_number_raw)
+            except ValueError:
+                return False, "La ruta debe ser un número."
 
         existing = clients_col.find_one({
             "rif_cedula": rif_cedula,
@@ -124,6 +168,7 @@ class ClientService:
                         "phone": phone,
                         "address": address,
                         "credit_limit": credit_limit,
+                        "route_number": route_number,
                         "updated_at": datetime.utcnow()
                     }}
                 )
@@ -137,6 +182,7 @@ class ClientService:
                     "phone": phone,
                     "address": address,
                     "credit_limit": credit_limit,
+                    "route_number": route_number,
                     "is_active": True,
                     "created_by": creator_email,
                     "created_at": datetime.utcnow()

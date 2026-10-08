@@ -4,7 +4,7 @@ from io import BytesIO
 from bson import ObjectId
 from database import get_company_db
 from utils import get_r2_client, R2_BUCKET_NAME
-from services.personal_service import update_employee_service, create_employee_service
+from services.personal_service import update_employee_service, create_employee_service, seed_demo_sales_force
 
 personal_bp = Blueprint('personal_bp', __name__, url_prefix='/personal')
 
@@ -101,6 +101,23 @@ def update_employee_route(user_id):
     else:
         flash(message, 'danger')
         
+    return redirect(url_for('personal_bp.personal_view'))
+
+@personal_bp.route('/seed-demo-sales-force', methods=['POST'])
+def seed_demo_sales_force_route():
+    """Genera (si faltan) 5 vendedores demo con ruta 1-5 y asegura ~20
+    clientes repartidos entre esas rutas — para poder probar de inmediato la
+    cartera de clientes por vendedor sin tener que crear todo a mano."""
+    company_db_name = session.get('company_db')
+    company_rif = session.get('company_rif') or company_db_name
+    company_name = session.get('company_name', 'Mi Empresa')
+    creator_email = session.get('user_email', 'admin@empresa.com')
+
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    success, message = seed_demo_sales_force(company_db_name, creator_email, company_rif, company_name)
+    flash(message, 'success' if success else 'danger')
     return redirect(url_for('personal_bp.personal_view'))
 
 @personal_bp.route('/api/delete/<string:user_id>', methods=['POST'])

@@ -51,6 +51,15 @@
             <input type="number" step="0.01" name="credit_max" value="{{ filters.credit_max }}" placeholder="Crédito máx." class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 focus:outline-none focus:border-indigo-500">
         </div>
 
+        <div class="w-full md:w-48">
+            <select name="route_number" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 focus:outline-none focus:border-indigo-500">
+                <option value="">Todas las Rutas</option>
+                {% for s in sellers %}
+                    <option value="{{ s.route_number }}" {% if filters.route_number == s.route_number|string %}selected{% endif %}>Ruta {{ s.route_number }} — {{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
         <div class="flex items-center gap-2 w-full md:w-auto">
             <button type="submit" class="flex-1 md:flex-none px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm">
                 <i class="fa-solid fa-filter mr-1"></i> Buscar
@@ -78,6 +87,7 @@
                         <th class="py-3 px-4 font-semibold">RIF / Cédula</th>
                         <th class="py-3 px-4 font-semibold">Tipo</th>
                         <th class="py-3 px-4 font-semibold">Contacto</th>
+                        <th class="py-3 px-4 font-semibold">Ruta / Vendedor</th>
                         <th class="py-3 px-4 font-semibold text-right">Límite de Crédito</th>
                         <th class="py-3 px-4 font-semibold text-center">Acciones</th>
                     </tr>
@@ -99,12 +109,20 @@
                             <div class="text-gray-800 dark:text-gray-200">{{ c.email or '—' }}</div>
                             <div class="text-[11px] text-gray-400">{{ c.phone or '—' }}</div>
                         </td>
+                        <td class="py-3.5 px-4">
+                            {% if c.route_number is not none %}
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800">Ruta {{ c.route_number }}</span>
+                            <div class="text-[11px] text-gray-400 mt-0.5">{{ c.seller_name or 'Sin vendedor' }}</div>
+                            {% else %}
+                            <span class="text-[11px] text-gray-400 italic">Sin asignar</span>
+                            {% endif %}
+                        </td>
                         <td class="py-3.5 px-4 text-right font-mono font-semibold text-gray-700 dark:text-gray-300">
                             ${{ "%.2f"|format(c.credit_limit) }}
                         </td>
                         <td class="py-3.5 px-4 text-center">
                             <div class="flex items-center justify-center space-x-1.5">
-                                <button onclick="openEditModal('{{ c._id }}', '{{ c.name }}', '{{ c.rif_cedula }}', '{{ c.client_type }}', '{{ c.email }}', '{{ c.phone }}', '{{ c.address }}', '{{ c.credit_limit }}')" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-[11px] font-semibold transition">
+                                <button onclick="openEditModal('{{ c._id }}', '{{ c.name }}', '{{ c.rif_cedula }}', '{{ c.client_type }}', '{{ c.email }}', '{{ c.phone }}', '{{ c.address }}', '{{ c.credit_limit }}', '{{ c.route_number if c.route_number is not none else '' }}')" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-[11px] font-semibold transition">
                                     Editar
                                 </button>
                                 <form action="{{ url_for('commercial.delete_client', client_id=c._id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de inactivar este cliente?');" class="inline">
@@ -115,7 +133,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" class="py-8 text-center text-gray-400">No hay clientes registrados todavía.</td>
+                        <td colspan="7" class="py-8 text-center text-gray-400">No hay clientes registrados todavía.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -187,6 +205,15 @@
                 <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Dirección</label>
                 <input type="text" name="address" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
             </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Ruta / Vendedor Asignado</label>
+                <select name="route_number" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    <option value="">Sin asignar</option>
+                    {% for s in sellers %}
+                        <option value="{{ s.route_number }}">Ruta {{ s.route_number }} — {{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button type="button" onclick="closeModal('clientModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
                 <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl shadow">Guardar Cliente</button>
@@ -241,6 +268,15 @@
                 <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Dirección</label>
                 <input type="text" name="address" id="edit_client_address" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
             </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Ruta / Vendedor Asignado</label>
+                <select name="route_number" id="edit_client_route" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    <option value="">Sin asignar</option>
+                    {% for s in sellers %}
+                        <option value="{{ s.route_number }}">Ruta {{ s.route_number }} — {{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button type="button" onclick="closeModal('editClientModal')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-semibold rounded-xl">Cancelar</button>
                 <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl shadow">Actualizar Cambios</button>
@@ -253,7 +289,7 @@
     function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
     function closeModal(modalId) { document.getElementById(modalId).classList.add('hidden'); }
 
-    function openEditModal(id, name, rif, type, email, phone, address, creditLimit) {
+    function openEditModal(id, name, rif, type, email, phone, address, creditLimit, routeNumber) {
         document.getElementById('edit_client_id').value = id;
         document.getElementById('edit_client_name').value = name;
         document.getElementById('edit_client_rif').value = rif;
@@ -262,6 +298,7 @@
         document.getElementById('edit_client_phone').value = phone === 'None' ? '' : phone;
         document.getElementById('edit_client_address').value = address === 'None' ? '' : address;
         document.getElementById('edit_client_credit').value = creditLimit;
+        document.getElementById('edit_client_route').value = routeNumber || '';
         openModal('editClientModal');
     }
 </script>

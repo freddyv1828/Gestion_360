@@ -140,7 +140,17 @@ class _SellerClientsScreenState extends State<SellerClientsScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Row(
+              children: [
+                const Icon(Icons.route_outlined, size: 14, color: AppColors.muted),
+                const SizedBox(width: 6),
+                const Text('Mi cartera de clientes', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.muted)),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: TextField(
               controller: _searchController,
               decoration: const InputDecoration(

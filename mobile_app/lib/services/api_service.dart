@@ -109,25 +109,31 @@ class ApiService {
 
   /// Búsqueda de clientes existentes para vincular en Pedidos/Presupuestos.
   /// Sin `search`, trae solo los primeros [limit] (no el directorio completo).
+  /// Busca en TODO el directorio de clientes (no solo la cartera propia) —
+  /// usado por ClientSearchField al armar un Pedido/Presupuesto, donde el
+  /// vendedor puede necesitar facturarle a un cliente que no es suyo.
   static Future<List<Map<String, dynamic>>> fetchSellerClients({
     String search = '',
     int limit = 20,
   }) async {
-    final data = await fetchSellerClientsPage(search: search, limit: limit);
+    final data = await fetchSellerClientsPage(search: search, limit: limit, mine: false);
     return List<Map<String, dynamic>>.from(data['clients'] ?? []);
   }
 
   /// Igual que [fetchSellerClients] pero retorna el sobre completo con
-  /// paginación (`total_pages`), para el directorio completo de clientes.
+  /// paginación (`total_pages`). `mine=true` (default) trae solo la cartera
+  /// de clientes de la ruta del vendedor autenticado — "Mis Clientes".
   static Future<Map<String, dynamic>> fetchSellerClientsPage({
     String search = '',
     int limit = 20,
     int page = 1,
+    bool mine = true,
   }) async {
     final uri = Uri.parse('$baseUrl/api/v1/seller/clients').replace(queryParameters: {
       if (search.isNotEmpty) 'search': search,
       'limit': '$limit',
       'page': '$page',
+      'mine': '$mine',
     });
     final response = await http.get(uri, headers: _authHeaders);
     return _decode(response);

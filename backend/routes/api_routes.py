@@ -3,6 +3,7 @@ from datetime import datetime
 import jwt as pyjwt
 from flask import Blueprint, jsonify, request, Response
 from config import JWT_SECRET_KEY
+from database import get_company_db
 from services.login_service import login_business_user
 from services.marketplace_service import MarketplaceService
 from services.commercial_service import CommercialService
@@ -126,15 +127,26 @@ def seller_dashboard():
 @api_bp.route('/seller/clients', methods=['GET'])
 @jwt_required
 def seller_list_clients():
-    """Búsqueda de clientes existentes para vincular en Pedidos/Presupuestos.
-    Sin 'search', retorna solo los primeros `limit` (no el directorio completo —
-    evita traer todos los clientes en cada apertura del formulario)."""
+    """Búsqueda de clientes para vincular en Pedidos/Presupuestos (?mine=false,
+    busca en todo el directorio) o 'Mis Clientes' del vendedor (?mine=true,
+    default — solo la cartera de su propia ruta). Sin 'search', retorna solo
+    los primeros `limit` (no el directorio completo)."""
     company_db_name = request.jwt_user['company_db']
     search = request.args.get('search', '').strip()
     limit = request.args.get('limit', 20, type=int)
     page = request.args.get('page', 1, type=int)
+    mine = request.args.get('mine', 'true').lower() != 'false'
+
+    filters = {'search': search}
+    if mine:
+        db = get_company_db(company_db_name)
+        seller = db['users'].find_one({"email": request.jwt_user['email']}, {"route_number": 1}) if db is not None else None
+        route_number = seller.get('route_number') if seller else None
+        if route_number is not None:
+            filters['route_number'] = str(route_number)
+
     clients, total_count = ClientService.get_paginated_clients(
-        company_db_name, filters={'search': search}, page=page, per_page=limit
+        company_db_name, filters=filters, page=page, per_page=limit
     )
     return jsonify({
         "clients": clients,

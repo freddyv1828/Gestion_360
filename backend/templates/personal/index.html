@@ -22,7 +22,15 @@
         </div>
 
         <div class="flex items-center gap-3">
-            <button onclick="openModal('employeeModal')" 
+            <form action="{{ url_for('personal_bp.seed_demo_sales_force_route') }}" method="POST"
+                  onsubmit="return confirm('Esto crea hasta 5 vendedores demo (rutas 1-5) y completa hasta 20 clientes repartidos entre ellos. No duplica lo que ya exista. ¿Continuar?');" class="inline">
+                <button type="submit"
+                        class="px-4 py-2.5 bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800 text-xs font-bold rounded-xl transition flex items-center gap-2">
+                    <i class="fa-solid fa-route"></i>
+                    <span>Generar Vendedores & Cartera Demo</span>
+                </button>
+            </form>
+            <button onclick="openModal('employeeModal')"
                     class="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-md shadow-blue-500/20 flex items-center gap-2">
                 <i class="fa-solid fa-user-plus"></i>
                 <span>Nuevo Colaborador</span>
@@ -65,6 +73,7 @@
                         <th class="py-3.5 px-4 font-bold">Colaborador</th>
                         <th class="py-3.5 px-4 font-bold">Identificación / DNI</th>
                         <th class="py-3.5 px-4 font-bold">Rol en Sistema</th>
+                        <th class="py-3.5 px-4 font-bold">Ruta</th>
                         <th class="py-3.5 px-4 font-bold">Expediente Cloud R2</th>
                         <th class="py-3.5 px-4 font-bold text-right">Acciones</th>
                     </tr>
@@ -120,6 +129,15 @@
                             {% endif %}
                         </td>
 
+                        <!-- Ruta de Ventas -->
+                        <td class="py-3.5 px-4">
+                            {% if member.route_number is not none %}
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800">Ruta {{ member.route_number }}</span>
+                            {% else %}
+                            <span class="text-[11px] text-slate-400 italic">—</span>
+                            {% endif %}
+                        </td>
+
                         <!-- Expediente Digital R2 -->
                         <td class="py-3.5 px-4">
                             <div class="flex items-center gap-1.5">
@@ -151,7 +169,7 @@
                         <td class="py-3.5 px-4 text-right">
                             <div class="flex items-center justify-end gap-2">
                                 <button type="button" 
-                                        onclick="openEditModal('{{ member.id }}', '{{ member.name }}', '{{ member.email }}', '{{ member.phone }}', '{{ member.dni }}', '{{ member.role }}')"
+                                        onclick="openEditModal('{{ member.id }}', '{{ member.name }}', '{{ member.email }}', '{{ member.phone }}', '{{ member.dni }}', '{{ member.role }}', '{{ member.route_number if member.route_number is not none else '' }}')"
                                         class="p-2 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" title="Editar">
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </button>
@@ -167,7 +185,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="5" class="py-12 text-center text-slate-400 text-xs">
+                        <td colspan="6" class="py-12 text-center text-slate-400 text-xs">
                             <div class="flex flex-col items-center justify-center space-y-2">
                                 <i class="fa-solid fa-users text-3xl text-slate-300 dark:text-slate-700"></i>
                                 <p class="font-semibold">No hay colaboradores registrados todavía.</p>
@@ -244,11 +262,19 @@
                 </div>
             </div>
 
-            <div>
-                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Contraseña de Acceso (Web / App Móvil) *</label>
-                <input type="password" name="password" required placeholder="••••••••" 
-                       class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
-                <span class="text-[10px] text-slate-400 mt-1 block">La contraseña se encriptará de forma segura con Scrypt antes de guardarse.</span>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Contraseña de Acceso (Web / App Móvil) *</label>
+                    <input type="password" name="password" required placeholder="••••••••"
+                           class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                    <span class="text-[10px] text-slate-400 mt-1 block">Se encriptará de forma segura antes de guardarse.</span>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Ruta de Ventas (solo Vendedores)</label>
+                    <input type="number" name="route_number" min="1" placeholder="Ej. 1"
+                           class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                    <span class="text-[10px] text-slate-400 mt-1 block">Define qué cartera de clientes ve este vendedor en la app.</span>
+                </div>
             </div>
 
             <!-- Archivos de Expediente -->
@@ -345,10 +371,17 @@
                 </div>
             </div>
 
-            <div>
-                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Nueva Contraseña (Dejar en blanco para no cambiar)</label>
-                <input type="password" name="password" placeholder="••••••••" 
-                       class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Nueva Contraseña (Dejar en blanco para no cambiar)</label>
+                    <input type="password" name="password" placeholder="••••••••"
+                           class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Ruta de Ventas (solo Vendedores)</label>
+                    <input type="number" id="editRouteNumber" name="route_number" min="1" placeholder="Ej. 1"
+                           class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
             </div>
 
             <div class="pt-3 flex justify-end gap-2.5 border-t border-slate-200 dark:border-slate-800">
@@ -376,7 +409,7 @@
         if (m) { m.classList.remove('flex'); m.classList.add('hidden'); }
     }
 
-    function openEditModal(id, name, email, phone, dni, role) {
+    function openEditModal(id, name, email, phone, dni, role, routeNumber) {
         const form = document.getElementById('editEmployeeForm');
         form.action = `/personal/api/update/${id}`;
         document.getElementById('editName').value = name;
@@ -384,6 +417,7 @@
         document.getElementById('editPhone').value = phone || '';
         document.getElementById('editDni').value = dni;
         document.getElementById('editRole').value = role;
+        document.getElementById('editRouteNumber').value = routeNumber || '';
         openModal('editEmployeeModal');
     }
 

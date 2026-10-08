@@ -15,6 +15,13 @@ def create_employee_service(form_data, files_data, creator_email, company_rif):
     dni = form_data.get('dni', '').strip()
     role = form_data.get('role', '').strip()
     raw_password = form_data.get('password', '').strip()
+    route_number_raw = form_data.get('route_number', '').strip()
+    route_number = None
+    if route_number_raw:
+        try:
+            route_number = int(route_number_raw)
+        except ValueError:
+            return False, "La ruta debe ser un número."
 
     if not name or not email or not dni:
         return False, "Nombre, correo electrónico y cédula/DNI son obligatorios."
@@ -71,6 +78,7 @@ def create_employee_service(form_data, files_data, creator_email, company_rif):
             "phone": phone,
             "dni": dni,
             "role": role,
+            "route_number": route_number,
             "password": hashed_password,
             "photo": photo_key,
             "dni_doc": dni_doc_key,
@@ -124,6 +132,13 @@ def update_employee_service(user_id, form_data, files_data, modifier_email, comp
     dni = form_data.get('dni', '').strip()
     role = form_data.get('role', '').strip()
     raw_password = form_data.get('password', '').strip()
+    route_number_raw = form_data.get('route_number', '').strip()
+    route_number = None
+    if route_number_raw:
+        try:
+            route_number = int(route_number_raw)
+        except ValueError:
+            return False, "La ruta debe ser un número."
 
     s3 = get_r2_client()
 
@@ -174,6 +189,7 @@ def update_employee_service(user_id, form_data, files_data, modifier_email, comp
             'phone': phone,
             'dni': dni,
             'role': role,
+            'route_number': route_number,
             'photo': photo_key if photo_key else current_user.get('photo'),
             'dni_doc': dni_doc_key if dni_doc_key else current_user.get('dni_doc'),
             'rif_doc': rif_doc_key if rif_doc_key else current_user.get('rif_doc'),
@@ -225,3 +241,153 @@ def update_employee_service(user_id, form_data, files_data, modifier_email, comp
     except Exception as e:
         print(f"🔥 ERROR CRÍTICO AL ACTUALIZAR EN BD: {e}")
         return False, str(e)
+
+
+DEMO_ROUTE_COUNT = 5
+DEMO_CLIENT_TARGET = 20
+DEMO_SELLER_PASSWORD = "Vendedor360!"
+
+DEMO_SELLERS = [
+    {"name": "Carlos Ramírez", "email": "vendedor1.ruta1@demo.gestion360.app", "dni": "V-20111001"},
+    {"name": "María Fernández", "email": "vendedor2.ruta2@demo.gestion360.app", "dni": "V-20111002"},
+    {"name": "José Pérez", "email": "vendedor3.ruta3@demo.gestion360.app", "dni": "V-20111003"},
+    {"name": "Ana Torres", "email": "vendedor4.ruta4@demo.gestion360.app", "dni": "V-20111004"},
+    {"name": "Luis Gómez", "email": "vendedor5.ruta5@demo.gestion360.app", "dni": "V-20111005"},
+]
+
+DEMO_CLIENTS = [
+    {"name": "Abasto Los Pinos", "rif_cedula": "J-30900001-1", "client_type": "fiscal"},
+    {"name": "Panadería El Trigal Dorado", "rif_cedula": "J-30900002-2", "client_type": "fiscal"},
+    {"name": "Charcutería La Montañesa", "rif_cedula": "J-30900003-3", "client_type": "fiscal"},
+    {"name": "Minimarket San Rafael", "rif_cedula": "J-30900004-4", "client_type": "fiscal"},
+    {"name": "Bodegón Mi Tierra", "rif_cedula": "J-30900005-5", "client_type": "fiscal"},
+    {"name": "Restaurant El Buen Sabor", "rif_cedula": "J-30900006-6", "client_type": "fiscal"},
+    {"name": "Cafetín Doña Carmen", "rif_cedula": "V-15900007", "client_type": "natural"},
+    {"name": "Supermercado La Economía", "rif_cedula": "J-30900008-8", "client_type": "fiscal"},
+    {"name": "Panadería Dulce Hogar", "rif_cedula": "J-30900009-9", "client_type": "fiscal"},
+    {"name": "Abasto La Cosecha", "rif_cedula": "J-30900010-0", "client_type": "fiscal"},
+    {"name": "Charcutería El Buen Corte", "rif_cedula": "J-30900011-1", "client_type": "fiscal"},
+    {"name": "Minimarket La Esperanza", "rif_cedula": "J-30900012-2", "client_type": "fiscal"},
+    {"name": "Bodegón Las Acacias", "rif_cedula": "J-30900013-3", "client_type": "fiscal"},
+    {"name": "Restaurant Sazón Criollo", "rif_cedula": "J-30900014-4", "client_type": "fiscal"},
+    {"name": "Cafetín Don Pedro", "rif_cedula": "V-15900015", "client_type": "natural"},
+    {"name": "Supermercado El Ahorro", "rif_cedula": "J-30900016-6", "client_type": "fiscal"},
+    {"name": "Panadería Alba", "rif_cedula": "J-30900017-7", "client_type": "fiscal"},
+    {"name": "Abasto San José", "rif_cedula": "J-30900018-8", "client_type": "fiscal"},
+    {"name": "Minimarket Las Flores", "rif_cedula": "J-30900019-9", "client_type": "fiscal"},
+    {"name": "Bodegón El Trébol", "rif_cedula": "J-30900020-0", "client_type": "fiscal"},
+]
+
+
+def seed_demo_sales_force(company_db_name, creator_email, company_rif, company_name):
+    """
+    Crea (si no existen) 5 vendedores demo, uno por cada ruta 1-5, y asegura
+    que existan ~20 clientes repartidos entre esas rutas — asignando ruta
+    primero a los clientes reales que todavía no tengan una, y solo creando
+    clientes demo nuevos para completar el resto. Idempotente: correrlo varias
+    veces no duplica vendedores ni clientes ya existentes.
+    """
+    db = get_company_db(company_db_name)
+    if db is None:
+        return False, "Base de datos no disponible."
+
+    users_col = db['users']
+    clients_col = db['clients']
+    central_db = get_central_db()
+
+    sellers_created = 0
+    sellers_skipped = 0
+    for i, seller in enumerate(DEMO_SELLERS, start=1):
+        existing = users_col.find_one({"$or": [{"email": seller["email"]}, {"route_number": i, "role": "seller"}]})
+        if existing:
+            sellers_skipped += 1
+            continue
+
+        hashed_password = generate_password_hash(DEMO_SELLER_PASSWORD)
+        employee_data = {
+            "name": seller["name"],
+            "email": seller["email"],
+            "phone": "",
+            "dni": seller["dni"],
+            "role": "seller",
+            "route_number": i,
+            "password": hashed_password,
+            "photo": None,
+            "dni_doc": None,
+            "rif_doc": None,
+            "cv_doc": None,
+            "created_by": creator_email,
+            "created_at": datetime.utcnow(),
+            "is_demo": True,
+        }
+        insert_res = users_col.insert_one(employee_data)
+        sellers_created += 1
+
+        central_db["global_users"].update_one(
+            {"email": seller["email"]},
+            {
+                "$set": {
+                    "email": seller["email"],
+                    "name": seller["name"],
+                    "password": hashed_password,
+                    "user_type": "seller",
+                    "role": "seller",
+                    "rif": company_rif,
+                    "business_name": company_name,
+                    "company_db": company_db_name,
+                    "tenant_user_id": str(insert_res.inserted_id),
+                    "is_active": True,
+                    "updated_at": datetime.utcnow(),
+                },
+                "$setOnInsert": {"created_at": datetime.utcnow()},
+            },
+            upsert=True,
+        )
+
+    # 1) Asignar ruta a clientes reales que aún no tengan una (round-robin).
+    unrouted = list(clients_col.find({
+        "is_active": {"$ne": False},
+        "$or": [{"route_number": {"$exists": False}}, {"route_number": None}],
+    }))
+    clients_routed = 0
+    route_cursor = 0
+    for client in unrouted:
+        route_number = (route_cursor % DEMO_ROUTE_COUNT) + 1
+        clients_col.update_one({"_id": client["_id"]}, {"$set": {"route_number": route_number, "updated_at": datetime.utcnow()}})
+        route_cursor += 1
+        clients_routed += 1
+
+    # 2) Completar hasta DEMO_CLIENT_TARGET clientes creando demo nuevos.
+    total_clients = clients_col.count_documents({"is_active": {"$ne": False}})
+    clients_created = 0
+    for demo_client in DEMO_CLIENTS:
+        if total_clients >= DEMO_CLIENT_TARGET:
+            break
+        if clients_col.find_one({"rif_cedula": demo_client["rif_cedula"]}):
+            continue
+        route_number = (route_cursor % DEMO_ROUTE_COUNT) + 1
+        clients_col.insert_one({
+            "name": demo_client["name"],
+            "rif_cedula": demo_client["rif_cedula"],
+            "client_type": demo_client["client_type"],
+            "email": "",
+            "phone": "",
+            "address": "",
+            "credit_limit": 500.0,
+            "route_number": route_number,
+            "is_active": True,
+            "created_by": creator_email,
+            "created_at": datetime.utcnow(),
+            "is_demo": True,
+        })
+        route_cursor += 1
+        clients_created += 1
+        total_clients += 1
+
+    message = (
+        f"Listo: {sellers_created} vendedor(es) nuevo(s) creado(s) ({sellers_skipped} ya existían), "
+        f"{clients_routed} cliente(s) existente(s) asignado(s) a una ruta, "
+        f"{clients_created} cliente(s) demo nuevo(s) creado(s). "
+        f"Contraseña de los vendedores demo: {DEMO_SELLER_PASSWORD}"
+    )
+    return True, message
