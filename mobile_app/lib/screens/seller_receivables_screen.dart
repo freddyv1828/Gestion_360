@@ -592,6 +592,24 @@ class _HistorySheetState extends State<_HistorySheet> {
                                         child: Text('Excedente a saldo a favor: \$${p.excessToCreditUsd!.toStringAsFixed(2)}',
                                             style: const TextStyle(fontSize: 10, color: Color(0xFF6366F1), fontWeight: FontWeight.w700)),
                                       ),
+                                    if (p.receiptImageKey?.isNotEmpty == true)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: InkWell(
+                                          onTap: () => launchUrl(
+                                            Uri.parse(ApiService.receiptImageUrl(p.receiptImageKey!)),
+                                            mode: LaunchMode.externalApplication,
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.attachment, size: 13, color: AppColors.dark),
+                                              SizedBox(width: 4),
+                                              Text('Ver comprobante', style: TextStyle(fontSize: 11, color: AppColors.dark, fontWeight: FontWeight.w700, decoration: TextDecoration.underline)),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
                                     if (p.notes?.isNotEmpty == true)
                                       Padding(
                                         padding: const EdgeInsets.only(top: 4),

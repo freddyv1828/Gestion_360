@@ -336,4 +336,12 @@ class ApiService {
     );
     return uri.toString();
   }
+
+  /// URL para ver la captura/comprobante adjunto a un abono.
+  static String receiptImageUrl(String receiptImageKey) {
+    final uri = Uri.parse('$baseUrl/personal/download-doc').replace(
+      queryParameters: {'key': receiptImageKey},
+    );
+    return uri.toString();
+  }
 }
