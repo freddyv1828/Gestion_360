@@ -94,6 +94,9 @@ class ReceivablePayment {
   final DateTime? createdAt;
   final double? balanceAfter;
   final bool? referenceVerified;
+  final double? discountAmount;
+  final double? excessToCreditUsd;
+  final String? receiptImageKey;
 
   ReceivablePayment({
     required this.id,
@@ -108,6 +111,9 @@ class ReceivablePayment {
     this.createdAt,
     this.balanceAfter,
     this.referenceVerified,
+    this.discountAmount,
+    this.excessToCreditUsd,
+    this.receiptImageKey,
   });
 
   factory ReceivablePayment.fromJson(Map<String, dynamic> json) {
@@ -124,6 +130,9 @@ class ReceivablePayment {
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
       balanceAfter: (json['balance_after'] as num?)?.toDouble(),
       referenceVerified: json['reference_verified'] is bool ? json['reference_verified'] as bool : null,
+      discountAmount: (json['discount_amount'] as num?)?.toDouble(),
+      excessToCreditUsd: (json['excess_to_credit_usd'] as num?)?.toDouble(),
+      receiptImageKey: json['receipt_image_key']?.toString(),
     );
   }
 }

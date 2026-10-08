@@ -151,9 +151,14 @@
                         <span class="ml-2.5 sidebar-text opacity-0 transition-opacity duration-300 whitespace-nowrap">Centro de Mando</span>
                     </a>
                     <a href="{{ url_for('commercial.receivables') }}"
-                       class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/commercial/receivables' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">
+                       class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/commercial/receivables' in request.path and '/inbox' not in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">
                         <i class="fa-solid fa-scale-balanced w-5 text-center text-xs shrink-0"></i>
                         <span class="ml-2.5 sidebar-text opacity-0 transition-opacity duration-300 whitespace-nowrap">Cuentas por Cobrar</span>
+                    </a>
+                    <a href="{{ url_for('commercial.payment_inbox') }}"
+                       class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/commercial/receivables/inbox' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">
+                        <i class="fa-solid fa-inbox w-5 text-center text-xs shrink-0"></i>
+                        <span class="ml-2.5 sidebar-text opacity-0 transition-opacity duration-300 whitespace-nowrap">Bandeja de Pagos</span>
                     </a>
                     <a href="{{ url_for('commercial.treasury') }}"
                        class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/commercial/treasury' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">

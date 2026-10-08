@@ -133,6 +133,7 @@ class FinancialService:
             "account_number": account_number,
             "type": account_type,
             "balance": initial_balance,
+            "initial_balance": initial_balance,
             "is_active": True,
             "created_at": datetime.utcnow()
         })
@@ -224,6 +225,84 @@ class FinancialService:
             tx['_id'] = str(tx['_id'])
             tx['account_id'] = str(tx['account_id'])
         return txs
+
+    @staticmethod
+    def get_account_statement(company_db_name, account_id, filters=None):
+        """
+        Estado de cuenta real de una cuenta bancaria: Saldo Inicial + cada
+        movimiento registrado (cronológico, con saldo corriente) = Saldo
+        Final — el "estado de resultados" que faltaba, porque antes el saldo
+        inicial se pedía una sola vez al crear la cuenta y nunca más se
+        volvía a usar para nada (solo quedaba el campo `balance` mutando sin
+        dejar rastro de cómo se llegó ahí).
+
+        Para cuentas creadas ANTES de que `initial_balance` se guardara aparte,
+        se reconstruye matemáticamente: saldo_actual - neto_de_movimientos.
+        """
+        db = get_company_db(company_db_name)
+        if db is None:
+            return None
+        try:
+            acc_oid = ObjectId(account_id)
+        except Exception:
+            return None
+
+        account = db['banking_accounts'].find_one({"_id": acc_oid})
+        if not account:
+            return None
+
+        all_tx = list(db['treasury_transactions'].find({"account_id": acc_oid}).sort('created_at', 1))
+
+        stored_initial = account.get('initial_balance')
+        if stored_initial is None:
+            net_movement = sum(t['amount'] if t['type'] == 'COBRO' else -t['amount'] for t in all_tx)
+            stored_initial = float(account.get('balance', 0.0)) - net_movement
+
+        date_from = (filters or {}).get('date_from', '').strip()
+        date_to = (filters or {}).get('date_to', '').strip()
+        from_dt, to_dt = None, None
+        if date_from:
+            try:
+                from_dt = datetime.strptime(date_from, '%Y-%m-%d')
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                to_dt = datetime.strptime(date_to, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+            except ValueError:
+                pass
+
+        running = stored_initial
+        opening_balance = stored_initial
+        ledger = []
+        for t in all_tx:
+            delta = t['amount'] if t['type'] == 'COBRO' else -t['amount']
+            if from_dt and t['created_at'] < from_dt:
+                running += delta
+                opening_balance = running
+                continue
+            if to_dt and t['created_at'] > to_dt:
+                continue
+            running += delta
+            entry = dict(t)
+            entry['running_balance'] = round(running, 2)
+            ledger.append(entry)
+
+        for entry in ledger:
+            entry['_id'] = str(entry['_id'])
+            entry['account_id'] = str(entry['account_id'])
+
+        account['_id'] = str(account['_id'])
+
+        return {
+            "account": account,
+            "initial_balance": round(stored_initial, 2),
+            "opening_balance": round(opening_balance, 2),
+            "ledger": ledger,
+            "closing_balance": round(running, 2),
+            "total_income": round(sum(t['amount'] for t in ledger if t['type'] == 'COBRO'), 2),
+            "total_expense": round(sum(t['amount'] for t in ledger if t['type'] == 'PAGO'), 2),
+        }
 
     @staticmethod
     def get_accounts_receivable(company_db_name, client_id=None):

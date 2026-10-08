@@ -12,6 +12,26 @@
         </a>
     </div>
 
+    <!-- FILTRO DE FECHA Y DESCARGAS -->
+    <form method="GET" action="{{ url_for('commercial.treasury_reconciliation', account_id=account._id) }}" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-2xl shadow-sm flex flex-col md:flex-row flex-wrap gap-3 items-center">
+        <div class="w-full md:w-44">
+            <input type="date" name="date_from" value="{{ filters.date_from }}" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 focus:outline-none focus:border-indigo-500" title="Desde">
+        </div>
+        <div class="w-full md:w-44">
+            <input type="date" name="date_to" value="{{ filters.date_to }}" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 focus:outline-none focus:border-indigo-500" title="Hasta">
+        </div>
+        <div class="flex items-center gap-2 w-full md:w-auto">
+            <button type="submit" class="flex-1 md:flex-none px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm">
+                <i class="fa-solid fa-filter mr-1"></i> Filtrar
+            </button>
+            <a href="{{ url_for('commercial.treasury_reconciliation', account_id=account._id) }}" class="px-3 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-xl text-xs transition" title="Limpiar Filtros">
+                <i class="fa-solid fa-rotate-right"></i>
+            </a>
+            <a href="{{ url_for('commercial.export_reconciliation', account_id=account._id, format='pdf', **filters) }}" class="px-3 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-xs transition" title="Descargar reporte PDF"><i class="fa-solid fa-file-pdf text-rose-500"></i></a>
+            <a href="{{ url_for('commercial.export_reconciliation', account_id=account._id, format='excel', **filters) }}" class="px-3 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-xs transition" title="Descargar reporte Excel"><i class="fa-solid fa-file-excel text-emerald-600"></i></a>
+        </div>
+    </form>
+
     <!-- BANNER DE CUENTA -->
     <div class="bg-gradient-to-r from-purple-700 via-indigo-700 to-slate-800 rounded-3xl p-7 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center relative overflow-hidden">
         <div class="absolute -right-8 -bottom-8 opacity-10 text-9xl">
@@ -57,12 +77,20 @@
             <i class="fa-solid fa-file-arrow-up text-purple-600"></i> Importar Estado de Cuenta del Banco
         </h3>
         <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Sube el archivo .xlsx descargado del banco (columnas Tipo / Fecha / Referencia / Descripción / Monto). Se cruza automáticamente contra lo registrado en Tesorería por N° de Operación.</p>
-        <form action="{{ url_for('commercial.import_bank_statement', account_id=account._id) }}" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row gap-3 items-center">
-            <input type="file" name="statement_file" accept=".xlsx" required class="flex-1 w-full text-xs text-gray-600 dark:text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-50 dark:file:bg-purple-950/40 file:text-purple-700 dark:file:text-purple-400">
-            <button type="submit" class="w-full md:w-auto px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl transition shadow-sm">
-                <i class="fa-solid fa-upload mr-1"></i> Importar y Conciliar
-            </button>
-        </form>
+        <div class="flex flex-col md:flex-row gap-3 items-stretch">
+            <form action="{{ url_for('commercial.import_bank_statement', account_id=account._id) }}" method="POST" enctype="multipart/form-data" class="flex-1 flex flex-col md:flex-row gap-3 items-center">
+                <input type="file" name="statement_file" accept=".xlsx" required class="flex-1 w-full text-xs text-gray-600 dark:text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-50 dark:file:bg-purple-950/40 file:text-purple-700 dark:file:text-purple-400">
+                <button type="submit" class="w-full md:w-auto px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl transition shadow-sm">
+                    <i class="fa-solid fa-upload mr-1"></i> Importar y Conciliar
+                </button>
+            </form>
+            <form action="{{ url_for('commercial.clear_bank_statement', account_id=account._id) }}" method="POST"
+                  onsubmit="return confirm('Esto borra TODOS los movimientos bancarios importados para esta cuenta (ej. una carga de prueba) y deja las transacciones del sistema que tenían como pendientes de nuevo. ¿Continuar?');">
+                <button type="submit" class="w-full md:w-auto px-5 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-gray-600 dark:text-gray-300 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-semibold rounded-xl transition">
+                    <i class="fa-solid fa-trash mr-1"></i> Borrar Importación
+                </button>
+            </form>
+        </div>
     </div>
 
     <!-- SOLO EN BANCO -->

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiException implements Exception {
@@ -268,17 +269,57 @@ class ApiService {
   static Future<void> registerReceivablePayment({
     required String invoiceId,
     required double amount,
+    String currency = 'USD',
     String paymentMethod = 'Efectivo',
+    String accountId = '',
     String reference = '',
     String notes = '',
+    String discountType = '',
+    String discountValue = '',
+    File? receiptImage,
   }) async {
-    await _authPost('/api/v1/seller/receivables/payment', {
+    if (receiptImage == null) {
+      await _authPost('/api/v1/seller/receivables/payment', {
+        'invoice_id': invoiceId,
+        'amount': amount,
+        'currency': currency,
+        'payment_method': paymentMethod,
+        'account_id': accountId,
+        'reference': reference,
+        'notes': notes,
+        'discount_type': discountType,
+        'discount_value': discountValue,
+      });
+      return;
+    }
+
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/api/v1/seller/receivables/payment'),
+    );
+    request.headers['Authorization'] = 'Bearer ${authToken ?? ''}';
+    request.fields.addAll({
       'invoice_id': invoiceId,
-      'amount': amount,
+      'amount': amount.toString(),
+      'currency': currency,
       'payment_method': paymentMethod,
+      'account_id': accountId,
       'reference': reference,
       'notes': notes,
+      'discount_type': discountType,
+      'discount_value': discountValue,
     });
+    request.files.add(await http.MultipartFile.fromPath('receipt_image', receiptImage.path));
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    _decode(response);
+  }
+
+  /// Cuentas/billeteras de la empresa (bancos, Pago Móvil, Binance, etc.) para
+  /// que el vendedor indique a cuál pagó el cliente.
+  static Future<List<Map<String, dynamic>>> fetchSellerBankingAccounts() async {
+    final data = await _authGet('/api/v1/seller/banking-accounts');
+    return List<Map<String, dynamic>>.from(data['accounts'] ?? []);
   }
 
   static Future<List<Map<String, dynamic>>> fetchReceivablePayments(String invoiceId) async {

@@ -348,11 +348,26 @@ def seller_receivables():
 @jwt_required
 def seller_register_receivable_payment():
     company_db_name = request.jwt_user['company_db']
-    data = request.get_json(silent=True) or {}
-    success, message = ReceivablesService.register_payment(company_db_name, data, request.jwt_user['email'])
+    receipt_file = None
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        data = request.form
+        receipt_file = request.files.get('receipt_image')
+    else:
+        data = request.get_json(silent=True) or {}
+    success, message = ReceivablesService.register_payment(company_db_name, data, request.jwt_user['email'], receipt_file=receipt_file)
     if not success:
         return jsonify({"error": message}), 400
     return jsonify({"message": message}), 201
+
+
+@api_bp.route('/seller/banking-accounts', methods=['GET'])
+@jwt_required
+def seller_banking_accounts():
+    """Cuentas/billeteras disponibles para que el vendedor indique a cuál pagó
+    el cliente (Pago Móvil, Binance, etc.), usadas luego en la conciliación."""
+    company_db_name = request.jwt_user['company_db']
+    accounts = FinancialService.get_bank_accounts(company_db_name)
+    return jsonify({"accounts": json_safe(accounts)}), 200
 
 
 @api_bp.route('/seller/receivables/invoice/<invoice_id>/payments', methods=['GET'])

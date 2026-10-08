@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/receivable_invoice.dart';
 import '../services/api_service.dart';
@@ -242,16 +244,45 @@ class _PaymentSheetState extends State<_PaymentSheet> {
   late final TextEditingController _amountController;
   final _referenceController = TextEditingController();
   final _notesController = TextEditingController();
-  String _method = 'Efectivo';
+  final _discountValueController = TextEditingController();
+  String _method = 'Pago Móvil';
+  String _currency = 'USD';
+  String _discountType = '';
+  String _accountId = '';
   bool _saving = false;
+  bool _loadingAccounts = true;
   String _error = '';
+  List<Map<String, dynamic>> _accounts = [];
+  File? _receiptImage;
 
-  static const _methods = ['Efectivo', 'Transferencia', 'Tarjeta', 'Pago Móvil', 'Zelle', 'Otro'];
+  static const _methods = ['Pago Móvil', 'Efectivo', 'Transferencia', 'Tarjeta', 'Zelle', 'Binance', 'Otro'];
+  static const _currencies = ['USD', 'VES', 'EUR', 'COP'];
 
   @override
   void initState() {
     super.initState();
+    _currency = widget.invoice.currency;
     _amountController = TextEditingController(text: widget.invoice.balanceDue.toStringAsFixed(2));
+    _loadAccounts();
+  }
+
+  Future<void> _loadAccounts() async {
+    try {
+      final accounts = await ApiService.fetchSellerBankingAccounts();
+      if (mounted) setState(() => _accounts = accounts);
+    } catch (_) {
+      // Si falla, el vendedor igual puede registrar el abono sin cuenta asociada.
+    } finally {
+      if (mounted) setState(() => _loadingAccounts = false);
+    }
+  }
+
+  Future<void> _pickReceiptImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 80);
+    if (picked != null) {
+      setState(() => _receiptImage = File(picked.path));
+    }
   }
 
   @override
@@ -259,6 +290,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
     _amountController.dispose();
     _referenceController.dispose();
     _notesController.dispose();
+    _discountValueController.dispose();
     super.dispose();
   }
 
@@ -266,10 +298,6 @@ class _PaymentSheetState extends State<_PaymentSheet> {
     final amount = double.tryParse(_amountController.text.replaceAll(',', '.'));
     if (amount == null || amount <= 0) {
       setState(() => _error = 'Ingresa un monto válido.');
-      return;
-    }
-    if (amount > widget.invoice.balanceDue + 0.01) {
-      setState(() => _error = 'El abono no puede superar el saldo pendiente.');
       return;
     }
     setState(() {
@@ -280,9 +308,14 @@ class _PaymentSheetState extends State<_PaymentSheet> {
       await ApiService.registerReceivablePayment(
         invoiceId: widget.invoice.invoiceId,
         amount: amount,
+        currency: _currency,
         paymentMethod: _method,
+        accountId: _accountId,
         reference: _referenceController.text.trim(),
         notes: _notesController.text.trim(),
+        discountType: _discountType,
+        discountValue: _discountValueController.text.trim(),
+        receiptImage: _receiptImage,
       );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
@@ -297,7 +330,8 @@ class _PaymentSheetState extends State<_PaymentSheet> {
     final inv = widget.invoice;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(context).viewInsets.bottom + 24),
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -317,21 +351,99 @@ class _PaymentSheetState extends State<_PaymentSheet> {
               ],
             ),
           ),
+          const SizedBox(height: 4),
+          const Text(
+            'Si el cliente paga de más, el excedente queda como saldo a favor (no se pierde).',
+            style: TextStyle(fontSize: 10, color: AppColors.muted, fontStyle: FontStyle.italic),
+          ),
           const SizedBox(height: 14),
-          TextField(
-            controller: _amountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Monto a Abonar *'),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _amountController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Monto a Abonar *'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: _currency,
+                  decoration: const InputDecoration(labelText: 'Moneda'),
+                  items: _currencies.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                  onChanged: (v) => setState(() => _currency = v ?? 'USD'),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
             initialValue: _method,
             decoration: const InputDecoration(labelText: 'Método'),
             items: _methods.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-            onChanged: (v) => setState(() => _method = v ?? 'Efectivo'),
+            onChanged: (v) {
+              setState(() {
+                _method = v ?? 'Pago Móvil';
+                if (_method == 'Pago Móvil') _currency = 'VES';
+                if (_method == 'Zelle' || _method == 'Binance') _currency = 'USD';
+              });
+            },
           ),
           const SizedBox(height: 10),
-          TextField(controller: _referenceController, decoration: const InputDecoration(labelText: 'Referencia (opcional)')),
+          DropdownButtonFormField<String>(
+            initialValue: _accountId.isEmpty ? null : _accountId,
+            decoration: InputDecoration(labelText: _loadingAccounts ? 'Cargando cuentas...' : 'Banco/Cuenta al que Pagó'),
+            items: _accounts
+                .map((a) => DropdownMenuItem<String>(
+                      value: a['_id'] as String,
+                      child: Text('${a['name']} (${a['currency']})', overflow: TextOverflow.ellipsis),
+                    ))
+                .toList(),
+            onChanged: (v) => setState(() => _accountId = v ?? ''),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _referenceController,
+            decoration: const InputDecoration(labelText: 'Referencia / N° de Operación'),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Se cruza con el estado de cuenta bancario importado para verificar el pago.',
+            style: TextStyle(fontSize: 10, color: AppColors.muted),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _pickReceiptImage,
+            icon: const Icon(Icons.camera_alt_outlined, size: 18),
+            label: Text(_receiptImage == null ? 'Adjuntar Captura del Pago' : 'Captura adjunta ✓'),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: _discountType.isEmpty ? '' : _discountType,
+                  decoration: const InputDecoration(labelText: 'Descuento Pronto Pago'),
+                  items: const [
+                    DropdownMenuItem(value: '', child: Text('Sin descuento')),
+                    DropdownMenuItem(value: 'percentage', child: Text('% Porcentaje')),
+                    DropdownMenuItem(value: 'fixed', child: Text('Monto Fijo')),
+                  ],
+                  onChanged: (v) => setState(() => _discountType = v ?? ''),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _discountValueController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Valor'),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
           TextField(controller: _notesController, decoration: const InputDecoration(labelText: 'Notas (opcional)')),
           if (_error.isNotEmpty)
@@ -351,6 +463,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -467,6 +580,18 @@ class _HistorySheetState extends State<_HistorySheet> {
                                         child: Text('⚠ Sin verificar en banco', style: TextStyle(fontSize: 10, color: AppColors.amber, fontWeight: FontWeight.w700)),
                                       ),
                                     if (p.user != null) Text(p.user!, style: const TextStyle(fontSize: 10, color: AppColors.mutedLight)),
+                                    if (p.discountAmount != null && p.discountAmount! > 0)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Text('Descuento pronto pago: ${p.discountAmount!.toStringAsFixed(2)} ${p.currency}',
+                                            style: const TextStyle(fontSize: 10, color: Color(0xFF0D9488), fontWeight: FontWeight.w700)),
+                                      ),
+                                    if (p.excessToCreditUsd != null && p.excessToCreditUsd! > 0)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Text('Excedente a saldo a favor: \$${p.excessToCreditUsd!.toStringAsFixed(2)}',
+                                            style: const TextStyle(fontSize: 10, color: Color(0xFF6366F1), fontWeight: FontWeight.w700)),
+                                      ),
                                     if (p.notes?.isNotEmpty == true)
                                       Padding(
                                         padding: const EdgeInsets.only(top: 4),

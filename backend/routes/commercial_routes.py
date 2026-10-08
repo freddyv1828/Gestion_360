@@ -199,18 +199,120 @@ def treasury():
         expense_categories=EXPENSE_CATEGORIES,
     )
 
+@commercial_bp.route('/treasury/statement/<account_id>')
+def treasury_statement(account_id):
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    filters = {
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
+    statement = FinancialService.get_account_statement(company_db_name, account_id, filters=filters)
+    if statement is None:
+        flash("Cuenta bancaria no encontrada.", "danger")
+        return redirect(url_for('commercial.treasury'))
+
+    return render_template('commercial/treasury_statement.html', filters=filters, **statement)
+
+@commercial_bp.route('/treasury/statement/<account_id>/export')
+def export_account_statement(account_id):
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    export_format = request.args.get('format', 'excel')
+    filters = {
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
+    statement = FinancialService.get_account_statement(company_db_name, account_id, filters=filters)
+    if statement is None:
+        flash("Cuenta bancaria no encontrada.", "danger")
+        return redirect(url_for('commercial.treasury'))
+
+    rows = []
+    rows.append({'fecha': '', 'tipo': '', 'referencia': '', 'descripcion': 'SALDO INICIAL', 'ingreso': '', 'egreso': '', 'saldo': f"{statement['opening_balance']:.2f}"})
+    for t in statement['ledger']:
+        rows.append({
+            'fecha': t['created_at'].strftime('%Y-%m-%d') if t.get('created_at') else '',
+            'tipo': t.get('type', ''),
+            'referencia': t.get('reference', ''),
+            'descripcion': t.get('counterparty', '') or t.get('account_category', ''),
+            'ingreso': f"{t['amount']:.2f}" if t.get('type') == 'COBRO' else '',
+            'egreso': f"{t['amount']:.2f}" if t.get('type') == 'PAGO' else '',
+            'saldo': f"{t.get('running_balance', 0):.2f}",
+        })
+
+    if export_format == 'pdf':
+        headers = ['Fecha', 'Tipo', 'Referencia', 'Descripción', 'Ingreso', 'Egreso', 'Saldo']
+        pdf_rows = [[r['fecha'], r['tipo'], r['referencia'], r['descripcion'], r['ingreso'], r['egreso'], r['saldo']] for r in rows]
+        pdf_bytes = generate_table_pdf(f"Estado de Cuenta — {statement['account']['name']}", session.get('company_name', 'Gestión 360'), headers, pdf_rows)
+        return Response(pdf_bytes, mimetype='application/pdf',
+                         headers={'Content-Disposition': f'attachment; filename="estado_cuenta_{statement["account"]["name"]}.pdf"'})
+
+    headers_map = {'fecha': 'Fecha', 'tipo': 'Tipo', 'referencia': 'Referencia', 'descripcion': 'Descripción', 'ingreso': 'Ingreso', 'egreso': 'Egreso', 'saldo': 'Saldo'}
+    csv_bytes = rows_to_csv(rows, headers_map)
+    return Response(csv_bytes, mimetype='text/csv',
+                     headers={'Content-Disposition': f'attachment; filename="estado_cuenta_{statement["account"]["name"]}.csv"'})
+
 @commercial_bp.route('/treasury/reconciliation/<account_id>')
 def treasury_reconciliation(account_id):
     company_db_name = get_active_company_db()
     if not company_db_name:
         return redirect(url_for('auth_bp.index'))
 
-    view = ReconciliationService.get_reconciliation_view(company_db_name, account_id)
+    filters = {
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
+    view = ReconciliationService.get_reconciliation_view(company_db_name, account_id, filters=filters)
     if view is None:
         flash("Cuenta bancaria no encontrada.", "danger")
         return redirect(url_for('commercial.treasury'))
 
-    return render_template('commercial/treasury_reconciliation.html', **view)
+    return render_template('commercial/treasury_reconciliation.html', filters=filters, **view)
+
+@commercial_bp.route('/treasury/reconciliation/<account_id>/export')
+def export_reconciliation(account_id):
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    export_format = request.args.get('format', 'excel')
+    filters = {
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
+    view = ReconciliationService.get_reconciliation_view(company_db_name, account_id, filters=filters)
+    if view is None:
+        flash("Cuenta bancaria no encontrada.", "danger")
+        return redirect(url_for('commercial.treasury'))
+
+    rows = []
+    for b in view['matched']:
+        rows.append({'fecha': b['date'].strftime('%Y-%m-%d') if b.get('date') else '', 'estado': 'Conciliado', 'tipo': b.get('bank_type', ''),
+                     'referencia': b.get('reference', ''), 'descripcion': b.get('description', ''), 'monto': f"{b.get('amount', 0):.2f}"})
+    for b in view['bank_only']:
+        rows.append({'fecha': b['date'].strftime('%Y-%m-%d') if b.get('date') else '', 'estado': 'Solo en Banco', 'tipo': b.get('bank_type', ''),
+                     'referencia': b.get('reference', ''), 'descripcion': b.get('description', ''), 'monto': f"{b.get('amount', 0):.2f}"})
+    for t in view['system_only']:
+        rows.append({'fecha': t['created_at'].strftime('%Y-%m-%d') if t.get('created_at') else '', 'estado': 'Solo en Sistema',
+                     'tipo': t.get('type', ''), 'referencia': t.get('reference', ''),
+                     'descripcion': t.get('counterparty', '') or t.get('account_category', ''), 'monto': f"{t.get('amount', 0):.2f}"})
+
+    if export_format == 'pdf':
+        headers = ['Fecha', 'Estado', 'Tipo', 'Referencia', 'Descripción', 'Monto']
+        pdf_rows = [[r['fecha'], r['estado'], r['tipo'], r['referencia'], r['descripcion'], r['monto']] for r in rows]
+        pdf_bytes = generate_table_pdf(f"Conciliación Bancaria — {view['account']['name']}", session.get('company_name', 'Gestión 360'), headers, pdf_rows)
+        return Response(pdf_bytes, mimetype='application/pdf',
+                         headers={'Content-Disposition': f'attachment; filename="conciliacion_{view["account"]["name"]}.pdf"'})
+
+    headers_map = {'fecha': 'Fecha', 'estado': 'Estado', 'tipo': 'Tipo', 'referencia': 'Referencia', 'descripcion': 'Descripción', 'monto': 'Monto'}
+    csv_bytes = rows_to_csv(rows, headers_map)
+    return Response(csv_bytes, mimetype='text/csv',
+                     headers={'Content-Disposition': f'attachment; filename="conciliacion_{view["account"]["name"]}.csv"'})
 
 @commercial_bp.route('/treasury/reconciliation/<account_id>/import', methods=['POST'])
 def import_bank_statement(account_id):
@@ -228,6 +330,16 @@ def import_bank_statement(account_id):
     success, message, _ = ReconciliationService.import_bank_statement(
         company_db_name, account_id, file_bytes, uploaded_file.filename, user_email
     )
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('commercial.treasury_reconciliation', account_id=account_id))
+
+@commercial_bp.route('/treasury/reconciliation/<account_id>/clear', methods=['POST'])
+def clear_bank_statement(account_id):
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    success, message = ReconciliationService.clear_bank_statement(company_db_name, account_id)
     flash(message, 'success' if success else 'danger')
     return redirect(url_for('commercial.treasury_reconciliation', account_id=account_id))
 
@@ -303,7 +415,20 @@ def save_receivable_payment():
         return redirect(url_for('auth_bp.index'))
 
     user_email = session.get('user_email', 'admin@gestion360.com')
-    success, message = ReceivablesService.register_payment(company_db_name, request.form, user_email)
+    receipt_file = request.files.get('receipt_image')
+    success, message = ReceivablesService.register_payment(company_db_name, request.form, user_email, receipt_file=receipt_file)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('commercial.receivables'))
+
+@commercial_bp.route('/receivables/payment/apply-credit', methods=['POST'])
+def apply_receivable_credit():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    user_email = session.get('user_email', 'admin@gestion360.com')
+    invoice_id = request.form.get('invoice_id', '')
+    success, message = ReceivablesService.apply_credit_balance(company_db_name, invoice_id, user_email)
     flash(message, 'success' if success else 'danger')
     return redirect(url_for('commercial.receivables'))
 
@@ -396,6 +521,28 @@ def export_receivables():
     csv_bytes = rows_to_csv(items, headers_map)
     return Response(csv_bytes, mimetype='text/csv',
                      headers={'Content-Disposition': 'attachment; filename="cuentas_por_cobrar_detalle.csv"'})
+
+@commercial_bp.route('/receivables/inbox')
+def payment_inbox():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    filters = {
+        'seller': request.args.get('seller', ''),
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
+    inbox = ReceivablesService.get_payment_inbox(company_db_name, filters=filters)
+
+    db = get_company_db(company_db_name)
+    sellers = []
+    if db is not None:
+        sellers = list(db['users'].find({}, {"name": 1, "email": 1}))
+        for s in sellers:
+            s['_id'] = str(s['_id'])
+
+    return render_template('commercial/payment_inbox.html', inbox=inbox, filters=filters, sellers=sellers)
 
 @commercial_bp.route('/products')
 def products():

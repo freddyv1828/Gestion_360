@@ -49,3 +49,7 @@ app.*.map.json
 # Widget Preview related
 .widget_preview/
 backend/.env
+
+# Archivos de prueba con datos sensibles reales (cuentas bancarias, facturas)
+Detalle_de_cuenta_*.xlsx
+FAC-000006.pdf

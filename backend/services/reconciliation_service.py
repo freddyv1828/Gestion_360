@@ -172,7 +172,28 @@ class ReconciliationService:
         return matched_count
 
     @staticmethod
-    def get_reconciliation_view(company_db_name, account_id):
+    def _date_range_query(filters, field):
+        if not filters:
+            return {}
+        date_from = (filters.get('date_from') or '').strip()
+        date_to = (filters.get('date_to') or '').strip()
+        if not date_from and not date_to:
+            return {}
+        date_query = {}
+        if date_from:
+            try:
+                date_query["$gte"] = datetime.strptime(date_from, '%Y-%m-%d')
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                date_query["$lte"] = datetime.strptime(date_to, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+            except ValueError:
+                pass
+        return {field: date_query} if date_query else {}
+
+    @staticmethod
+    def get_reconciliation_view(company_db_name, account_id, filters=None):
         """Las 3 listas clásicas de una conciliación bancaria:
         - matched: movimientos que cuadran en ambos lados.
         - bank_only: el banco los tiene pero Gestión 360 no los registró
@@ -192,9 +213,13 @@ class ReconciliationService:
         if not account:
             return None
 
-        bank_only = list(db['bank_statement_movements'].find({"account_id": acc_oid, "matched": {"$ne": True}}).sort('date', -1))
-        system_only = list(db['treasury_transactions'].find({"account_id": acc_oid, "reconciled": {"$ne": True}}).sort('created_at', -1))
-        matched_bank = list(db['bank_statement_movements'].find({"account_id": acc_oid, "matched": True}).sort('date', -1).limit(100))
+        bank_only_query = {"account_id": acc_oid, "matched": {"$ne": True}, **ReconciliationService._date_range_query(filters, 'date')}
+        system_only_query = {"account_id": acc_oid, "reconciled": {"$ne": True}, **ReconciliationService._date_range_query(filters, 'created_at')}
+        matched_query = {"account_id": acc_oid, "matched": True, **ReconciliationService._date_range_query(filters, 'date')}
+
+        bank_only = list(db['bank_statement_movements'].find(bank_only_query).sort('date', -1))
+        system_only = list(db['treasury_transactions'].find(system_only_query).sort('created_at', -1))
+        matched_bank = list(db['bank_statement_movements'].find(matched_query).sort('date', -1).limit(500))
 
         for b in bank_only + matched_bank:
             b['_id'] = str(b['_id'])
@@ -218,3 +243,25 @@ class ReconciliationService:
             "system_only": system_only,
             "system_only_total": round(sum(t.get('amount', 0) for t in system_only), 2),
         }
+
+    @staticmethod
+    def clear_bank_statement(company_db_name, account_id):
+        """Elimina TODOS los movimientos de banco importados para una cuenta
+        (ej. para borrar una carga de prueba) y desconcilia las transacciones
+        del sistema que hubieran quedado vinculadas a ellos — las deja como
+        pendientes de nuevo, no las borra."""
+        db = get_company_db(company_db_name)
+        if db is None:
+            return False, "Base de datos no disponible."
+        try:
+            acc_oid = ObjectId(account_id)
+        except Exception:
+            return False, "Cuenta bancaria no encontrada."
+
+        db['treasury_transactions'].update_many(
+            {"account_id": acc_oid, "reconciled": True},
+            {"$set": {"reconciled": False, "reconciled_bank_movement_id": None}}
+        )
+        result = db['bank_statement_movements'].delete_many({"account_id": acc_oid})
+
+        return True, f"Se eliminaron {result.deleted_count} movimiento(s) bancario(s) importado(s). Las transacciones del sistema que estaban conciliadas con ellos vuelven a quedar pendientes."
