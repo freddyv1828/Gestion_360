@@ -270,6 +270,9 @@ class LogisticsService:
             "route_code": route.get('route_code'),
             "vehicle_plate": route.get('vehicle_plate'),
             "driver_name": route.get('driver_name'),
+            "status": route.get('status', 'planificada'),
+            "started_at": route.get('started_at'),
+            "completed_at": route.get('completed_at'),
         }
 
     @staticmethod

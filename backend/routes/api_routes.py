@@ -1,7 +1,7 @@
 from functools import wraps
 from datetime import datetime
 import jwt as pyjwt
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, Response
 from config import JWT_SECRET_KEY
 from services.login_service import login_business_user
 from services.marketplace_service import MarketplaceService
@@ -11,6 +11,9 @@ from services.order_service import OrderService, OPEN_STATUSES
 from services.budget_service import BudgetService
 from services.financial_service import FinancialService
 from services.receivables_service import ReceivablesService
+from services.invoicing_service import InvoicingService
+from services.pdf_service import generate_table_pdf
+from services.export_service import rows_to_csv
 from utils import json_safe
 
 api_bp = Blueprint('api_bp', __name__, url_prefix='/api/v1')
@@ -346,3 +349,55 @@ def seller_receivable_invoice_payments(invoice_id):
     company_db_name = request.jwt_user['company_db']
     payments = ReceivablesService.get_payments_for_invoice(company_db_name, invoice_id)
     return jsonify({"payments": json_safe(payments)}), 200
+
+
+@api_bp.route('/seller/receivables/invoice/<invoice_id>/payments/export', methods=['GET'])
+def seller_export_invoice_payments(invoice_id):
+    """Descarga (PDF/Excel) del historial de abonos de UNA factura, para que el
+    vendedor pueda compartir/archivar el comprobante desde el teléfono. No usa
+    @jwt_required porque un navegador externo (abierto vía url_launcher) no
+    puede mandar el header Authorization — acepta el token también por
+    querystring (?token=...), solo para esta descarga puntual."""
+    token = request.args.get('token', '').strip()
+    if not token:
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ', 1)[1].strip()
+    if not token:
+        return jsonify({"error": "Token de autenticación faltante."}), 401
+    try:
+        payload = pyjwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])
+    except pyjwt.ExpiredSignatureError:
+        return jsonify({"error": "El token ha expirado. Inicie sesión nuevamente."}), 401
+    except pyjwt.InvalidTokenError:
+        return jsonify({"error": "Token inválido."}), 401
+
+    company_db_name = payload.get('company_db')
+    if not company_db_name:
+        return jsonify({"error": "El token no corresponde a un usuario de empresa."}), 403
+
+    export_format = request.args.get('format', 'pdf')
+    invoice = InvoicingService.get_invoice(company_db_name, invoice_id)
+    invoice_number = invoice.get('invoice_number') if invoice else invoice_id
+    payments = ReceivablesService.get_payments_for_invoice(company_db_name, invoice_id)
+    for p in payments:
+        p['created_at_str'] = p['created_at'].strftime('%Y-%m-%d %H:%M') if p.get('created_at') else ''
+
+    if export_format == 'excel':
+        headers_map = {
+            'created_at_str': 'Fecha', 'amount': 'Monto', 'currency': 'Moneda', 'payment_method': 'Método',
+            'reference': 'Referencia', 'user': 'Usuario', 'balance_after': 'Saldo Después', 'notes': 'Notas',
+        }
+        csv_bytes = rows_to_csv(payments, headers_map)
+        return Response(csv_bytes, mimetype='text/csv',
+                         headers={'Content-Disposition': f'attachment; filename="abonos_{invoice_number}.csv"'})
+
+    headers = ['Fecha', 'Monto', 'Moneda', 'Método', 'Referencia', 'Usuario', 'Saldo Después', 'Notas']
+    rows = [[
+        p.get('created_at_str', ''), f"{p.get('amount', 0):.2f}", p.get('currency', ''), p.get('payment_method', ''),
+        p.get('reference', '') or '—', p.get('user', '') or '—',
+        f"{p.get('balance_after', 0):.2f}" if p.get('balance_after') is not None else '—', p.get('notes', '') or '—',
+    ] for p in payments]
+    pdf_bytes = generate_table_pdf(f"Historial de Abonos — Factura {invoice_number}", "Gestión 360", headers, rows)
+    return Response(pdf_bytes, mimetype='application/pdf',
+                     headers={'Content-Disposition': f'attachment; filename="abonos_{invoice_number}.pdf"'})

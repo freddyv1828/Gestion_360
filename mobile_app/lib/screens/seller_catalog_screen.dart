@@ -41,6 +41,9 @@ class _SellerCatalogScreenState extends State<SellerCatalogScreen> {
     _scrollController.addListener(_onScroll);
   }
 
+  // ignore: unused_element
+  Future<void> reload() => _load(reset: true);
+
   @override
   void dispose() {
     _debounce?.cancel();

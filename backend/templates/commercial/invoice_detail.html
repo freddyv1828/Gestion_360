@@ -54,27 +54,31 @@
             </div>
         </div>
 
+        {% set inv_currency = invoice.currency or 'USD' %}
+        {% set fx_rate = invoice.exchange_rate_used %}
         <table class="w-full text-left text-xs mb-6">
             <thead class="border-b-2 border-gray-300 dark:border-gray-600 text-gray-500 uppercase text-[10px]">
                 <tr>
                     <th class="py-2">Artículo</th>
                     <th class="py-2 text-right">Cant.</th>
-                    <th class="py-2 text-right">Precio Unit.</th>
+                    <th class="py-2 text-right">Precio Unit. ({{ inv_currency }})</th>
                     <th class="py-2 text-right">IVA</th>
-                    <th class="py-2 text-right">Total</th>
+                    <th class="py-2 text-right">Total ({{ inv_currency }})</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                 {% for item in invoice['items'] %}
+                {% set unit_price_final = (item.unit_price * fx_rate) if (inv_currency != 'USD' and fx_rate) else item.unit_price %}
+                {% set item_total_final = (item.total * fx_rate) if (inv_currency != 'USD' and fx_rate) else item.total %}
                 <tr>
                     <td class="py-2">
                         <div class="font-semibold text-gray-900 dark:text-white">{{ item.name }}</div>
                         <div class="text-[10px] text-gray-400 font-mono">{{ item.sku }}</div>
                     </td>
                     <td class="py-2 text-right">{{ item.quantity }}</td>
-                    <td class="py-2 text-right font-mono">${{ "%.2f"|format(item.unit_price) }}</td>
+                    <td class="py-2 text-right font-mono">{{ "%.2f"|format(unit_price_final) }}</td>
                     <td class="py-2 text-right font-mono">{{ item.iva_rate }}%</td>
-                    <td class="py-2 text-right font-mono font-bold">${{ "%.2f"|format(item.total) }}</td>
+                    <td class="py-2 text-right font-mono font-bold">{{ "%.2f"|format(item_total_final) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -83,23 +87,24 @@
         <div class="flex justify-end">
             <div class="w-64 space-y-1.5 text-xs">
                 <div class="flex justify-between text-gray-500 dark:text-gray-400">
-                    <span>Subtotal (líneas)</span><span class="font-mono">${{ "%.2f"|format(invoice.get('subtotal_usd', invoice.subtotal)) }}</span>
+                    <span>Subtotal ({{ inv_currency }})</span><span class="font-mono">{{ "%.2f"|format(invoice.subtotal) }}</span>
                 </div>
                 {% if invoice.get('discount_amount_usd') %}
+                {% set discount_final = (invoice.discount_amount_usd * fx_rate) if (inv_currency != 'USD' and fx_rate) else invoice.discount_amount_usd %}
                 <div class="flex justify-between text-amber-600 dark:text-amber-400">
                     <span>Descuento {% if invoice.coupon_code %}(Cupón {{ invoice.coupon_code }}){% endif %}</span>
-                    <span class="font-mono">-${{ "%.2f"|format(invoice.discount_amount_usd) }}</span>
+                    <span class="font-mono">-{{ "%.2f"|format(discount_final) }}</span>
                 </div>
                 {% endif %}
                 <div class="flex justify-between text-gray-500 dark:text-gray-400">
                     <span>IVA {% if invoice.doc_type == 'nota_entrega' %}(No aplica — Nota de Entrega){% endif %}</span>
-                    <span class="font-mono">${{ "%.2f"|format(invoice.get('iva_total_usd', invoice.iva_total)) }}</span>
+                    <span class="font-mono">{{ "%.2f"|format(invoice.iva_total) }}</span>
                 </div>
                 <div class="flex justify-between text-base font-black text-gray-900 dark:text-white border-t border-gray-200 dark:border-gray-700 pt-1.5">
-                    <span>Total ({{ invoice.currency }})</span><span class="font-mono">{{ "%.2f"|format(invoice.total) }} {{ invoice.currency }}</span>
+                    <span>Total ({{ inv_currency }})</span><span class="font-mono">{{ "%.2f"|format(invoice.total) }} {{ inv_currency }}</span>
                 </div>
-                {% if invoice.currency != 'USD' and invoice.exchange_rate_used %}
-                <div class="text-[10px] text-gray-400 text-right">Tasa usada: 1 USD = {{ "%.4f"|format(invoice.exchange_rate_used) }} {{ invoice.currency }}</div>
+                {% if inv_currency != 'USD' and fx_rate %}
+                <div class="text-[10px] text-gray-400 text-right">Tasa usada: 1 USD = {{ "%.4f"|format(fx_rate) }} {{ inv_currency }}</div>
                 {% endif %}
             </div>
         </div>

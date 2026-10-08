@@ -247,13 +247,29 @@ class InvoicingService:
         subtotal_before_discount = round(sum(i['subtotal'] for i in resolved_items), 2)
         iva_before_discount = round(sum(i['iva_amount'] for i in resolved_items), 2)
 
+        # --- Resolver la moneda final ANTES del descuento: un descuento "fijo" lo
+        # ingresa el usuario en la moneda que está viendo en pantalla (la de la
+        # factura), pero el subtotal interno siempre está en USD (precios de
+        # catálogo) — si no se convierte primero, un descuento de "500" en una
+        # factura en VES se restaba como si fueran $500 USD en vez de Bs 500.
+        settings = FinancialService.get_company_settings(company_db_name)
+        final_currency = currency or settings.get('base_currency', 'USD')
+
         # --- Aplicar descuento sobre el subtotal (antes de impuesto) ---
         discount_amount = 0.0
         if discount_value > 0 and subtotal_before_discount > 0:
             if discount_type == 'percentage':
                 discount_amount = subtotal_before_discount * min(discount_value, 100.0) / 100.0
             elif discount_type == 'fixed':
-                discount_amount = min(discount_value, subtotal_before_discount)
+                discount_value_usd = discount_value
+                # Los cupones se configuran una sola vez a nivel de empresa (en USD);
+                # solo el descuento manual tecleado en esta factura está en la
+                # moneda de la factura y necesita convertirse a USD.
+                if not applied_coupon and final_currency != 'USD':
+                    converted_discount, _ = FinancialService.convert(company_db_name, discount_value, final_currency, 'USD')
+                    if converted_discount is not None:
+                        discount_value_usd = converted_discount
+                discount_amount = min(discount_value_usd, subtotal_before_discount)
         discount_amount = round(discount_amount, 2)
 
         subtotal = round(subtotal_before_discount - discount_amount, 2)
@@ -265,8 +281,6 @@ class InvoicingService:
         total = round(subtotal + iva_total, 2)
 
         # --- Conversión de moneda (catálogo siempre en USD) ---
-        settings = FinancialService.get_company_settings(company_db_name)
-        final_currency = currency or settings.get('base_currency', 'USD')
         exchange_rate_used = None
         if final_currency != 'USD':
             converted_total, exchange_rate_used = FinancialService.convert(company_db_name, total, 'USD', final_currency)

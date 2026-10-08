@@ -92,11 +92,24 @@ def generate_invoice_pdf(invoice, company_name, company_rif):
     elements.append(Paragraph(client_info, styles['Normal']))
     elements.append(Spacer(1, 0.5 * cm))
 
-    table_data = [["Artículo", "SKU", "Cant.", "Precio Unit.", "IVA", "Total"]]
+    currency = invoice.get('currency', 'USD')
+    exchange_rate = invoice.get('exchange_rate_used')
+
+    def _to_invoice_currency(amount_usd):
+        """Los items se guardan siempre en USD (precio de catálogo); si la
+        factura se emitió en otra moneda, hay que convertirlos con la misma
+        tasa ya usada para el total, para no mezclar $ (USD) con el total en
+        VES/EUR/COP."""
+        if currency != 'USD' and exchange_rate:
+            return float(amount_usd) * exchange_rate
+        return float(amount_usd)
+
+    table_data = [["Artículo", "SKU", "Cant.", f"Precio Unit. ({currency})", "IVA", f"Total ({currency})"]]
     for item in invoice.get('items', []):
         table_data.append([
             item.get('name', ''), item.get('sku', ''), str(item.get('quantity', '')),
-            f"${item.get('unit_price', 0):.2f}", f"{item.get('iva_rate', 0)}%", f"${item.get('total', 0):.2f}"
+            f"{_to_invoice_currency(item.get('unit_price', 0)):.2f}", f"{item.get('iva_rate', 0)}%",
+            f"{_to_invoice_currency(item.get('total', 0)):.2f}"
         ])
 
     items_table = Table(table_data, colWidths=[6 * cm, 2.5 * cm, 1.5 * cm, 2.5 * cm, 1.5 * cm, 2.5 * cm])
@@ -114,15 +127,15 @@ def generate_invoice_pdf(invoice, company_name, company_rif):
     elements.append(items_table)
     elements.append(Spacer(1, 0.4 * cm))
 
-    totals_data = [["Subtotal", f"${invoice.get('subtotal_usd', invoice.get('subtotal', 0)):.2f}"]]
+    totals_data = [[f"Subtotal ({currency})", f"{invoice.get('subtotal', 0):.2f}"]]
     if invoice.get('discount_amount_usd'):
         label = "Descuento"
         if invoice.get('coupon_code'):
             label += f" (Cupón {invoice['coupon_code']})"
-        totals_data.append([label, f"-${invoice['discount_amount_usd']:.2f}"])
+        totals_data.append([label, f"-{_to_invoice_currency(invoice['discount_amount_usd']):.2f}"])
     iva_label = "IVA (No aplica)" if invoice.get('doc_type') == 'nota_entrega' else "IVA"
-    totals_data.append([iva_label, f"${invoice.get('iva_total_usd', invoice.get('iva_total', 0)):.2f}"])
-    totals_data.append([f"TOTAL ({invoice.get('currency', 'USD')})", f"{invoice.get('total', 0):.2f} {invoice.get('currency', 'USD')}"])
+    totals_data.append([iva_label, f"{invoice.get('iva_total', 0):.2f}"])
+    totals_data.append([f"TOTAL ({currency})", f"{invoice.get('total', 0):.2f} {currency}"])
 
     totals_table = Table(totals_data, colWidths=[4 * cm, 4 * cm], hAlign='RIGHT')
     totals_table.setStyle(TableStyle([

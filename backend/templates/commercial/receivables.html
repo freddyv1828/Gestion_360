@@ -230,7 +230,11 @@
             <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i> Historial de Abonos — <span id="history_invoice_number"></span>
             </h3>
-            <button onclick="closeModal('historyModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+            <div class="flex items-center gap-2">
+                <a id="history_export_pdf" href="#" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] font-semibold rounded-lg transition" title="Descargar PDF"><i class="fa-solid fa-file-pdf text-rose-500"></i></a>
+                <a id="history_export_excel" href="#" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] font-semibold rounded-lg transition" title="Descargar Excel"><i class="fa-solid fa-file-excel text-emerald-600"></i></a>
+                <button onclick="closeModal('historyModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
         </div>
         <div id="history_body" class="p-5 overflow-y-auto space-y-3 text-xs">
             <div class="text-center text-gray-400 py-6">Cargando...</div>
@@ -255,6 +259,8 @@
 
     function openHistoryModal(invoiceId, invoiceNumber) {
         document.getElementById('history_invoice_number').textContent = invoiceNumber;
+        document.getElementById('history_export_pdf').href = `/commercial/receivables/invoice/${invoiceId}/payments/export?format=pdf`;
+        document.getElementById('history_export_excel').href = `/commercial/receivables/invoice/${invoiceId}/payments/export?format=excel`;
         const body = document.getElementById('history_body');
         body.innerHTML = '<div class="text-center text-gray-400 py-6">Cargando...</div>';
         openModal('historyModal');

@@ -118,6 +118,9 @@
                             <span class="px-2.5 py-1 rounded-full text-[10px] font-bold border {{ status_colors.get(o.status, '') }}">
                                 {{ o.status|replace('_', ' ')|upper }}
                             </span>
+                            {% if o.delivery_label %}
+                            <div class="text-[10px] text-slate-400 mt-1">{{ o.delivery_label }}</div>
+                            {% endif %}
                         </td>
                         <td class="py-3.5 px-4 text-center">
                             <a href="{{ url_for('commercial.order_detail', order_id=o._id) }}" class="px-2 py-1 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 text-amber-600 dark:text-amber-400 rounded-lg text-[11px] font-semibold transition">Ver / Procesar</a>

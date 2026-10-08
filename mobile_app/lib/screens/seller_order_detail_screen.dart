@@ -106,6 +106,46 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
                                   const SizedBox(height: 10),
                                   Text(_order!.clientName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                   Text(_order!.clientRif, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                  if (_order!.delivery != null) ...[
+                                    const SizedBox(height: 10),
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: _kGreen.withValues(alpha: 0.08),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: _kGreen.withValues(alpha: 0.25)),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.local_shipping_outlined, size: 14, color: _kGreen),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(_order!.delivery!.label,
+                                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kGreen)),
+                                              ),
+                                            ],
+                                          ),
+                                          if (_order!.delivery!.invoiceNumber != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 4),
+                                              child: Text('Factura: ${_order!.delivery!.invoiceNumber}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                            ),
+                                          if (_order!.delivery!.routeCode != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 2),
+                                              child: Text(
+                                                'Ruta ${_order!.delivery!.routeCode} · ${_order!.delivery!.vehiclePlate ?? 'S/placa'} · ${_order!.delivery!.driverName ?? 'S/chofer'}',
+                                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                   if (_order!.comment.isNotEmpty) ...[
                                     const SizedBox(height: 8),
                                     Text('Comentario: ${_order!.comment}', style: const TextStyle(fontSize: 12)),

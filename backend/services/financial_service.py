@@ -268,75 +268,141 @@ class FinancialService:
         return results
 
     @staticmethod
-    def get_movements_feed(company_db_name, limit=40):
+    def _movements_union_pipeline(filters=None):
         """
-        Bitácora auditable de movimientos de la empresa: ventas (facturas), compras
-        y cobros/pagos de Tesorería, unificados en una sola línea de tiempo con
-        tipo, referencia, monto, usuario responsable y fecha — para que el Centro
-        de Mando muestre de un vistazo qué está pasando con el dinero, sin tener
-        que entrar a cada submódulo por separado.
+        Construye el pipeline de agregación que normaliza ventas, compras,
+        cobros/pagos de Tesorería y abonos de CxC (sin depósito) a una forma
+        común vía $unionWith, para poder filtrar/paginar TODO en el servidor
+        de MongoDB en vez de traer colecciones completas a memoria de Python.
+        """
+        invoices_project = {"$project": {
+            "type": {"$literal": "venta"},
+            "label": {"$cond": [{"$eq": ["$doc_type", "nota_entrega"]}, "Nota de Entrega", "Factura"]},
+            "reference": "$invoice_number",
+            "counterparty": "$client_name",
+            "amount": {"$ifNull": ["$total", 0.0]},
+            "currency": {"$ifNull": ["$currency", "USD"]},
+            "user": {"$ifNull": ["$seller", "$user"]},
+            "created_at": "$created_at",
+            "voided": {"$eq": ["$status", "anulada"]},
+            "_id": 0,
+        }}
+        purchases_project = {"$project": {
+            "type": {"$literal": "compra"},
+            "label": {"$literal": "Compra"},
+            "reference": "$supplier_name",
+            "counterparty": "$supplier_name",
+            "amount": {"$ifNull": ["$total_cost", 0.0]},
+            "currency": {"$literal": "USD"},
+            "user": "$user",
+            "created_at": "$timestamp",
+            "voided": {"$literal": False},
+            "_id": 0,
+        }}
+        treasury_project = {"$project": {
+            "type": {"$cond": [{"$eq": ["$type", "COBRO"]}, "cobro", "pago"]},
+            "label": {"$cond": [{"$eq": ["$type", "COBRO"]}, "Cobro", "Pago"]},
+            "reference": {"$ifNull": ["$reference", "$account_name"]},
+            "counterparty": "$counterparty",
+            "amount": {"$ifNull": ["$amount", 0.0]},
+            "currency": {"$ifNull": ["$currency", "USD"]},
+            "user": "$user",
+            "created_at": "$created_at",
+            "voided": {"$literal": False},
+            "_id": 0,
+        }}
+        ar_payments_project = {"$project": {
+            "type": {"$literal": "abono"},
+            "label": {"$literal": "Abono CxC (pendiente de depósito)"},
+            "reference": "$invoice_number",
+            "counterparty": "$client_name",
+            "amount": {"$ifNull": ["$amount", 0.0]},
+            "currency": {"$ifNull": ["$currency", "USD"]},
+            "user": "$user",
+            "created_at": "$created_at",
+            "voided": {"$literal": False},
+            "_id": 0,
+        }}
+
+        pipeline = [
+            invoices_project,
+            {"$unionWith": {"coll": "purchase_orders", "pipeline": [purchases_project]}},
+            {"$unionWith": {"coll": "treasury_transactions", "pipeline": [treasury_project]}},
+            {"$unionWith": {"coll": "ar_payments", "pipeline": [
+                {"$match": {"account_id": None}},
+                ar_payments_project,
+            ]}},
+        ]
+
+        match_stage = {}
+        if filters:
+            mtype = (filters.get('type') or '').strip()
+            if mtype:
+                match_stage['type'] = mtype
+
+            responsible = (filters.get('responsible') or '').strip()
+            if responsible:
+                match_stage['user'] = responsible
+
+            date_from = (filters.get('date_from') or '').strip()
+            date_to = (filters.get('date_to') or '').strip()
+            if date_from or date_to:
+                date_query = {}
+                if date_from:
+                    try:
+                        date_query["$gte"] = datetime.strptime(date_from, '%Y-%m-%d')
+                    except ValueError:
+                        pass
+                if date_to:
+                    try:
+                        date_query["$lte"] = datetime.strptime(date_to, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+                    except ValueError:
+                        pass
+                if date_query:
+                    match_stage['created_at'] = date_query
+
+        if match_stage:
+            pipeline.append({"$match": match_stage})
+
+        return pipeline
+
+    @staticmethod
+    def get_movements_feed(company_db_name, filters=None, page=1, per_page=25):
+        """
+        Bitácora auditable de movimientos de la empresa: ventas, compras, cobros,
+        pagos y abonos de CxC, unificados y paginados a nivel de base de datos
+        (agregación $unionWith) para no cargar las colecciones completas en
+        memoria conforme la bitácora va creciendo. Soporta filtro por tipo,
+        responsable y rango de fechas.
         """
         db = get_company_db(company_db_name)
         if db is None:
+            return [], 0
+
+        pipeline = FinancialService._movements_union_pipeline(filters)
+
+        count_result = list(db['invoices'].aggregate(pipeline + [{"$count": "total"}]))
+        total_count = count_result[0]['total'] if count_result else 0
+
+        skip = (page - 1) * per_page
+        data_pipeline = pipeline + [
+            {"$sort": {"created_at": -1}},
+            {"$skip": skip},
+            {"$limit": per_page},
+        ]
+        items = list(db['invoices'].aggregate(data_pipeline))
+        return items, total_count
+
+    @staticmethod
+    def get_responsibles(company_db_name):
+        """Lista de usuarios (email+nombre) para el filtro 'Responsable' de la bitácora."""
+        db = get_company_db(company_db_name)
+        if db is None:
             return []
-
-        feed = []
-
-        for inv in db['invoices'].find({}).sort('created_at', -1).limit(limit):
-            feed.append({
-                "type": "venta",
-                "label": "Nota de Entrega" if inv.get('doc_type') == 'nota_entrega' else "Factura",
-                "reference": inv.get('invoice_number'),
-                "counterparty": inv.get('client_name'),
-                "amount": float(inv.get('total', 0.0)),
-                "currency": inv.get('currency', 'USD'),
-                "user": inv.get('seller') or inv.get('user'),
-                "created_at": inv.get('created_at'),
-                "voided": inv.get('status') == 'anulada',
-            })
-
-        for po in db['purchase_orders'].find({}).sort('timestamp', -1).limit(limit):
-            feed.append({
-                "type": "compra",
-                "label": "Compra",
-                "reference": po.get('supplier_name') or 'Proveedor',
-                "counterparty": po.get('supplier_name'),
-                "amount": float(po.get('total_cost', 0.0)),
-                "currency": "USD",
-                "user": po.get('user'),
-                "created_at": po.get('timestamp'),
-                "voided": False,
-            })
-
-        for tx in db['treasury_transactions'].find({}).sort('created_at', -1).limit(limit):
-            feed.append({
-                "type": "cobro" if tx.get('type') == 'COBRO' else "pago",
-                "label": "Cobro" if tx.get('type') == 'COBRO' else "Pago",
-                "reference": tx.get('reference') or tx.get('account_name'),
-                "counterparty": tx.get('counterparty'),
-                "amount": float(tx.get('amount', 0.0)),
-                "currency": tx.get('currency', 'USD'),
-                "user": tx.get('user'),
-                "created_at": tx.get('created_at'),
-                "voided": False,
-            })
-
-        for p in db['ar_payments'].find({"account_id": None}).sort('created_at', -1).limit(limit):
-            feed.append({
-                "type": "abono",
-                "label": "Abono CxC (pendiente de depósito)",
-                "reference": p.get('invoice_number'),
-                "counterparty": p.get('client_name'),
-                "amount": float(p.get('amount', 0.0)),
-                "currency": p.get('currency', 'USD'),
-                "user": p.get('user'),
-                "created_at": p.get('created_at'),
-                "voided": False,
-            })
-
-        feed = [f for f in feed if f.get('created_at')]
-        feed.sort(key=lambda f: f['created_at'], reverse=True)
-        return feed[:limit]
+        users = list(db['users'].find({}, {"name": 1, "email": 1}))
+        for u in users:
+            u['_id'] = str(u['_id'])
+        return users
 
     @staticmethod
     def get_reconciliation_summary(company_db_name):

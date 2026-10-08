@@ -27,6 +27,12 @@ class _SellerDashboardTabState extends State<SellerDashboardTab> {
     _load();
   }
 
+  /// Llamado por SellerHomeScreen cuando el vendedor vuelve a esta pestaña —
+  /// el IndexedStack mantiene el widget vivo, así que sin esto el resumen
+  /// quedaría obsoleto tras registrar pedidos/abonos en otra pestaña.
+  // ignore: unused_element
+  Future<void> reload() => _load();
+
   Future<void> _load() async {
     setState(() {
       _isLoading = true;

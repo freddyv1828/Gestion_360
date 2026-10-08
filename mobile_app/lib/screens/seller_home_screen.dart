@@ -28,14 +28,40 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
 
   static const _titles = ['Dashboard', 'Pedidos', 'Presupuestos', 'Clientes', 'Cobros', 'Catálogo'];
 
-  List<Widget> get _tabs => const [
-        SellerDashboardTab(),
-        SellerOrdersScreen(),
-        SellerBudgetsScreen(),
-        SellerClientsScreen(),
-        SellerReceivablesScreen(),
-        SellerCatalogScreen(),
+  // Una key por pestaña para poder llamar a su reload() al volver a ella —
+  // el IndexedStack de abajo mantiene cada pantalla viva entre pestañas, así
+  // que sin esto los datos quedarían congelados en el momento en que se
+  // abrieron por primera vez (ej. un abono registrado en Cobros no se vería
+  // reflejado al volver al Dashboard).
+  final _dashboardKey = GlobalKey<State<SellerDashboardTab>>();
+  final _ordersKey = GlobalKey<State<SellerOrdersScreen>>();
+  final _budgetsKey = GlobalKey<State<SellerBudgetsScreen>>();
+  final _clientsKey = GlobalKey<State<SellerClientsScreen>>();
+  final _receivablesKey = GlobalKey<State<SellerReceivablesScreen>>();
+  final _catalogKey = GlobalKey<State<SellerCatalogScreen>>();
+
+  List<GlobalKey<State>> get _tabKeys =>
+      [_dashboardKey, _ordersKey, _budgetsKey, _clientsKey, _receivablesKey, _catalogKey];
+
+  List<Widget> get _tabs => [
+        SellerDashboardTab(key: _dashboardKey),
+        SellerOrdersScreen(key: _ordersKey),
+        SellerBudgetsScreen(key: _budgetsKey),
+        SellerClientsScreen(key: _clientsKey),
+        SellerReceivablesScreen(key: _receivablesKey),
+        SellerCatalogScreen(key: _catalogKey),
       ];
+
+  void _onTabSelected(int index) {
+    setState(() => _tabIndex = index);
+    final state = _tabKeys[index].currentState;
+    if (state == null) return;
+    try {
+      (state as dynamic).reload();
+    } catch (_) {
+      // La pantalla no expone reload() (no debería pasar) — se ignora.
+    }
+  }
 
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
@@ -89,7 +115,7 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
       body: IndexedStack(index: _tabIndex, children: _tabs),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tabIndex,
-        onDestinationSelected: (i) => setState(() => _tabIndex = i),
+        onDestinationSelected: _onTabSelected,
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Dashboard'),
           NavigationDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox), label: 'Pedidos'),

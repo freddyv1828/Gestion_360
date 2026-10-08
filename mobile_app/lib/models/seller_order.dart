@@ -36,6 +36,35 @@ class SellerOrderItem {
   }
 }
 
+class OrderDelivery {
+  final String status; // 'sin_ruta' | 'planificada' | 'en_curso' | 'completada' | 'cancelada'
+  final String label;
+  final String? routeCode;
+  final String? vehiclePlate;
+  final String? driverName;
+  final String? invoiceNumber;
+
+  OrderDelivery({
+    required this.status,
+    required this.label,
+    this.routeCode,
+    this.vehiclePlate,
+    this.driverName,
+    this.invoiceNumber,
+  });
+
+  factory OrderDelivery.fromJson(Map<String, dynamic> json) {
+    return OrderDelivery(
+      status: json['status']?.toString() ?? 'sin_ruta',
+      label: json['label']?.toString() ?? '',
+      routeCode: json['route_code']?.toString(),
+      vehiclePlate: json['vehicle_plate']?.toString(),
+      driverName: json['driver_name']?.toString(),
+      invoiceNumber: json['invoice_number']?.toString(),
+    );
+  }
+}
+
 class SellerOrder {
   final String id;
   final String orderNumber;
@@ -46,6 +75,8 @@ class SellerOrder {
   final String status;
   final String warehouseId;
   final String? invoiceId;
+  final OrderDelivery? delivery;
+  final String? deliveryLabel;
   final List<SellerOrderItem> items;
 
   SellerOrder({
@@ -58,11 +89,18 @@ class SellerOrder {
     required this.status,
     required this.warehouseId,
     this.invoiceId,
+    this.delivery,
+    this.deliveryLabel,
     required this.items,
   });
 
+  /// Etiqueta de entrega a mostrar: usa el objeto `delivery` completo (detalle
+  /// de pedido) si existe, o el `delivery_label` plano (listado) si no.
+  String? get effectiveDeliveryLabel => delivery?.label ?? deliveryLabel;
+
   factory SellerOrder.fromJson(Map<String, dynamic> json) {
     final rawItems = List<Map<String, dynamic>>.from(json['items'] ?? []);
+    final rawDelivery = json['delivery'];
     return SellerOrder(
       id: json['_id']?.toString() ?? '',
       orderNumber: json['order_number']?.toString() ?? '',
@@ -73,6 +111,8 @@ class SellerOrder {
       status: json['status']?.toString() ?? 'pendiente',
       warehouseId: json['warehouse_id']?.toString() ?? '',
       invoiceId: json['invoice_id']?.toString(),
+      delivery: rawDelivery is Map ? OrderDelivery.fromJson(Map<String, dynamic>.from(rawDelivery)) : null,
+      deliveryLabel: json['delivery_label']?.toString(),
       items: rawItems.map((i) => SellerOrderItem.fromJson(i)).toList(),
     );
   }

@@ -40,6 +40,9 @@ class _SellerBudgetsScreenState extends State<SellerBudgetsScreen> {
     _load();
   }
 
+  // ignore: unused_element
+  Future<void> reload() => _load();
+
   Future<void> _load() async {
     setState(() {
       _isLoading = true;

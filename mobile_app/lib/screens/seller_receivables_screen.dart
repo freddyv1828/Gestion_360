@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/receivable_invoice.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -40,6 +41,9 @@ class _SellerReceivablesScreenState extends State<SellerReceivablesScreen> {
     super.initState();
     _load();
   }
+
+  // ignore: unused_element
+  Future<void> reload() => _load();
 
   @override
   void dispose() {
@@ -382,6 +386,17 @@ class _HistorySheetState extends State<_HistorySheet> {
     }
   }
 
+  Future<void> _download(String format) async {
+    final url = ApiService.receivablePaymentsExportUrl(widget.invoice.invoiceId, format: format);
+    final uri = Uri.parse(url);
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir la descarga.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -390,7 +405,25 @@ class _HistorySheetState extends State<_HistorySheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Historial — ${widget.invoice.invoiceNumber}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.dark)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text('Historial — ${widget.invoice.invoiceNumber}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.dark)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.picture_as_pdf_outlined, color: AppColors.rose, size: 20),
+                tooltip: 'Descargar PDF',
+                onPressed: () => _download('pdf'),
+              ),
+              IconButton(
+                icon: const Icon(Icons.table_chart_outlined, color: AppColors.greenDark, size: 20),
+                tooltip: 'Descargar Excel',
+                onPressed: () => _download('excel'),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           SizedBox(
             height: 320,

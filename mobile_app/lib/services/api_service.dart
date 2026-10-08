@@ -279,4 +279,14 @@ class ApiService {
     final data = await _authGet('/api/v1/seller/receivables/invoice/$invoiceId/payments');
     return List<Map<String, dynamic>>.from(data['payments'] ?? []);
   }
+
+  /// URL de descarga del historial de abonos de una factura (PDF o Excel).
+  /// Lleva el token por querystring porque se abre en el navegador externo
+  /// del teléfono, que no puede mandar el header Authorization.
+  static String receivablePaymentsExportUrl(String invoiceId, {String format = 'pdf'}) {
+    final uri = Uri.parse('$baseUrl/api/v1/seller/receivables/invoice/$invoiceId/payments/export').replace(
+      queryParameters: {'format': format, 'token': authToken ?? ''},
+    );
+    return uri.toString();
+  }
 }

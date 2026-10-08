@@ -42,6 +42,12 @@ class _SellerClientsScreenState extends State<SellerClientsScreen> {
     _scrollController.addListener(_onScroll);
   }
 
+  // ignore: unused_element
+  Future<void> reload() async {
+    await _loadReceivables();
+    await _load(reset: true);
+  }
+
   @override
   void dispose() {
     _debounce?.cancel();

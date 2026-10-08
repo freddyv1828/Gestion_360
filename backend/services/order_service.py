@@ -4,11 +4,19 @@ from bson import ObjectId
 from database import get_company_db
 from services.commercial_service import CommercialService
 from services.invoicing_service import InvoicingService
+from services.logistics_service import LogisticsService
 from utils import json_safe
 
 ORDER_STATUSES = ['pendiente', 'en_picking', 'listo_facturar', 'facturado', 'anulado']
 OPEN_STATUSES = ['pendiente', 'en_picking', 'listo_facturar']
 DOC_TYPES = {'factura_fiscal', 'nota_entrega'}
+
+DELIVERY_STATUS_LABELS = {
+    'planificada': 'Programado para despacho',
+    'en_curso': 'En ruta de entrega',
+    'completada': 'Entregado',
+    'cancelada': 'Entrega cancelada',
+}
 
 
 def _next_order_number(db):
@@ -69,7 +77,31 @@ class OrderService:
         total_count = orders_col.count_documents(query)
         skip = (page - 1) * per_page
         orders = list(orders_col.find(query).sort('created_at', -1).skip(skip).limit(per_page))
+        OrderService._attach_delivery_labels(db, orders)
         return orders, total_count
+
+    @staticmethod
+    def _attach_delivery_labels(db, orders):
+        """Agrega `delivery_label` a cada pedido facturado consultando, en UNA sola
+        consulta (no N+1), qué rutas de despacho cargan su factura — para que el
+        listado muestre 'Entregado' / 'En ruta' sin golpear la BD por fila."""
+        invoice_ids = [o['invoice_id'] for o in orders if o.get('status') == 'facturado' and o.get('invoice_id')]
+        if not invoice_ids:
+            return
+
+        routes_by_invoice = {}
+        for route in db['logistics_routes'].find({"invoice_ids": {"$in": invoice_ids}}, {"invoice_ids": 1, "status": 1}):
+            for inv_id in route.get('invoice_ids', []):
+                routes_by_invoice[inv_id] = route.get('status', 'planificada')
+
+        for o in orders:
+            if o.get('status') != 'facturado' or not o.get('invoice_id'):
+                continue
+            route_status = routes_by_invoice.get(o['invoice_id'])
+            if route_status:
+                o['delivery_label'] = DELIVERY_STATUS_LABELS.get(route_status, 'Programado para despacho')
+            else:
+                o['delivery_label'] = 'Facturado — pendiente de asignar a ruta'
 
     @staticmethod
     def count_orders(company_db_name, created_by=None, statuses=None):
@@ -101,7 +133,27 @@ class OrderService:
             order = db['orders'].find_one({"_id": ObjectId(order_id)})
         except Exception:
             return None
-        return json_safe(order) if order else None
+        if not order:
+            return None
+
+        order['delivery'] = None
+        if order.get('invoice_id'):
+            invoice = db['invoices'].find_one({"_id": order['invoice_id']}, {"invoice_number": 1})
+            route = LogisticsService.get_route_for_invoice(company_db_name, str(order['invoice_id']))
+            if route:
+                order['delivery'] = {
+                    **route,
+                    "label": DELIVERY_STATUS_LABELS.get(route.get('status'), 'Programado para despacho'),
+                    "invoice_number": invoice.get('invoice_number') if invoice else None,
+                }
+            elif invoice:
+                order['delivery'] = {
+                    "status": "sin_ruta",
+                    "label": "Facturado — pendiente de asignar a ruta de despacho",
+                    "invoice_number": invoice.get('invoice_number'),
+                }
+
+        return json_safe(order)
 
     @staticmethod
     def create_order(company_db_name, form_data, user_email):

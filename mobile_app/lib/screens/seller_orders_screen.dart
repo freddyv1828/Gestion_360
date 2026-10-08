@@ -42,6 +42,9 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
     _load();
   }
 
+  // ignore: unused_element
+  Future<void> reload() => _load();
+
   Future<void> _load() async {
     setState(() {
       _isLoading = true;
@@ -132,7 +135,17 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
                                         MaterialPageRoute(builder: (_) => SellerOrderDetailScreen(orderId: o.id)),
                                       ).then((_) => _load()),
                                       title: Text(o.orderNumber, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      subtitle: Text('${o.clientName} · ${o.items.length} línea(s)'),
+                                      subtitle: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text('${o.clientName} · ${o.items.length} línea(s)'),
+                                          if (o.effectiveDeliveryLabel != null)
+                                            Text(o.effectiveDeliveryLabel!,
+                                                style: const TextStyle(color: _kGreen, fontSize: 11, fontWeight: FontWeight.w600)),
+                                        ],
+                                      ),
+                                      isThreeLine: o.effectiveDeliveryLabel != null,
                                       trailing: StatusBadge(status: o.status),
                                     ),
                                   );

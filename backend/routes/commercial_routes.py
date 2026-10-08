@@ -37,7 +37,17 @@ def financial():
     summary = FinancialService.get_reconciliation_summary(company_db_name)
     aging = ReceivablesService.get_aging_summary(company_db_name)
     sales_summary = InvoicingService.get_sales_summary(company_db_name)
-    feed = FinancialService.get_movements_feed(company_db_name, limit=40)
+
+    page = request.args.get('page', 1, type=int)
+    per_page = 25
+    filters = {
+        'type': request.args.get('type', ''),
+        'responsible': request.args.get('responsible', ''),
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
+    feed, total_count = FinancialService.get_movements_feed(company_db_name, filters=filters, page=page, per_page=per_page)
+    responsibles = FinancialService.get_responsibles(company_db_name)
 
     total_accounts_base = 0.0
     for acc in accounts:
@@ -60,7 +70,51 @@ def financial():
         purchases_total=purchases_total,
         total_accounts_base=total_accounts_base,
         feed=feed,
+        filters=filters,
+        responsibles=responsibles,
+        pagination={
+            'page': page,
+            'per_page': per_page,
+            'total_count': total_count,
+            'total_pages': (total_count + per_page - 1) // per_page if total_count > 0 else 1
+        }
     )
+
+@commercial_bp.route('/financial/export')
+def export_financial():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    export_format = request.args.get('format', 'excel')
+    filters = {
+        'type': request.args.get('type', ''),
+        'responsible': request.args.get('responsible', ''),
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
+    feed, _ = FinancialService.get_movements_feed(company_db_name, filters=filters, page=1, per_page=100000)
+    for m in feed:
+        m['created_at_str'] = m['created_at'].strftime('%Y-%m-%d %H:%M') if m.get('created_at') else ''
+        m['voided_label'] = 'Sí' if m.get('voided') else 'No'
+
+    if export_format == 'pdf':
+        headers = ['Fecha', 'Tipo', 'Referencia', 'Contraparte', 'Monto', 'Moneda', 'Responsable']
+        rows = [[
+            m.get('created_at_str', ''), m.get('label', ''), m.get('reference', '') or '', m.get('counterparty', '') or '',
+            f"{m.get('amount', 0):.2f}", m.get('currency', ''), m.get('user', '') or '',
+        ] for m in feed]
+        pdf_bytes = generate_table_pdf("Bitácora de Movimientos Financieros", session.get('company_name', 'Gestión 360'), headers, rows)
+        return Response(pdf_bytes, mimetype='application/pdf',
+                         headers={'Content-Disposition': 'attachment; filename="bitacora_movimientos.pdf"'})
+
+    headers_map = {
+        'created_at_str': 'Fecha', 'label': 'Tipo', 'reference': 'Referencia', 'counterparty': 'Contraparte',
+        'amount': 'Monto', 'currency': 'Moneda', 'user': 'Responsable', 'voided_label': 'Anulada',
+    }
+    csv_bytes = rows_to_csv(feed, headers_map)
+    return Response(csv_bytes, mimetype='text/csv',
+                     headers={'Content-Disposition': 'attachment; filename="bitacora_movimientos.csv"'})
 
 @commercial_bp.route('/financial/currency/save', methods=['POST'])
 def save_base_currency():
@@ -223,6 +277,41 @@ def receivable_invoice_payments_json(invoice_id):
         return jsonify({"error": "No autorizado"}), 401
     payments = ReceivablesService.get_payments_for_invoice(company_db_name, invoice_id)
     return jsonify({"payments": json_safe(payments)})
+
+@commercial_bp.route('/receivables/invoice/<invoice_id>/payments/export')
+def export_invoice_payments(invoice_id):
+    """Descarga individual del historial de abonos de UNA factura — auditoría
+    puntual para cobranza (quién pagó qué, cuándo y cómo, sin tener que
+    exportar toda la cartera)."""
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    export_format = request.args.get('format', 'excel')
+    invoice = InvoicingService.get_invoice(company_db_name, invoice_id)
+    invoice_number = invoice.get('invoice_number') if invoice else invoice_id
+    payments = ReceivablesService.get_payments_for_invoice(company_db_name, invoice_id)
+    for p in payments:
+        p['created_at_str'] = p['created_at'].strftime('%Y-%m-%d %H:%M') if p.get('created_at') else ''
+
+    if export_format == 'pdf':
+        headers = ['Fecha', 'Monto', 'Moneda', 'Método', 'Referencia', 'Usuario', 'Saldo Después', 'Notas']
+        rows = [[
+            p.get('created_at_str', ''), f"{p.get('amount', 0):.2f}", p.get('currency', ''), p.get('payment_method', ''),
+            p.get('reference', '') or '—', p.get('user', '') or '—',
+            f"{p.get('balance_after', 0):.2f}" if p.get('balance_after') is not None else '—', p.get('notes', '') or '—',
+        ] for p in payments]
+        pdf_bytes = generate_table_pdf(f"Historial de Abonos — Factura {invoice_number}", session.get('company_name', 'Gestión 360'), headers, rows)
+        return Response(pdf_bytes, mimetype='application/pdf',
+                         headers={'Content-Disposition': f'attachment; filename="abonos_{invoice_number}.pdf"'})
+
+    headers_map = {
+        'created_at_str': 'Fecha', 'amount': 'Monto', 'currency': 'Moneda', 'payment_method': 'Método',
+        'reference': 'Referencia', 'user': 'Usuario', 'balance_after': 'Saldo Después', 'notes': 'Notas',
+    }
+    csv_bytes = rows_to_csv(payments, headers_map)
+    return Response(csv_bytes, mimetype='text/csv',
+                     headers={'Content-Disposition': f'attachment; filename="abonos_{invoice_number}.csv"'})
 
 @commercial_bp.route('/receivables/client/<client_id>/statement.json')
 def receivable_client_statement_json(client_id):

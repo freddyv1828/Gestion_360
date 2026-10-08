@@ -244,7 +244,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Moneda de la Factura</label>
-                    <select name="currency" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                    <select name="currency" id="invoice_currency" onchange="updateDiscountHint()" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
                         {% for cur in ['USD', 'VES', 'EUR', 'COP'] %}
                         <option value="{{ cur }}">{{ cur }}</option>
                         {% endfor %}
@@ -262,13 +262,16 @@
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Descuento</label>
                     <div class="flex gap-2">
-                        <select name="discount_type" class="w-1/2 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                        <select name="discount_type" id="invoice_discount_type" onchange="recalcGrandTotal(); updateDiscountHint();" class="w-1/2 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
                             <option value="">Sin descuento</option>
                             <option value="percentage">%</option>
-                            <option value="fixed">$ Fijo</option>
+                            <option value="fixed">Monto Fijo</option>
                         </select>
-                        <input type="number" step="0.01" name="discount_value" placeholder="0.00" class="w-1/2 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
+                        <input type="number" step="0.01" name="discount_value" id="invoice_discount_value" placeholder="0.00" oninput="recalcGrandTotal()" class="w-1/2 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs">
                     </div>
+                    <p id="discount_fixed_hint" class="hidden text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                        El monto fijo se interpreta en la moneda de la factura seleccionada abajo.
+                    </p>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Cupón (anula el descuento manual)</label>
@@ -302,8 +305,9 @@
                     <tbody id="invoiceLinesBody" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
                 </table>
                 <div class="p-3 flex justify-end">
-                    <div class="text-xs font-bold text-gray-800 dark:text-gray-100">
-                        Total Estimado: <span id="invoiceGrandTotal" class="text-emerald-600 dark:text-emerald-400">$0.00</span>
+                    <div class="text-xs font-bold text-gray-800 dark:text-gray-100 text-right">
+                        Total Estimado (USD, ya con descuento): <span id="invoiceGrandTotal" class="text-emerald-600 dark:text-emerald-400">$0.00</span>
+                        <div class="text-[10px] font-normal text-gray-400">El total final se convierte a la moneda elegida al emitir la factura.</div>
                     </div>
                 </div>
             </div>
@@ -455,6 +459,19 @@
         recalcGrandTotal();
     }
 
+    function updateDiscountHint() {
+        const type = document.getElementById('invoice_discount_type')?.value;
+        const currency = document.getElementById('invoice_currency')?.value || 'USD';
+        const hint = document.getElementById('discount_fixed_hint');
+        if (!hint) return;
+        if (type === 'fixed' && currency !== 'USD') {
+            hint.textContent = `El monto fijo se interpreta en ${currency} (la moneda de esta factura), no en USD.`;
+            hint.classList.remove('hidden');
+        } else {
+            hint.classList.add('hidden');
+        }
+    }
+
     function recalcGrandTotal() {
         let total = 0;
         document.querySelectorAll('#invoiceLinesBody tr').forEach(row => {
@@ -462,7 +479,17 @@
             const price = parseFloat(row.querySelector('.line-price')?.value || 0);
             total += qty * price;
         });
-        document.getElementById('invoiceGrandTotal').textContent = '$' + total.toFixed(2);
+
+        const discountType = document.getElementById('invoice_discount_type')?.value || '';
+        const discountValue = parseFloat(document.getElementById('invoice_discount_value')?.value || 0);
+        let discountAmount = 0;
+        if (discountType === 'percentage' && discountValue > 0) {
+            discountAmount = total * Math.min(discountValue, 100) / 100;
+        } else if (discountType === 'fixed' && discountValue > 0) {
+            discountAmount = Math.min(discountValue, total);
+        }
+        const estimatedTotal = Math.max(total - discountAmount, 0);
+        document.getElementById('invoiceGrandTotal').textContent = '$' + estimatedTotal.toFixed(2);
     }
 
     function prepareInvoiceSubmit() {
