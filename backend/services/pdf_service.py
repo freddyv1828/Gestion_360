@@ -104,19 +104,26 @@ def generate_invoice_pdf(invoice, company_name, company_rif):
             return float(amount_usd) * exchange_rate
         return float(amount_usd)
 
-    table_data = [["Artículo", "SKU", "Cant.", f"Precio Unit. ({currency})", "IVA", f"Total ({currency})"]]
+    # Nota: el precio de catálogo YA incluye IVA (es el precio al público), por
+    # eso "Precio Unit." se muestra con IVA — pero la columna de línea muestra
+    # el SUBTOTAL sin IVA de esa línea, para que sumando esta columna dé
+    # exactamente el "Subtotal Bruto" de más abajo (antes, esta columna decía
+    # "Total" y mostraba el monto CON IVA, que no tenía relación aritmética
+    # visible con el "Subtotal" del resumen, y la factura "no cuadraba").
+    table_data = [["Artículo", "SKU", "Cant.", f"P. Unit. c/IVA ({currency})", "IVA", f"Subtotal s/IVA ({currency})"]]
     for item in invoice.get('items', []):
         table_data.append([
             item.get('name', ''), item.get('sku', ''), str(item.get('quantity', '')),
             f"{_to_invoice_currency(item.get('unit_price', 0)):.2f}", f"{item.get('iva_rate', 0)}%",
-            f"{_to_invoice_currency(item.get('total', 0)):.2f}"
+            f"{_to_invoice_currency(item.get('subtotal', 0)):.2f}"
         ])
 
-    items_table = Table(table_data, colWidths=[6 * cm, 2.5 * cm, 1.5 * cm, 2.5 * cm, 1.5 * cm, 2.5 * cm])
+    items_table = Table(table_data, colWidths=[4.5 * cm, 2 * cm, 1.2 * cm, 3 * cm, 1.3 * cm, 3 * cm])
     items_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), BRAND_COLOR),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTSIZE', (0, 0), (-1, 0), 7),
         ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
@@ -127,12 +134,23 @@ def generate_invoice_pdf(invoice, company_name, company_rif):
     elements.append(items_table)
     elements.append(Spacer(1, 0.4 * cm))
 
-    totals_data = [[f"Subtotal ({currency})", f"{invoice.get('subtotal', 0):.2f}"]]
-    if invoice.get('discount_amount_usd'):
+    # discount_amount/subtotal_before_discount ya vienen convertidos a la
+    # moneda de la factura desde invoicing_service.py; para facturas viejas
+    # (previas a este campo) se reconstruyen a partir de lo que sí existía.
+    discount_final = invoice.get('discount_amount')
+    if discount_final is None:
+        discount_final = _to_invoice_currency(invoice.get('discount_amount_usd', 0))
+    subtotal_bruto_final = invoice.get('subtotal_before_discount')
+    if subtotal_bruto_final is None:
+        subtotal_bruto_final = invoice.get('subtotal', 0) + discount_final
+
+    totals_data = [[f"Subtotal Bruto ({currency})", f"{subtotal_bruto_final:.2f}"]]
+    if discount_final:
         label = "Descuento"
         if invoice.get('coupon_code'):
             label += f" (Cupón {invoice['coupon_code']})"
-        totals_data.append([label, f"-{_to_invoice_currency(invoice['discount_amount_usd']):.2f}"])
+        totals_data.append([label, f"-{discount_final:.2f}"])
+    totals_data.append([f"Subtotal Neto ({currency})", f"{invoice.get('subtotal', 0):.2f}"])
     iva_label = "IVA (No aplica)" if invoice.get('doc_type') == 'nota_entrega' else "IVA"
     totals_data.append([iva_label, f"{invoice.get('iva_total', 0):.2f}"])
     totals_data.append([f"TOTAL ({currency})", f"{invoice.get('total', 0):.2f} {currency}"])

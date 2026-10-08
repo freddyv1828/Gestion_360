@@ -281,15 +281,26 @@ class InvoicingService:
         total = round(subtotal + iva_total, 2)
 
         # --- Conversión de moneda (catálogo siempre en USD) ---
+        # IMPORTANTE: se reutiliza el mismo exchange_rate_used (un simple
+        # multiplicador) para TODOS los montos de la factura — subtotal bruto,
+        # descuento, subtotal neto e IVA — en vez de que cada uno se convierta
+        # por separado. Antes el PDF mostraba el "Subtotal" ya neto (post-
+        # descuento, sin IVA) sin nunca mostrar el subtotal bruto, por lo que
+        # sumar las líneas de la factura con una calculadora no cuadraba con
+        # lo impreso, aunque el total final sí fuera correcto.
         exchange_rate_used = None
         if final_currency != 'USD':
             converted_total, exchange_rate_used = FinancialService.convert(company_db_name, total, 'USD', final_currency)
             if converted_total is None:
                 return False, f"No hay tasa de cambio definida para {final_currency}. Configure una tasa antes de facturar en esta moneda.", None
-            converted_subtotal, _ = FinancialService.convert(company_db_name, subtotal, 'USD', final_currency)
-            converted_iva, _ = FinancialService.convert(company_db_name, iva_total, 'USD', final_currency)
+            converted_subtotal = subtotal * exchange_rate_used
+            converted_iva = iva_total * exchange_rate_used
+            converted_subtotal_before_discount = subtotal_before_discount * exchange_rate_used
+            converted_discount_amount = discount_amount * exchange_rate_used
         else:
             converted_total, converted_subtotal, converted_iva = total, subtotal, iva_total
+            converted_subtotal_before_discount = subtotal_before_discount
+            converted_discount_amount = discount_amount
 
         invoice_doc = {
             "invoice_number": invoice_number,
@@ -309,7 +320,10 @@ class InvoicingService:
             "discount_type": discount_type if discount_value > 0 else None,
             "discount_value": discount_value if discount_value > 0 else 0.0,
             "discount_amount_usd": discount_amount,
+            "discount_amount": round(converted_discount_amount, 2),
             "coupon_code": applied_coupon['code'] if applied_coupon else None,
+            "subtotal_before_discount_usd": subtotal_before_discount,
+            "subtotal_before_discount": round(converted_subtotal_before_discount, 2),
             "subtotal": round(converted_subtotal, 2),
             "iva_total": round(converted_iva, 2),
             "total": round(converted_total, 2),

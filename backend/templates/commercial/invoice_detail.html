@@ -56,20 +56,24 @@
 
         {% set inv_currency = invoice.currency or 'USD' %}
         {% set fx_rate = invoice.exchange_rate_used %}
+        {# El precio de catálogo YA incluye IVA (precio al público); la columna de línea
+           muestra el SUBTOTAL sin IVA para que, sumada, cuadre exactamente con el
+           "Subtotal Bruto" del resumen — antes decía "Total" con IVA incluido y no
+           tenía relación visible con el "Subtotal" de abajo, por eso "no cuadraba". #}
         <table class="w-full text-left text-xs mb-6">
             <thead class="border-b-2 border-gray-300 dark:border-gray-600 text-gray-500 uppercase text-[10px]">
                 <tr>
                     <th class="py-2">Artículo</th>
                     <th class="py-2 text-right">Cant.</th>
-                    <th class="py-2 text-right">Precio Unit. ({{ inv_currency }})</th>
+                    <th class="py-2 text-right">Precio Unit. c/IVA ({{ inv_currency }})</th>
                     <th class="py-2 text-right">IVA</th>
-                    <th class="py-2 text-right">Total ({{ inv_currency }})</th>
+                    <th class="py-2 text-right">Subtotal s/IVA ({{ inv_currency }})</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                 {% for item in invoice['items'] %}
                 {% set unit_price_final = (item.unit_price * fx_rate) if (inv_currency != 'USD' and fx_rate) else item.unit_price %}
-                {% set item_total_final = (item.total * fx_rate) if (inv_currency != 'USD' and fx_rate) else item.total %}
+                {% set item_subtotal_final = (item.subtotal * fx_rate) if (inv_currency != 'USD' and fx_rate) else item.subtotal %}
                 <tr>
                     <td class="py-2">
                         <div class="font-semibold text-gray-900 dark:text-white">{{ item.name }}</div>
@@ -78,24 +82,28 @@
                     <td class="py-2 text-right">{{ item.quantity }}</td>
                     <td class="py-2 text-right font-mono">{{ "%.2f"|format(unit_price_final) }}</td>
                     <td class="py-2 text-right font-mono">{{ item.iva_rate }}%</td>
-                    <td class="py-2 text-right font-mono font-bold">{{ "%.2f"|format(item_total_final) }}</td>
+                    <td class="py-2 text-right font-mono font-bold">{{ "%.2f"|format(item_subtotal_final) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
 
+        {% set discount_final = invoice.get('discount_amount') if invoice.get('discount_amount') is not none else ((invoice.get('discount_amount_usd', 0) * fx_rate) if (inv_currency != 'USD' and fx_rate) else invoice.get('discount_amount_usd', 0)) %}
+        {% set subtotal_bruto_final = invoice.get('subtotal_before_discount') if invoice.get('subtotal_before_discount') is not none else (invoice.subtotal + discount_final) %}
         <div class="flex justify-end">
             <div class="w-64 space-y-1.5 text-xs">
                 <div class="flex justify-between text-gray-500 dark:text-gray-400">
-                    <span>Subtotal ({{ inv_currency }})</span><span class="font-mono">{{ "%.2f"|format(invoice.subtotal) }}</span>
+                    <span>Subtotal Bruto ({{ inv_currency }})</span><span class="font-mono">{{ "%.2f"|format(subtotal_bruto_final) }}</span>
                 </div>
-                {% if invoice.get('discount_amount_usd') %}
-                {% set discount_final = (invoice.discount_amount_usd * fx_rate) if (inv_currency != 'USD' and fx_rate) else invoice.discount_amount_usd %}
+                {% if discount_final %}
                 <div class="flex justify-between text-amber-600 dark:text-amber-400">
                     <span>Descuento {% if invoice.coupon_code %}(Cupón {{ invoice.coupon_code }}){% endif %}</span>
                     <span class="font-mono">-{{ "%.2f"|format(discount_final) }}</span>
                 </div>
                 {% endif %}
+                <div class="flex justify-between text-gray-500 dark:text-gray-400">
+                    <span>Subtotal Neto ({{ inv_currency }})</span><span class="font-mono">{{ "%.2f"|format(invoice.subtotal) }}</span>
+                </div>
                 <div class="flex justify-between text-gray-500 dark:text-gray-400">
                     <span>IVA {% if invoice.doc_type == 'nota_entrega' %}(No aplica — Nota de Entrega){% endif %}</span>
                     <span class="font-mono">{{ "%.2f"|format(invoice.iva_total) }}</span>
