@@ -230,6 +230,16 @@ class CommercialService:
                     prod['reserved'] = sum(float(v) for v in reserved_by_wh.values()) if reserved_by_wh else 0.0
                 prod['available'] = prod['stock'] - prod['reserved']
 
+                # Disponible POR bodega (físico - reservado), para que el
+                # catálogo del vendedor pueda mostrar la cantidad correcta al
+                # filtrar por un almacén específico — antes este campo no se
+                # enviaba y el frontend siempre veía 0 al elegir un almacén.
+                warehouse_keys = set(stock_by_wh.keys()) | set(reserved_by_wh.keys())
+                prod['availability_by_warehouse'] = {
+                    wh: float(stock_by_wh.get(wh, 0.0)) - float(reserved_by_wh.get(wh, 0.0))
+                    for wh in warehouse_keys
+                }
+
                 prod.setdefault('image_url', None)
                 prod.setdefault('batch', 'N/A')
                 prod.setdefault('expiration_date', 'N/A')
