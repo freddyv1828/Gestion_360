@@ -544,6 +544,17 @@ def payment_inbox():
 
     return render_template('commercial/payment_inbox.html', inbox=inbox, filters=filters, sellers=sellers)
 
+@commercial_bp.route('/receivables/payment/<payment_id>/verify', methods=['POST'])
+def verify_receivable_payment(payment_id):
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    user_email = session.get('user_email', 'admin@gestion360.com')
+    success, message = ReceivablesService.manually_verify_payment(company_db_name, payment_id, user_email)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('commercial.payment_inbox'))
+
 @commercial_bp.route('/products')
 def products():
     company_db_name = get_active_company_db()

@@ -229,6 +229,11 @@ class ReceivablesService:
         if db is None:
             return {"verified": [], "unverified": [], "verified_count": 0, "unverified_count": 0, "totals_by_currency": {}}
 
+        # Única fuente de verdad de "¿está verificado?": recalcula TODOS los
+        # abonos pendientes (de cualquier filtro) y postea a Tesorería los que
+        # ya corresponda, antes de armar la vista filtrada de esta bandeja.
+        ReceivablesService._confirm_pending_payments(db, company_db_name)
+
         filters = filters or {}
         query = {}
 
@@ -260,36 +265,18 @@ class ReceivablesService:
 
         payments = list(db['ar_payments'].find(query).sort('created_at', -1))
 
-        # Un solo query para todas las referencias NC ya importadas — evita
-        # un round-trip a Mongo por cada abono.
-        nc_refs = {m['reference'] for m in db['bank_statement_movements'].find({"bank_type": "NC"}, {"reference": 1}) if m.get('reference')}
-
         verified, unverified = [], []
         totals_by_currency = {}
-        to_mark_true, to_mark_false = [], []
 
         for p in payments:
             method = p.get('payment_method', '')
-            ref = (p.get('reference') or '').strip()
-
-            if method in NON_BANK_METHODS:
-                is_verified = True
-                stored_value = None
-            elif ref:
-                is_verified = ref in nc_refs
-                stored_value = is_verified
-            else:
-                is_verified = False
-                stored_value = False
-
-            if p.get('reference_verified') != stored_value:
-                (to_mark_true if stored_value is True else to_mark_false if stored_value is False else []).append(p['_id'])
+            stored_value = p.get('reference_verified')
+            is_verified = stored_value is True or (stored_value is None and method in NON_BANK_METHODS)
 
             p['_id'] = str(p['_id'])
             p['invoice_id'] = str(p['invoice_id']) if p.get('invoice_id') else None
             p['client_id'] = str(p['client_id']) if p.get('client_id') else None
             p['account_id'] = str(p['account_id']) if p.get('account_id') else None
-            p['reference_verified'] = stored_value
 
             if is_verified:
                 verified.append(p)
@@ -298,11 +285,6 @@ class ReceivablesService:
             else:
                 unverified.append(p)
 
-        if to_mark_true:
-            db['ar_payments'].update_many({"_id": {"$in": to_mark_true}}, {"$set": {"reference_verified": True}})
-        if to_mark_false:
-            db['ar_payments'].update_many({"_id": {"$in": to_mark_false}}, {"$set": {"reference_verified": False}})
-
         return {
             "verified": verified,
             "unverified": unverified,
@@ -310,6 +292,109 @@ class ReceivablesService:
             "unverified_count": len(unverified),
             "totals_by_currency": totals_by_currency,
         }
+
+    @staticmethod
+    def _confirm_pending_payments(db, company_db_name):
+        """Recalcula el estado de verificación de todos los abonos que
+        todavía no se han posteado en Tesorería y postea los que ya
+        corresponda (sin banco, cruzaron con el estado de cuenta, o alguien
+        los verificó manualmente). Es la única fuente de verdad de
+        'reference_verified' — se corre antes de mostrar la Bandeja de Pagos
+        y también puede llamarse justo después de importar un estado de
+        cuenta para que el Centro de Mando se ponga al día de inmediato."""
+        # Migración silenciosa y autocontenida: los abonos registrados ANTES
+        # de este cambio nunca tuvieron 'treasury_tx_created' porque su
+        # movimiento se posteaba siempre de inmediato al registrarse — se
+        # marcan como ya posteados para no duplicarlos en Tesorería. Solo
+        # toca documentos que JAMÁS tuvieron el campo, así que es segura de
+        # correr en cada carga.
+        db['ar_payments'].update_many(
+            {"treasury_tx_created": {"$exists": False}},
+            {"$set": {"treasury_tx_created": True}}
+        )
+
+        nc_refs = {m['reference'] for m in db['bank_statement_movements'].find({"bank_type": "NC"}, {"reference": 1}) if m.get('reference')}
+        pending = list(db['ar_payments'].find({"treasury_tx_created": {"$ne": True}}))
+
+        for p in pending:
+            if p.get('verified_manually') is True:
+                is_verified, stored_value = True, True
+            else:
+                method = p.get('payment_method', '')
+                ref = (p.get('reference') or '').strip()
+                if method in NON_BANK_METHODS:
+                    is_verified, stored_value = True, None
+                elif ref:
+                    is_verified = ref in nc_refs
+                    stored_value = is_verified
+                else:
+                    is_verified, stored_value = False, False
+
+            if p.get('reference_verified') != stored_value:
+                db['ar_payments'].update_one({"_id": p['_id']}, {"$set": {"reference_verified": stored_value}})
+                p['reference_verified'] = stored_value
+
+            if is_verified:
+                ReceivablesService._post_to_treasury_if_pending(db, company_db_name, p, p.get('user'))
+
+    @staticmethod
+    def _post_to_treasury_if_pending(db, company_db_name, payment, user_email):
+        """Crea el movimiento de Tesorería (Centro de Mando) para un abono
+        que YA está confirmado (no requería banco, su referencia coincide con
+        el estado de cuenta importado, o alguien lo verificó manualmente) y
+        que todavía no se había reflejado ahí. El Centro de Mando nunca debe
+        mostrar un ingreso que todavía no se sabe con certeza si llegó al
+        banco — por eso esto se pospone hasta este momento en vez de hacerse
+        siempre al registrar el abono."""
+        if payment.get('treasury_tx_created'):
+            return
+        account_id = payment.get('account_id')
+        if not account_id:
+            return
+        notes = payment.get('notes')
+        FinancialService.register_transaction(company_db_name, {
+            "account_id": str(account_id),
+            "type": "COBRO",
+            "account_category": "INGRESO POR VENTAS",
+            "amount": str(payment.get('amount', 0)),
+            "counterparty": payment.get('client_name'),
+            "reference": payment.get('reference') or payment.get('invoice_number'),
+            "notes": f"Abono a factura {payment.get('invoice_number')}" + (f" — {notes}" if notes else ""),
+        }, user_email or payment.get('user') or 'sistema')
+        db['ar_payments'].update_one({"_id": payment['_id']}, {"$set": {"treasury_tx_created": True}})
+        payment['treasury_tx_created'] = True
+
+    @staticmethod
+    def manually_verify_payment(company_db_name, payment_id, user_email):
+        """Verificación manual desde la Bandeja de Pagos: para cuando la
+        referencia nunca va a cruzar automático (ej. el banco tarda, o el
+        cliente se equivocó de referencia pero cobranza confirmó el pago por
+        otro medio). Al verificar, también postea el movimiento pendiente en
+        Tesorería si tenía cuenta asociada."""
+        db = get_company_db(company_db_name)
+        if db is None:
+            return False, "Base de datos no disponible."
+        try:
+            payment = db['ar_payments'].find_one({"_id": ObjectId(payment_id)})
+        except Exception:
+            payment = None
+        if not payment:
+            return False, "Abono no encontrado."
+        if payment.get('reference_verified') is True:
+            return False, "Este abono ya estaba verificado."
+
+        db['ar_payments'].update_one(
+            {"_id": payment['_id']},
+            {"$set": {
+                "reference_verified": True,
+                "verified_manually": True,
+                "verified_by": user_email,
+                "verified_at": datetime.utcnow(),
+            }}
+        )
+        payment['reference_verified'] = True
+        ReceivablesService._post_to_treasury_if_pending(db, company_db_name, payment, user_email)
+        return True, f"Abono de {payment.get('amount')} {payment.get('currency', 'USD')} verificado manualmente y reflejado en Tesorería."
 
     @staticmethod
     def _resolve_seller(company_db_name, invoice):
@@ -510,7 +595,17 @@ class ReceivablesService:
             "balance_after": new_balance,
             "user": user_email,
             "created_at": datetime.utcnow(),
+            # El Centro de Mando (Tesorería) no debe registrar un ingreso que
+            # todavía no se sabe con certeza si llegó al banco: solo se
+            # postea de inmediato si el método no requiere banco (efectivo,
+            # tarjeta) o si la referencia YA cruzó contra el estado de cuenta
+            # importado. Si no, queda pendiente hasta que se confirme
+            # (automático al importar el estado de cuenta, o manual desde la
+            # Bandeja de Pagos) — así nunca queda "verificándose" en la
+            # Bandeja y "ya contado" en Tesorería al mismo tiempo.
+            "treasury_tx_created": False,
         }
+        should_post_now = account_id and (payment_method in NON_BANK_METHODS or reference_verified is True)
 
         try:
             db['ar_payments'].insert_one(payment_doc)
@@ -541,28 +636,14 @@ class ReceivablesService:
         except Exception as e:
             return False, f"Error al registrar el abono: {str(e)}"
 
-        if account_id:
-            # La referencia del movimiento de Tesorería debe ser la referencia
-            # BANCARIA real que dio el cliente (lo que efectivamente aparece en
-            # el estado de cuenta), no el N° de factura — si no, la
-            # conciliación bancaria nunca podría cruzar este cobro contra el
-            # banco real. El monto que entra a Tesorería es el que el cliente
-            # realmente depositó en esa cuenta (en la moneda de la cuenta).
-            FinancialService.register_transaction(company_db_name, {
-                "account_id": account_id,
-                "type": "COBRO",
-                "account_category": "INGRESO POR VENTAS",
-                "amount": str(amount),
-                "counterparty": invoice.get('client_name'),
-                "reference": reference or invoice.get('invoice_number'),
-                "notes": f"Abono a factura {invoice.get('invoice_number')}" + (f" — {notes}" if notes else ""),
-            }, user_email)
+        if should_post_now:
+            ReceivablesService._post_to_treasury_if_pending(db, company_db_name, payment_doc, user_email)
 
         verify_note = ""
         if reference_verified is True:
             verify_note = " Referencia verificada contra el banco ✓."
         elif reference_verified is False:
-            verify_note = " Nota: esa referencia todavía no aparece en el último estado de cuenta importado."
+            verify_note = " Nota: esa referencia todavía no aparece en el último estado de cuenta importado — el movimiento queda pendiente en Tesorería hasta verificarse (automático o manual en la Bandeja de Pagos)."
 
         discount_note = f" Se aplicó un descuento por pronto pago de {discount_amount:.2f} {invoice_currency}." if discount_amount > 0 else ""
         credit_note = f" El cliente pagó de más: se generó ${credit_added_usd:.2f} de saldo a favor." if credit_added_usd > 0 else ""

@@ -14,6 +14,7 @@ from datetime import datetime
 from bson import ObjectId
 import openpyxl
 from database import get_company_db
+from services.receivables_service import ReceivablesService
 
 
 def _parse_bank_statement_xlsx(file_bytes):
@@ -125,6 +126,12 @@ class ReconciliationService:
             inserted += 1
 
         ReconciliationService.reconcile_account(company_db_name, account_id)
+
+        # En cuanto se importa el estado de cuenta, confirma de una vez los
+        # abonos de CxC que esta importación deja verificados — para que el
+        # Centro de Mando se ponga al día sin esperar a que alguien abra la
+        # Bandeja de Pagos.
+        ReceivablesService._confirm_pending_payments(db, company_db_name)
 
         skipped = len(movements) - inserted
         message = f"Se importaron {inserted} movimiento(s) nuevo(s) del estado de cuenta ({len(movements)} encontrados"

@@ -93,6 +93,7 @@
                         <th class="py-3 px-4 font-semibold">Referencia</th>
                         <th class="py-3 px-4 font-semibold text-right">Monto</th>
                         <th class="py-3 px-4 font-semibold">Vendedor</th>
+                        <th class="py-3 px-4 font-semibold text-center">Acción</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -105,9 +106,17 @@
                         <td class="py-3 px-4 font-mono text-gray-500">{{ p.reference or '— sin referencia —' }}</td>
                         <td class="py-3 px-4 text-right font-mono font-bold text-amber-600">{{ "%.2f"|format(p.amount) }} {{ p.currency }}</td>
                         <td class="py-3 px-4 text-gray-500">{{ p.seller or '—' }}</td>
+                        <td class="py-3 px-4 text-center">
+                            <form action="{{ url_for('commercial.verify_receivable_payment', payment_id=p._id) }}" method="POST"
+                                  onsubmit="return confirm('¿Confirmas que este pago SÍ llegó (lo verificaste por otro medio)? Al verificarlo se reflejará en Tesorería.');">
+                                <button type="submit" class="px-2 py-1 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-600 dark:text-emerald-400 rounded-lg text-[11px] font-semibold transition">
+                                    <i class="fa-solid fa-check"></i> Verificar Manual
+                                </button>
+                            </form>
+                        </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="7" class="py-8 text-center text-gray-400">No hay pagos pendientes por verificar con estos filtros.</td></tr>
+                    <tr><td colspan="8" class="py-8 text-center text-gray-400">No hay pagos pendientes por verificar con estos filtros.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -142,7 +151,10 @@
                         <td class="py-3 px-4 font-mono font-bold text-gray-800 dark:text-gray-200">{{ p.invoice_number }}</td>
                         <td class="py-3 px-4 text-gray-600 dark:text-gray-300">{{ p.client_name }}</td>
                         <td class="py-3 px-4 text-gray-500">{{ p.payment_method }}</td>
-                        <td class="py-3 px-4 font-mono text-gray-500">{{ p.reference or '—' }}</td>
+                        <td class="py-3 px-4 font-mono text-gray-500">
+                            {{ p.reference or '—' }}
+                            {% if p.verified_manually %}<span class="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200">manual</span>{% endif %}
+                        </td>
                         <td class="py-3 px-4 text-right font-mono font-bold text-emerald-600">{{ "%.2f"|format(p.amount) }} {{ p.currency }}</td>
                         <td class="py-3 px-4 text-gray-500">{{ p.seller or '—' }}</td>
                     </tr>
