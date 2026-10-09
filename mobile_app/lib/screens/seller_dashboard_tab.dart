@@ -9,6 +9,15 @@ const _kDark = AppColors.dark;
 const _kGreen = AppColors.green;
 const _kBlue = AppColors.blue;
 
+const _kBucketColors = {
+  '0-7': AppColors.green,
+  '8-15': Color(0xFF0D9488),
+  '16-21': AppColors.amber,
+  '22-30': Color(0xFFEA580C),
+  '31-45': AppColors.rose,
+  '46+': Color(0xFFB91C1C),
+};
+
 class SellerDashboardTab extends StatefulWidget {
   const SellerDashboardTab({super.key});
 
@@ -91,6 +100,43 @@ class _SellerDashboardTabState extends State<SellerDashboardTab> {
             color: _kGreen,
             wide: true,
           ),
+          if (summary.agingBuckets.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const Text('Antigüedad de la Deuda (días)',
+                style: TextStyle(fontWeight: FontWeight.bold, color: _kDark)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 72,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: summary.agingBuckets.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, i) {
+                  final b = summary.agingBuckets[i];
+                  final color = _kBucketColors[b.label] ?? AppColors.muted;
+                  return Container(
+                    width: 92,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: color.withValues(alpha: 0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('${b.label} días', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: color)),
+                        const SizedBox(height: 4),
+                        Text('\$${b.total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _kDark)),
+                        Text('${b.count} factura(s)', style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           const Text('Clientes con Mayor Saldo Pendiente',
               style: TextStyle(fontWeight: FontWeight.bold, color: _kDark)),
@@ -124,6 +170,10 @@ class _SellerDashboardTabState extends State<SellerDashboardTab> {
                     trailing: StatusBadge(status: o['status']?.toString() ?? 'pendiente'),
                   ),
                 )),
+          const SizedBox(height: 24),
+          const Center(
+            child: Text('Gestión 360 · v1.0.0+7', style: TextStyle(fontSize: 10, color: Colors.grey)),
+          ),
         ],
       ),
     );

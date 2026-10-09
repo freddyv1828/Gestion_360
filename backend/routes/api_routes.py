@@ -118,6 +118,11 @@ def seller_dashboard():
     receivables = FinancialService.get_accounts_receivable(company_db_name, client_ids=client_ids)
     total_receivable = round(sum(r['balance_due'] for r in receivables), 2)
 
+    # Análisis de vencimiento (tramos de días) de la cartera del vendedor —
+    # misma lógica/filtro por ruta que Cobros, para que el dashboard y la
+    # pestaña de Cobros siempre muestren el mismo número.
+    aging_summary = ReceivablesService.get_aging_summary(company_db_name, filters={'seller': user_email})
+
     recent_orders, _ = OrderService.get_paginated_orders(company_db_name, status='all', page=1, per_page=5)
 
     return jsonify({
@@ -125,6 +130,7 @@ def seller_dashboard():
         "open_orders_count": open_orders_count,
         "accounts_receivable_total": total_receivable,
         "accounts_receivable_top": receivables[:5],
+        "aging_summary": aging_summary,
         "recent_orders": json_safe(recent_orders),
     }), 200
 
