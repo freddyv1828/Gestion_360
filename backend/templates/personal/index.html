@@ -22,12 +22,17 @@
         </div>
 
         <div class="flex items-center gap-3">
+            <a href="{{ url_for('personal_bp.routes_view') }}"
+               class="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition flex items-center gap-2">
+                <i class="fa-solid fa-route"></i>
+                <span>Rutas Comerciales</span>
+            </a>
             <form action="{{ url_for('personal_bp.seed_demo_sales_force_route') }}" method="POST"
-                  onsubmit="return confirm('Esto crea hasta 5 vendedores demo (rutas 1-5) y completa hasta 20 clientes repartidos entre ellos. No duplica lo que ya exista. ¿Continuar?');" class="inline">
+                  onsubmit="return confirm('Esto asegura 8 rutas comerciales con su vendedor titular, completa hasta 40 clientes repartidos entre ellas, y crea un catálogo demo de ~18 productos lácteos con stock. No duplica lo que ya exista. ¿Continuar?');" class="inline">
                 <button type="submit"
                         class="px-4 py-2.5 bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800 text-xs font-bold rounded-xl transition flex items-center gap-2">
                     <i class="fa-solid fa-route"></i>
-                    <span>Generar Vendedores & Cartera Demo</span>
+                    <span>Generar Rutas, Cartera y Catálogo Demo</span>
                 </button>
             </form>
             <button onclick="openModal('employeeModal')"

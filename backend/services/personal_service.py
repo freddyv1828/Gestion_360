@@ -7,6 +7,8 @@ from flask import session
 from werkzeug.security import generate_password_hash
 from database import get_company_db, get_central_db
 from utils import get_r2_client, R2_BUCKET_NAME
+from services.route_service import RouteService
+from services.commercial_service import CommercialService
 
 def create_employee_service(form_data, files_data, creator_email, company_rif):
     name = form_data.get('name', '').strip()
@@ -72,6 +74,10 @@ def create_employee_service(form_data, files_data, creator_email, company_rif):
         if users_col.find_one({"$or": [{"dni": dni}, {"email": email}]}):
             return False, "El DNI o correo electrónico ya está registrado en el sistema."
 
+        route_ok, route_err = RouteService.validate_route_available_for_seller(company_db_name, route_number)
+        if not route_ok:
+            return False, route_err
+
         employee_data = {
             "name": name,
             "email": email,
@@ -90,6 +96,9 @@ def create_employee_service(form_data, files_data, creator_email, company_rif):
 
         insert_res = users_col.insert_one(employee_data)
         user_id = str(insert_res.inserted_id)
+
+        if route_number is not None:
+            RouteService.sync_route_for_seller(company_db_name, route_number, email, name, creator_email)
 
         # Indexar en el Directorio Global Central para autenticación O(1)
         central_db = get_central_db()
@@ -183,6 +192,12 @@ def update_employee_service(user_id, form_data, files_data, modifier_email, comp
         if not current_user:
             return False, "Usuario no encontrado"
 
+        route_ok, route_err = RouteService.validate_route_available_for_seller(
+            company_db_name, route_number, exclude_user_id=user_id
+        )
+        if not route_ok:
+            return False, route_err
+
         update_values = {
             'name': name,
             'email': email,
@@ -204,6 +219,11 @@ def update_employee_service(user_id, form_data, files_data, modifier_email, comp
             update_values['password'] = hashed_password
 
         users_col.update_one({"_id": query_id}, {"$set": update_values})
+
+        if route_number is not None:
+            RouteService.sync_route_for_seller(company_db_name, route_number, email, name, modifier_email)
+        elif current_user.get('route_number') is not None:
+            RouteService.release_seller_route(company_db_name, current_user.get('email', email))
 
         # Sincronizar en el Directorio Global Central
         central_db = get_central_db()
@@ -243,9 +263,20 @@ def update_employee_service(user_id, form_data, files_data, modifier_email, comp
         return False, str(e)
 
 
-DEMO_ROUTE_COUNT = 5
-DEMO_CLIENT_TARGET = 20
+DEMO_ROUTE_COUNT = 8
+DEMO_CLIENT_TARGET = 40
 DEMO_SELLER_PASSWORD = "Vendedor360!"
+
+DEMO_ROUTE_META = {
+    1: {"name": "Ruta Centro", "zone": "Casco central"},
+    2: {"name": "Ruta Norte", "zone": "Zona norte / industrial"},
+    3: {"name": "Ruta Sur", "zone": "Zona sur / residencial"},
+    4: {"name": "Ruta Este", "zone": "Zona este"},
+    5: {"name": "Ruta Oeste", "zone": "Zona oeste"},
+    6: {"name": "Ruta Mayorista A", "zone": "Grandes cuentas / mayoristas 1"},
+    7: {"name": "Ruta Mayorista B", "zone": "Grandes cuentas / mayoristas 2"},
+    8: {"name": "Ruta Periferia", "zone": "Zonas rurales / periféricas"},
+}
 
 DEMO_SELLERS = [
     {"name": "Carlos Ramírez", "email": "vendedor1.ruta1@demo.gestion360.app", "dni": "V-20111001"},
@@ -253,6 +284,9 @@ DEMO_SELLERS = [
     {"name": "José Pérez", "email": "vendedor3.ruta3@demo.gestion360.app", "dni": "V-20111003"},
     {"name": "Ana Torres", "email": "vendedor4.ruta4@demo.gestion360.app", "dni": "V-20111004"},
     {"name": "Luis Gómez", "email": "vendedor5.ruta5@demo.gestion360.app", "dni": "V-20111005"},
+    {"name": "Rosa Delgado", "email": "vendedor6.ruta6@demo.gestion360.app", "dni": "V-20111006"},
+    {"name": "Miguel Castro", "email": "vendedor7.ruta7@demo.gestion360.app", "dni": "V-20111007"},
+    {"name": "Daniela Rojas", "email": "vendedor8.ruta8@demo.gestion360.app", "dni": "V-20111008"},
 ]
 
 DEMO_CLIENTS = [
@@ -276,16 +310,39 @@ DEMO_CLIENTS = [
     {"name": "Abasto San José", "rif_cedula": "J-30900018-8", "client_type": "fiscal"},
     {"name": "Minimarket Las Flores", "rif_cedula": "J-30900019-9", "client_type": "fiscal"},
     {"name": "Bodegón El Trébol", "rif_cedula": "J-30900020-0", "client_type": "fiscal"},
+    {"name": "Distribuidora Mayorista El Faro", "rif_cedula": "J-30900021-1", "client_type": "fiscal"},
+    {"name": "Hipermercado Caribe", "rif_cedula": "J-30900022-2", "client_type": "fiscal"},
+    {"name": "Panadería La Espiga de Oro", "rif_cedula": "J-30900023-3", "client_type": "fiscal"},
+    {"name": "Charcutería Europa", "rif_cedula": "J-30900024-4", "client_type": "fiscal"},
+    {"name": "Minimarket Girasol", "rif_cedula": "J-30900025-5", "client_type": "fiscal"},
+    {"name": "Bodegón Costa Azul", "rif_cedula": "J-30900026-6", "client_type": "fiscal"},
+    {"name": "Restaurant La Terraza", "rif_cedula": "J-30900027-7", "client_type": "fiscal"},
+    {"name": "Cafetín La Esquina", "rif_cedula": "V-15900028", "client_type": "natural"},
+    {"name": "Supermercado Central Plaza", "rif_cedula": "J-30900029-9", "client_type": "fiscal"},
+    {"name": "Panadería Monte Real", "rif_cedula": "J-30900030-0", "client_type": "fiscal"},
+    {"name": "Distribuidora Mayorista San Marcos", "rif_cedula": "J-30900031-1", "client_type": "fiscal"},
+    {"name": "Abasto El Progreso", "rif_cedula": "J-30900032-2", "client_type": "fiscal"},
+    {"name": "Charcutería Don Manuel", "rif_cedula": "J-30900033-3", "client_type": "fiscal"},
+    {"name": "Minimarket Brisas del Lago", "rif_cedula": "J-30900034-4", "client_type": "fiscal"},
+    {"name": "Bodegón La Candelaria", "rif_cedula": "J-30900035-5", "client_type": "fiscal"},
+    {"name": "Restaurant El Fogón Criollo", "rif_cedula": "J-30900036-6", "client_type": "fiscal"},
+    {"name": "Cafetín Buenos Aires", "rif_cedula": "V-15900037", "client_type": "natural"},
+    {"name": "Supermercado Valle Verde", "rif_cedula": "J-30900038-8", "client_type": "fiscal"},
+    {"name": "Panadería Nueva Era", "rif_cedula": "J-30900039-9", "client_type": "fiscal"},
+    {"name": "Hipermercado Rural del Este", "rif_cedula": "J-30900040-0", "client_type": "fiscal"},
 ]
 
 
 def seed_demo_sales_force(company_db_name, creator_email, company_rif, company_name):
     """
-    Crea (si no existen) 5 vendedores demo, uno por cada ruta 1-5, y asegura
-    que existan ~20 clientes repartidos entre esas rutas — asignando ruta
-    primero a los clientes reales que todavía no tengan una, y solo creando
-    clientes demo nuevos para completar el resto. Idempotente: correrlo varias
-    veces no duplica vendedores ni clientes ya existentes.
+    Asegura las DEMO_ROUTE_COUNT rutas comerciales como entidad real (colección
+    `routes`), crea (si no existen) un vendedor titular demo por cada una, y
+    asegura que existan ~DEMO_CLIENT_TARGET clientes repartidos entre esas
+    rutas — asignando ruta primero a los clientes reales que todavía no tengan
+    una, y solo creando clientes demo nuevos para completar el resto. También
+    siembra un catálogo de productos lácteos demo si el catálogo está vacío.
+    Idempotente: correrlo varias veces no duplica rutas, vendedores, clientes
+    ni productos ya existentes.
     """
     db = get_company_db(company_db_name)
     if db is None:
@@ -294,6 +351,11 @@ def seed_demo_sales_force(company_db_name, creator_email, company_rif, company_n
     users_col = db['users']
     clients_col = db['clients']
     central_db = get_central_db()
+
+    for i in range(1, DEMO_ROUTE_COUNT + 1):
+        meta = DEMO_ROUTE_META.get(i, {"name": f"Ruta {i}", "zone": ""})
+        if not db['routes'].find_one({"number": i}):
+            RouteService.create_route(company_db_name, i, meta["name"], meta["zone"], creator_email)
 
     sellers_created = 0
     sellers_skipped = 0
@@ -322,6 +384,7 @@ def seed_demo_sales_force(company_db_name, creator_email, company_rif, company_n
         }
         insert_res = users_col.insert_one(employee_data)
         sellers_created += 1
+        RouteService.sync_route_for_seller(company_db_name, i, seller["email"], seller["name"], creator_email)
 
         central_db["global_users"].update_one(
             {"email": seller["email"]},
@@ -384,10 +447,13 @@ def seed_demo_sales_force(company_db_name, creator_email, company_rif, company_n
         clients_created += 1
         total_clients += 1
 
+    _, catalog_message = CommercialService.seed_demo_catalog(company_db_name, creator_email)
+
     message = (
-        f"Listo: {sellers_created} vendedor(es) nuevo(s) creado(s) ({sellers_skipped} ya existían), "
+        f"Listo: {DEMO_ROUTE_COUNT} ruta(s) comerciales aseguradas, "
+        f"{sellers_created} vendedor(es) nuevo(s) creado(s) ({sellers_skipped} ya existían), "
         f"{clients_routed} cliente(s) existente(s) asignado(s) a una ruta, "
-        f"{clients_created} cliente(s) demo nuevo(s) creado(s). "
+        f"{clients_created} cliente(s) demo nuevo(s) creado(s). {catalog_message} "
         f"Contraseña de los vendedores demo: {DEMO_SELLER_PASSWORD}"
     )
     return True, message

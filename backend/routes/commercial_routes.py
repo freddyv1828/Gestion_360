@@ -8,6 +8,7 @@ from services.exchange_rate_service import ExchangeRateService
 from services.order_service import OrderService
 from services.coupon_service import CouponService
 from services.receivables_service import ReceivablesService
+from services.route_service import RouteService
 from services.reconciliation_service import ReconciliationService
 from services.accounting_categories import INCOME_CATEGORIES, EXPENSE_CATEGORIES
 from services.pdf_service import generate_invoice_pdf, generate_dispatch_guide_pdf, generate_table_pdf
@@ -21,6 +22,24 @@ commercial_bp = Blueprint('commercial', __name__, template_folder='../../templat
 def get_active_company_db():
     """Retorna la base de datos de la empresa desde la sesión activa de forma segura."""
     return session.get('company_db')
+
+def _get_filter_options(company_db_name):
+    """Opciones compartidas por las bandejas de Pedidos, Cobros y Pagos para
+    filtrar por vendedor, ruta y cliente. 'Vendedor' se restringe a usuarios
+    con ruta asignada (dueños de ruta), no a todos los usuarios del sistema
+    (antes el dropdown de Cobros listaba hasta el administrador y el
+    almacenista)."""
+    db = get_company_db(company_db_name)
+    if db is None:
+        return [], [], []
+    sellers = list(db['users'].find({"route_number": {"$ne": None}}, {"name": 1, "email": 1, "route_number": 1}).sort('route_number', 1))
+    for s in sellers:
+        s['_id'] = str(s['_id'])
+    routes = RouteService.list_routes(company_db_name)
+    clients = list(db['clients'].find({"is_active": {"$ne": False}}, {"name": 1, "route_number": 1}).sort('name', 1))
+    for c in clients:
+        c['_id'] = str(c['_id'])
+    return sellers, routes, clients
 
 @commercial_bp.route('/')
 def index():
@@ -384,6 +403,8 @@ def receivables():
     filters = {
         'search': request.args.get('search', ''),
         'seller': request.args.get('seller', ''),
+        'route_number': request.args.get('route_number', ''),
+        'client_id': request.args.get('client_id', ''),
         'bucket': request.args.get('bucket', ''),
         'date_from': request.args.get('date_from', ''),
         'date_to': request.args.get('date_to', ''),
@@ -391,13 +412,7 @@ def receivables():
     items = ReceivablesService.get_invoice_receivables(company_db_name, filters=filters)
     aging = ReceivablesService.get_aging_summary(company_db_name)
     accounts = FinancialService.get_bank_accounts(company_db_name)
-
-    db = get_company_db(company_db_name)
-    sellers = []
-    if db is not None:
-        sellers = list(db['users'].find({}, {"name": 1, "email": 1}))
-        for s in sellers:
-            s['_id'] = str(s['_id'])
+    sellers, routes, clients = _get_filter_options(company_db_name)
 
     return render_template(
         'commercial/receivables.html',
@@ -405,6 +420,8 @@ def receivables():
         aging=aging,
         accounts=accounts,
         sellers=sellers,
+        routes=routes,
+        clients=clients,
         filters=filters,
     )
 
@@ -493,6 +510,8 @@ def export_receivables():
     filters = {
         'search': request.args.get('search', ''),
         'seller': request.args.get('seller', ''),
+        'route_number': request.args.get('route_number', ''),
+        'client_id': request.args.get('client_id', ''),
         'bucket': request.args.get('bucket', ''),
         'date_from': request.args.get('date_from', ''),
         'date_to': request.args.get('date_to', ''),
@@ -530,19 +549,15 @@ def payment_inbox():
 
     filters = {
         'seller': request.args.get('seller', ''),
+        'route_number': request.args.get('route_number', ''),
+        'client_id': request.args.get('client_id', ''),
         'date_from': request.args.get('date_from', ''),
         'date_to': request.args.get('date_to', ''),
     }
     inbox = ReceivablesService.get_payment_inbox(company_db_name, filters=filters)
+    sellers, routes, clients = _get_filter_options(company_db_name)
 
-    db = get_company_db(company_db_name)
-    sellers = []
-    if db is not None:
-        sellers = list(db['users'].find({}, {"name": 1, "email": 1}))
-        for s in sellers:
-            s['_id'] = str(s['_id'])
-
-    return render_template('commercial/payment_inbox.html', inbox=inbox, filters=filters, sellers=sellers)
+    return render_template('commercial/payment_inbox.html', inbox=inbox, filters=filters, sellers=sellers, routes=routes, clients=clients)
 
 @commercial_bp.route('/receivables/payment/<payment_id>/verify', methods=['POST'])
 def verify_receivable_payment(payment_id):
@@ -667,18 +682,14 @@ def clients():
         company_db_name, filters=filters, page=page, per_page=per_page
     )
 
-    db = get_company_db(company_db_name)
-    sellers = []
-    if db is not None:
-        sellers = list(db['users'].find({"route_number": {"$ne": None}}, {"name": 1, "route_number": 1, "email": 1}).sort('route_number', 1))
-        for s in sellers:
-            s['_id'] = str(s['_id'])
+    sellers, routes, _ = _get_filter_options(company_db_name)
 
     return render_template(
         'commercial/clients.html',
         clients=clients_list,
         filters=filters,
         sellers=sellers,
+        routes=routes,
         pagination={
             'page': page,
             'per_page': per_page,
@@ -737,6 +748,19 @@ def save_client():
     flash(message, 'success' if success else 'danger')
     return redirect(url_for('commercial.clients'))
 
+@commercial_bp.route('/clients/<client_id>/reassign-route', methods=['POST'])
+def reassign_client_route(client_id):
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    actor_email = session.get('user_email', 'admin@gestion360.com')
+    success, message = ClientService.reassign_route(
+        company_db_name, client_id, request.form.get('route_number', ''), actor_email
+    )
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('commercial.clients'))
+
 @commercial_bp.route('/clients/delete/<client_id>', methods=['POST'])
 def delete_client(client_id):
     company_db_name = get_active_company_db()
@@ -761,11 +785,15 @@ def orders():
         'warehouse_id': request.args.get('warehouse_id', ''),
         'date_from': request.args.get('date_from', ''),
         'date_to': request.args.get('date_to', ''),
+        'seller': request.args.get('seller', ''),
+        'route_number': request.args.get('route_number', ''),
+        'client_id': request.args.get('client_id', ''),
     }
 
     orders_list, total_count = OrderService.get_paginated_orders(company_db_name, status=status, filters=filters, page=page, per_page=per_page)
     status_counts = OrderService.get_status_counts(company_db_name)
     warehouses = CommercialService.get_warehouses(company_db_name)
+    sellers, routes, clients = _get_filter_options(company_db_name)
 
     return render_template(
         'commercial/orders.html',
@@ -774,6 +802,9 @@ def orders():
         filters=filters,
         status_counts=status_counts,
         warehouses=warehouses,
+        sellers=sellers,
+        routes=routes,
+        clients=clients,
         pagination={
             'page': page,
             'per_page': per_page,
@@ -795,6 +826,9 @@ def export_orders():
         'warehouse_id': request.args.get('warehouse_id', ''),
         'date_from': request.args.get('date_from', ''),
         'date_to': request.args.get('date_to', ''),
+        'seller': request.args.get('seller', ''),
+        'route_number': request.args.get('route_number', ''),
+        'client_id': request.args.get('client_id', ''),
     }
     orders_list, _ = OrderService.get_paginated_orders(company_db_name, status=status, filters=filters, page=1, per_page=100000)
 

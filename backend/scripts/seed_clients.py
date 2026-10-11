@@ -9,6 +9,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.client_service import ClientService
+from services.route_service import RouteService
 
 SAMPLE_CLIENTS = [
     {"name": "Supermercado El Trigal, C.A.", "rif_cedula": "J-29887766-1", "client_type": "fiscal",
@@ -30,7 +31,15 @@ SAMPLE_CLIENTS = [
 
 
 def run(company_db_name):
-    for c in SAMPLE_CLIENTS:
+    # Desde que los clientes se anclan a una ruta real, el script necesita
+    # repartirlos entre las rutas que ya existan en la empresa (créalas antes
+    # desde Personal > Rutas, o corre el seed de fuerza de ventas demo).
+    routes = RouteService.list_routes(company_db_name)
+    if not routes:
+        print("No hay rutas creadas en esta empresa todavía — crea al menos una ruta antes de sembrar clientes.")
+        return
+    for i, c in enumerate(SAMPLE_CLIENTS):
+        c = dict(c, route_number=str(routes[i % len(routes)]['number']))
         ok, msg = ClientService.create_or_update_client(company_db_name, c, "seed@gestion360.com")
         print(("  OK  " if ok else "  SKIP") + f" {msg}")
 

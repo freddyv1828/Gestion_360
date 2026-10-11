@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Rutas Comerciales — {{ session.get('company_name', 'Mi Empresa') }}{% endblock %}
+{% block header_title %}Rutas Comerciales{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <div class="flex items-center gap-2 mb-1.5">
+                <span class="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-widest bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800">
+                    Rutas
+                </span>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    {{ routes | length }} ruta(s)
+                </span>
+            </div>
+            <h2 class="text-xl font-extrabold text-slate-900 dark:text-white">Cliente · Ruta · Vendedor</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Cada ruta tiene un único vendedor titular. Reasignar un cliente o un vendedor de ruta se hace solo desde aquí, nunca desde la edición normal de su ficha.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="{{ url_for('personal_bp.personal_view') }}" class="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition flex items-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span>Volver a Personal</span>
+            </a>
+            <button onclick="openModal('createRouteModal')"
+                    class="px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold rounded-xl transition shadow-md shadow-cyan-500/20 flex items-center gap-2">
+                <i class="fa-solid fa-plus"></i>
+                <span>Nueva Ruta</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                        <th class="py-3.5 px-4 font-bold">Ruta</th>
+                        <th class="py-3.5 px-4 font-bold">Zona</th>
+                        <th class="py-3.5 px-4 font-bold">Vendedor Titular</th>
+                        <th class="py-3.5 px-4 font-bold text-center">Clientes</th>
+                        <th class="py-3.5 px-4 font-bold">Estado</th>
+                        <th class="py-3.5 px-4 font-bold text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                    {% for r in routes %}
+                    <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                        <td class="py-3 px-4">
+                            <span class="font-bold text-slate-800 dark:text-slate-100">Ruta {{ r.number }}</span>
+                            <div class="text-[11px] text-slate-400">{{ r.name }}</div>
+                        </td>
+                        <td class="py-3 px-4 text-xs text-slate-500 dark:text-slate-400">{{ r.zone or '—' }}</td>
+                        <td class="py-3 px-4 text-xs">
+                            {% if r.seller_name %}
+                                <span class="font-semibold text-slate-700 dark:text-slate-200">{{ r.seller_name }}</span>
+                            {% else %}
+                                <span class="text-amber-600 dark:text-amber-400 font-semibold">Sin vendedor asignado</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4 text-center text-xs font-mono">{{ r.client_count }}</td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' if r.status == 'activa' else 'bg-slate-100 text-slate-500' }}">
+                                {{ r.status }}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="openAssignModal('{{ r.number }}', '{{ r.name }}')"
+                                    class="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold rounded-lg hover:bg-indigo-100">
+                                Asignar vendedor
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="py-10 text-center text-xs text-slate-400">Todavía no hay rutas creadas.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Nueva Ruta -->
+<div id="createRouteModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md p-6">
+        <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-4">Nueva Ruta Comercial</h3>
+        <form action="{{ url_for('personal_bp.create_route_route') }}" method="POST" class="space-y-3">
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Número de Ruta *</label>
+                <input type="number" min="1" name="number" required class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Nombre *</label>
+                <input type="text" name="name" required placeholder="Ej. Ruta Centro" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Zona / Descripción</label>
+                <input type="text" name="zone" placeholder="Ej. Centro y alrededores" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs">
+            </div>
+            <div class="flex justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                <button type="button" onclick="closeModal('createRouteModal')" class="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-xs font-semibold rounded-xl">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-cyan-600 text-white text-xs font-semibold rounded-xl shadow">Crear Ruta</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: Asignar Vendedor Titular -->
+<div id="assignSellerModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md p-6">
+        <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">Asignar Vendedor Titular</h3>
+        <p id="assignRouteLabel" class="text-xs text-slate-500 mb-4"></p>
+        <form id="assignSellerForm" method="POST" class="space-y-3">
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Vendedor</label>
+                <select name="seller_email" required class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs">
+                    <option value="" disabled selected>-- Seleccionar --</option>
+                    {% for s in sellers %}
+                        <option value="{{ s.email }}">{{ s.name }}{% if s.route_number %} (hoy en ruta {{ s.route_number }}){% endif %}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-[10px] text-slate-400 mt-1">Si el vendedor ya era titular de otra ruta, esa ruta queda sin titular.</p>
+            </div>
+            <div class="flex justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                <button type="button" onclick="closeModal('assignSellerModal')" class="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-xs font-semibold rounded-xl">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl shadow">Asignar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+function openAssignModal(number, name) {
+    document.getElementById('assignRouteLabel').textContent = 'Ruta ' + number + ' — ' + name;
+    document.getElementById('assignSellerForm').action = '/personal/routes/' + number + '/assign-seller';
+    openModal('assignSellerModal');
+}
+</script>
+{% endblock %}

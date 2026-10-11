@@ -74,6 +74,19 @@ class ReceivablesService:
                     seller_or.append({"client_id": {"$in": client_ids_for_route}})
                 and_conditions.append(seller_or[0] if len(seller_or) == 1 else {"$or": seller_or})
 
+            # Filtro directo por ruta: las facturas emitidas desde la fase de
+            # anclaje de rutas ya cargan `route_number` propio (heredado del
+            # cliente al facturar), así que esto no depende del texto libre
+            # `seller` ni de resolverlo por vendedor — es exacto. Facturas
+            # anteriores a ese cambio pueden no tener `route_number` y no
+            # calificarán aquí (sí seguirán apareciendo filtrando por vendedor).
+            route_number = (filters.get('route_number') or '').strip()
+            if route_number:
+                try:
+                    query['route_number'] = int(route_number)
+                except ValueError:
+                    pass
+
             search = (filters.get('search') or '').strip()
             if search:
                 and_conditions.append({"$or": [
@@ -121,6 +134,7 @@ class ReceivablesService:
                 "client_name": inv.get('client_name'),
                 "client_rif": inv.get('client_rif'),
                 "seller": inv.get('seller'),
+                "route_number": inv.get('route_number'),
                 "created_at": created_at,
                 "days_outstanding": days,
                 "aging_bucket": bucket,
@@ -254,6 +268,14 @@ class ReceivablesService:
             if date_query:
                 query["created_at"] = date_query
 
+        # Vendedor, ruta y cliente se combinan con AND vía `$and` (no
+        # escribiendo cada uno sobre la misma llave `client_id`) — antes, si
+        # se combinaban ruta + cliente, el filtro de cliente pisaba
+        # silenciosamente al de ruta, o seller+ruta podían chocar con el
+        # `$or` de seller sin que el usuario se enterara de por qué el
+        # resultado no reflejaba todos los filtros activos.
+        and_conditions = []
+
         seller = (filters.get('seller') or '').strip()
         if seller:
             route_number = ClientService.get_route_number_for_user(company_db_name, seller)
@@ -261,7 +283,28 @@ class ReceivablesService:
             seller_or = [{"seller": seller}]
             if client_ids_for_route:
                 seller_or.append({"client_id": {"$in": client_ids_for_route}})
-            query.update(seller_or[0] if len(seller_or) == 1 else {"$or": seller_or})
+            and_conditions.append(seller_or[0] if len(seller_or) == 1 else {"$or": seller_or})
+
+        # Abono no tiene `route_number` propio (es de la factura), así que se
+        # filtra por ruta vía los clientes de esa ruta — igual mecanismo que
+        # 'Mis Clientes' en la app móvil.
+        route_number_filter = (filters.get('route_number') or '').strip()
+        if route_number_filter:
+            try:
+                route_client_ids = ClientService.get_client_ids_for_route(company_db_name, int(route_number_filter))
+            except ValueError:
+                route_client_ids = []
+            and_conditions.append({"client_id": {"$in": route_client_ids}})
+
+        client_id_filter = (filters.get('client_id') or '').strip()
+        if client_id_filter:
+            try:
+                and_conditions.append({"client_id": ObjectId(client_id_filter)})
+            except Exception:
+                and_conditions.append({"client_id": None})
+
+        if and_conditions:
+            query['$and'] = and_conditions
 
         payments = list(db['ar_payments'].find(query).sort('created_at', -1))
 

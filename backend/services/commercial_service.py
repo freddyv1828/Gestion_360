@@ -6,6 +6,27 @@ import re
 from database import get_company_db
 from utils import get_r2_client, R2_BUCKET_NAME, R2_PUBLIC_DOMAIN
 
+DEMO_PRODUCTS = [
+    {"name": "Queso Blanco Duro 1kg", "sku": "QBD-1KG", "category": "Quesos", "cost": 4.20, "price": 7.50, "unit_type": "kg", "stock": 150, "weight_kg": 1.0},
+    {"name": "Queso Blanco Semiduro 1kg", "sku": "QBS-1KG", "category": "Quesos", "cost": 3.80, "price": 6.80, "unit_type": "kg", "stock": 150, "weight_kg": 1.0},
+    {"name": "Queso Guayanés 1kg", "sku": "QGY-1KG", "category": "Quesos", "cost": 4.50, "price": 8.00, "unit_type": "kg", "stock": 100, "weight_kg": 1.0},
+    {"name": "Queso de Mano 500g", "sku": "QMN-500G", "category": "Quesos", "cost": 2.60, "price": 4.80, "unit_type": "kg", "stock": 120, "weight_kg": 0.5},
+    {"name": "Queso Crema 250g", "sku": "QCR-250G", "category": "Quesos", "cost": 1.50, "price": 2.90, "unit_type": "unidad", "stock": 200, "weight_kg": 0.25},
+    {"name": "Queso Ricota 500g", "sku": "QRC-500G", "category": "Quesos", "cost": 2.00, "price": 3.70, "unit_type": "unidad", "stock": 100, "weight_kg": 0.5},
+    {"name": "Leche Entera Pasteurizada 1L", "sku": "LEP-1L", "category": "Leche", "cost": 0.90, "price": 1.60, "unit_type": "litros", "stock": 300, "weight_kg": 1.03},
+    {"name": "Leche Semidescremada 1L", "sku": "LSD-1L", "category": "Leche", "cost": 0.88, "price": 1.55, "unit_type": "litros", "stock": 250, "weight_kg": 1.03},
+    {"name": "Leche en Polvo Completa 900g", "sku": "LPC-900G", "category": "Leche", "cost": 5.20, "price": 8.90, "unit_type": "unidad", "stock": 80, "weight_kg": 0.9},
+    {"name": "Yogurt Natural 1L", "sku": "YGN-1L", "category": "Yogurt", "cost": 1.40, "price": 2.50, "unit_type": "litros", "stock": 150, "weight_kg": 1.03},
+    {"name": "Yogurt Fresa 1L", "sku": "YGF-1L", "category": "Yogurt", "cost": 1.45, "price": 2.60, "unit_type": "litros", "stock": 150, "weight_kg": 1.03},
+    {"name": "Yogurt Bebible 200ml", "sku": "YGB-200ML", "category": "Yogurt", "cost": 0.35, "price": 0.70, "unit_type": "unidad", "stock": 400, "weight_kg": 0.2},
+    {"name": "Mantequilla con Sal 250g", "sku": "MTS-250G", "category": "Mantequilla", "cost": 1.80, "price": 3.20, "unit_type": "unidad", "stock": 120, "weight_kg": 0.25},
+    {"name": "Mantequilla sin Sal 250g", "sku": "MTN-250G", "category": "Mantequilla", "cost": 1.80, "price": 3.20, "unit_type": "unidad", "stock": 100, "weight_kg": 0.25},
+    {"name": "Nata / Crema de Leche 500ml", "sku": "NTA-500ML", "category": "Otros Lácteos", "cost": 1.60, "price": 2.90, "unit_type": "unidad", "stock": 90, "weight_kg": 0.52},
+    {"name": "Suero Costeño 1L", "sku": "SRC-1L", "category": "Otros Lácteos", "cost": 1.00, "price": 1.80, "unit_type": "litros", "stock": 100, "weight_kg": 1.0},
+    {"name": "Dulce de Leche 400g", "sku": "DDL-400G", "category": "Otros Lácteos", "cost": 1.90, "price": 3.40, "unit_type": "unidad", "stock": 70, "weight_kg": 0.4},
+    {"name": "Queso Parmesano Rallado 200g", "sku": "QPR-200G", "category": "Quesos", "cost": 2.80, "price": 5.20, "unit_type": "unidad", "stock": 60, "weight_kg": 0.2},
+]
+
 
 def _add_stock_batch(batches, warehouse_id, quantity, batch_code=None, exp_date=None):
     """Suma stock a un lote existente (mismo código + almacén) o crea uno nuevo. Retorna el batch_code usado."""
@@ -579,6 +600,60 @@ class CommercialService:
                 return True, f"Artículo '{name}' creado con éxito en el almacén seleccionado."
         except Exception as e:
             return False, f"Error al guardar el artículo: {str(e)}"
+
+    @staticmethod
+    def seed_demo_catalog(company_db_name, creator_email):
+        """
+        Crea (si falta) un almacén demo y un catálogo de ~18 productos lácteos
+        con stock inicial, para poder probar pedidos/facturas de inmediato sin
+        tener que dar de alta el catálogo a mano. Idempotente: no duplica
+        productos cuyo SKU ya exista, ni crea un segundo almacén demo si ya
+        hay alguno activo.
+        """
+        db = get_company_db(company_db_name)
+        if db is None:
+            return False, "Base de datos no disponible."
+
+        wh_col = db['warehouses']
+        warehouse = wh_col.find_one({"is_active": {"$ne": False}})
+        warehouse_created = False
+        if not warehouse:
+            wh_col.insert_one({
+                "name": "Almacén Central", "code": "WH-DEMO", "type": "sales",
+                "is_active": True, "created_at": datetime.utcnow(),
+            })
+            warehouse = wh_col.find_one({"code": "WH-DEMO"})
+            warehouse_created = True
+        warehouse_id = str(warehouse['_id'])
+
+        products_col = db['products']
+        products_created = 0
+        for item in DEMO_PRODUCTS:
+            if products_col.find_one({"sku": item["sku"]}):
+                continue
+            cost = item["cost"]
+            iva_rate = 16.0
+            profit_margin = ((item["price"] / (1 + iva_rate / 100.0)) - cost) / cost * 100.0 if cost else 0.0
+            batches = []
+            _add_stock_batch(batches, warehouse_id, item["stock"], f"L-{item['sku']}", None)
+            products_col.insert_one({
+                "name": item["name"], "sku": item["sku"], "category": item["category"],
+                "brand": "Lácteos Danny", "cost": cost, "iva_rate": iva_rate,
+                "profit_margin": round(profit_margin, 2), "price": item["price"],
+                "unit_type": item["unit_type"], "min_stock": 10.0,
+                "weight_kg": item.get("weight_kg", 0.0),
+                "stock": item["stock"], "stock_by_warehouse": {warehouse_id: item["stock"]},
+                "batches": batches, "batch": "N/A", "expiration_date": "N/A",
+                "image_url": None, "is_active": True,
+                "created_by": creator_email, "created_at": datetime.utcnow(), "is_demo": True,
+            })
+            products_created += 1
+
+        message = (
+            f"Catálogo demo listo: {'almacén Central creado, ' if warehouse_created else ''}"
+            f"{products_created} producto(s) nuevo(s) creado(s)."
+        )
+        return True, message
 
     @staticmethod
     def register_movement(company_db_name, form_data, user_email):

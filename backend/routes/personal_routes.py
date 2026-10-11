@@ -5,6 +5,7 @@ from bson import ObjectId
 from database import get_company_db
 from utils import get_r2_client, R2_BUCKET_NAME
 from services.personal_service import update_employee_service, create_employee_service, seed_demo_sales_force
+from services.route_service import RouteService
 
 personal_bp = Blueprint('personal_bp', __name__, url_prefix='/personal')
 
@@ -119,6 +120,66 @@ def seed_demo_sales_force_route():
     success, message = seed_demo_sales_force(company_db_name, creator_email, company_rif, company_name)
     flash(message, 'success' if success else 'danger')
     return redirect(url_for('personal_bp.personal_view'))
+
+@personal_bp.route('/routes', methods=['GET'])
+def routes_view():
+    """Administración de rutas comerciales: alta de rutas y vendedor titular
+    de cada una, como entidad fija en vez de un número suelto editable desde
+    cualquier formulario."""
+    company_db_name = session.get('company_db')
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    db = get_company_db(company_db_name)
+    sellers = list(db['users'].find({"is_active": {"$ne": False}}, {"name": 1, "email": 1, "route_number": 1}).sort('name', 1))
+    for s in sellers:
+        s['_id'] = str(s['_id'])
+
+    routes = RouteService.list_routes(company_db_name)
+    return render_template('personal/routes.html', routes=routes, sellers=sellers)
+
+@personal_bp.route('/routes/create', methods=['POST'])
+def create_route_route():
+    company_db_name = session.get('company_db')
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+    actor_email = session.get('user_email', 'admin@empresa.com')
+
+    success, message, _ = RouteService.create_route(
+        company_db_name,
+        request.form.get('number', ''),
+        request.form.get('name', ''),
+        request.form.get('zone', ''),
+        actor_email,
+    )
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('personal_bp.routes_view'))
+
+@personal_bp.route('/routes/<int:number>/assign-seller', methods=['POST'])
+def assign_route_seller_route(number):
+    company_db_name = session.get('company_db')
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+    actor_email = session.get('user_email', 'admin@empresa.com')
+
+    seller_email = request.form.get('seller_email', '').strip()
+    if not seller_email:
+        flash("Debe seleccionar un vendedor.", "danger")
+        return redirect(url_for('personal_bp.routes_view'))
+
+    db = get_company_db(company_db_name)
+    seller = db['users'].find_one({"email": seller_email})
+    if not seller:
+        flash("Vendedor no encontrado.", "danger")
+        return redirect(url_for('personal_bp.routes_view'))
+
+    # Esta pantalla es, a propósito, el único lugar donde SÍ se permite
+    # quitarle la ruta a un vendedor para dársela a otro — por eso no se
+    # valida disponibilidad aquí como en el formulario general de Personal.
+    db['users'].update_one({"_id": seller['_id']}, {"$set": {"route_number": number}})
+    RouteService.sync_route_for_seller(company_db_name, number, seller_email, seller.get('name'), actor_email)
+    flash(f"{seller.get('name')} asignado como titular de la ruta {number}.", 'success')
+    return redirect(url_for('personal_bp.routes_view'))
 
 @personal_bp.route('/api/delete/<string:user_id>', methods=['POST'])
 def delete_employee_route(user_id):

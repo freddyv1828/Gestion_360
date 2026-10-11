@@ -2,6 +2,7 @@ from datetime import datetime
 from bson import ObjectId
 from database import get_company_db
 from utils import json_safe
+from services.route_service import RouteService
 
 CLIENT_TYPES = {'fiscal', 'natural'}
 
@@ -162,7 +163,11 @@ class ClientService:
         email = (form_data.get('email') or '').strip()
         phone = (form_data.get('phone') or '').strip()
         address = (form_data.get('address') or '').strip()
-        route_number_raw = (form_data.get('route_number') or '').strip()
+        # route_number puede llegar como texto (formularios HTML, scripts) o
+        # como entero (JSON de la API/app móvil) — se normaliza aquí para que
+        # ningún llamador tenga que acordarse de convertirlo a texto primero.
+        route_number_raw = form_data.get('route_number')
+        route_number_raw = route_number_raw.strip() if isinstance(route_number_raw, str) else route_number_raw
 
         if not name:
             return False, "El nombre o razón social del cliente es obligatorio."
@@ -192,6 +197,11 @@ class ClientService:
 
         try:
             if client_id:
+                # La ruta de un cliente ya existente NO se toca desde el
+                # formulario general de edición: cambiar de ruta es una acción
+                # explícita (ClientService.reassign_route), para que un cliente
+                # no pueda migrar de vendedor por accidente al editar su
+                # teléfono o dirección.
                 clients_col.update_one(
                     {"_id": ObjectId(client_id)},
                     {"$set": {
@@ -202,12 +212,15 @@ class ClientService:
                         "phone": phone,
                         "address": address,
                         "credit_limit": credit_limit,
-                        "route_number": route_number,
                         "updated_at": datetime.utcnow()
                     }}
                 )
                 return True, f"Cliente '{name}' actualizado con éxito."
             else:
+                if route_number is None:
+                    return False, "Debe asignar una ruta al cliente."
+                if not RouteService.get_route_by_number(company_db_name, route_number):
+                    return False, f"La ruta {route_number} no existe. Créala primero desde Rutas."
                 clients_col.insert_one({
                     "name": name,
                     "rif_cedula": rif_cedula,
@@ -224,6 +237,49 @@ class ClientService:
                 return True, f"Cliente '{name}' registrado con éxito."
         except Exception as e:
             return False, f"Error al guardar el cliente: {str(e)}"
+
+    @staticmethod
+    def reassign_route(company_db_name, client_id, new_route_number_raw, actor_email):
+        """Único camino para mover un cliente de ruta una vez creado. Deja
+        rastro en `route_history` para poder auditar quién movió a quién y
+        cuándo — antes esto se podía hacer sin dejar huella desde cualquier
+        edición del cliente."""
+        db = get_company_db(company_db_name)
+        if db is None:
+            return False, "Base de datos no disponible."
+        try:
+            new_route_number = int(str(new_route_number_raw).strip())
+        except (TypeError, ValueError):
+            return False, "La ruta debe ser un número."
+
+        route = RouteService.get_route_by_number(company_db_name, new_route_number)
+        if not route:
+            return False, f"La ruta {new_route_number} no existe. Créala primero desde Rutas."
+
+        try:
+            client = db['clients'].find_one({"_id": ObjectId(client_id)})
+        except Exception:
+            return False, "Cliente no encontrado."
+        if not client:
+            return False, "Cliente no encontrado."
+
+        previous_route_number = client.get('route_number')
+        if previous_route_number == new_route_number:
+            return False, f"El cliente ya pertenece a la ruta {new_route_number}."
+
+        db['clients'].update_one(
+            {"_id": client['_id']},
+            {
+                "$set": {"route_number": new_route_number, "updated_at": datetime.utcnow()},
+                "$push": {"route_history": {
+                    "from_route": previous_route_number,
+                    "to_route": new_route_number,
+                    "changed_by": actor_email,
+                    "changed_at": datetime.utcnow(),
+                }},
+            }
+        )
+        return True, f"Cliente '{client.get('name')}' movido de la ruta {previous_route_number} a la ruta {new_route_number}."
 
     @staticmethod
     def soft_delete_client(company_db_name, client_id):

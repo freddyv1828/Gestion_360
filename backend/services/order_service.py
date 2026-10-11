@@ -5,6 +5,7 @@ from database import get_company_db
 from services.commercial_service import CommercialService
 from services.invoicing_service import InvoicingService
 from services.logistics_service import LogisticsService
+from services.client_service import ClientService
 from utils import json_safe
 
 ORDER_STATUSES = ['pendiente', 'en_picking', 'listo_facturar', 'facturado', 'anulado']
@@ -56,6 +57,41 @@ class OrderService:
             warehouse_id = (filters.get('warehouse_id') or '').strip()
             if warehouse_id:
                 query['warehouse_id'] = warehouse_id
+
+            client_id = (filters.get('client_id') or '').strip()
+            if client_id:
+                try:
+                    query['client_id'] = ObjectId(client_id)
+                except Exception:
+                    return [], 0
+
+            # El pedido graba su propia `route_number` (heredada del cliente al
+            # nacer, ver OrderService.create_order) — es un campo propio y
+            # confiable, a diferencia de `invoice.seller` en las facturas, así
+            # que filtrar por vendedor es solo resolver su ruta y filtrar por
+            # ese número, sin necesidad del OR de respaldo que sí hace falta
+            # en ReceivablesService.
+            # Vendedor y Ruta se combinan con AND (no uno reemplaza al otro):
+            # si ambos vienen y son contradictorios (p.ej. un vendedor de la
+            # ruta 2 filtrado junto con "ruta 5"), el resultado es vacío en
+            # vez de ignorar uno de los dos filtros en silencio.
+            route_number_raw = (filters.get('route_number') or '').strip()
+            route_filter = None
+            if route_number_raw:
+                try:
+                    route_filter = int(route_number_raw)
+                except ValueError:
+                    pass
+
+            seller = (filters.get('seller') or '').strip()
+            if seller:
+                seller_route = ClientService.get_route_number_for_user(company_db_name, seller)
+                if seller_route is None or (route_filter is not None and route_filter != seller_route):
+                    return [], 0
+                route_filter = seller_route
+
+            if route_filter is not None:
+                query['route_number'] = route_filter
 
             date_from = (filters.get('date_from') or '').strip()
             date_to = (filters.get('date_to') or '').strip()
@@ -225,6 +261,15 @@ class OrderService:
         if not ok:
             return False, msg, None
 
+        # La ruta queda grabada en el pedido en el momento de nacer, heredada
+        # del cliente — inmutable de aquí en adelante, para que el pedido
+        # pueda filtrarse/agruparse por ruta sin depender de resolverla cada
+        # vez a través del vendedor que terminó facturando.
+        route_number = None
+        if client_id:
+            client_doc = db['clients'].find_one({"_id": ObjectId(client_id)}, {"route_number": 1})
+            route_number = client_doc.get('route_number') if client_doc else None
+
         order_number = _next_order_number(db)
         order_doc = {
             "order_number": order_number,
@@ -232,6 +277,7 @@ class OrderService:
             "client_name": client_name,
             "client_rif": client_rif,
             "client_email": client_email,
+            "route_number": route_number,
             "warehouse_id": warehouse_id,
             "doc_type": doc_type,
             "comment": comment,
@@ -377,8 +423,8 @@ class OrderService:
             "client_name": order['client_name'],
             "client_rif": order['client_rif'],
             "client_email": order.get('client_email', ''),
+            "route_number": order.get('route_number'),
             "warehouse_id": order['warehouse_id'],
-            "payment_method": "Contado",
             "doc_type": order.get('doc_type', 'factura_fiscal'),
             "notes": f"Generada desde Pedido {order['order_number']}. {order.get('comment', '')}".strip(),
             "items_json": json.dumps([

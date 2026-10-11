@@ -168,8 +168,19 @@ def seller_list_clients():
 @api_bp.route('/seller/clients', methods=['POST'])
 @jwt_required
 def seller_create_client():
+    """Un vendedor solo tiene una ruta — si no manda `route_number` explícito,
+    el cliente que está dando de alta en campo se ancla automáticamente a la
+    suya, en vez de exigirle elegir una ruta que ya sabemos cuál es."""
     company_db_name = request.jwt_user['company_db']
     data = request.get_json(silent=True) or {}
+    route_number_in = data.get('route_number')
+    if route_number_in in (None, '', ' '):
+        own_route = ClientService.get_route_number_for_user(company_db_name, request.jwt_user['email'])
+        if own_route is not None:
+            # route_number viaja como string: create_or_update_client espera
+            # un valor con `.strip()` (misma convención que los formularios
+            # HTML), no un int crudo de JSON.
+            data = dict(data, route_number=str(own_route))
     success, message = ClientService.create_or_update_client(company_db_name, data, request.jwt_user['email'])
     if not success:
         return jsonify({"error": message}), 400

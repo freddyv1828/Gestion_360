@@ -5,10 +5,12 @@ from database import get_company_db
 from services.commercial_service import CommercialService, _consume_stock_batches, _recompute_stock_by_warehouse
 from services.financial_service import FinancialService
 from services.coupon_service import CouponService
+from services.client_service import ClientService
 
 INVOICE_STATUSES = {'emitida', 'anulada'}
 DOC_TYPES = {'factura_fiscal', 'nota_entrega'}
 DISCOUNT_TYPES = {'percentage', 'fixed', ''}
+PAYMENT_METHODS = {'Contado', 'Crédito', 'Transferencia', 'Tarjeta'}
 
 
 def _next_invoice_number(db):
@@ -117,13 +119,44 @@ class InvoicingService:
             return False, "Base de datos no disponible.", None
 
         client_id = form_data.get('client_id', '').strip() or None
+
+        # La ruta de la factura se hereda del cliente, no de quien factura —
+        # queda grabada en la factura (igual que en el pedido) para poder
+        # filtrar/agrupar por ruta directamente. Si ya viene resuelta (p.ej.
+        # OrderService.convert_order_to_invoice la pasa explícitamente desde
+        # el pedido), se usa esa y NO se vuelve a derivar del cliente: si el
+        # cliente cambió de ruta entre crear el pedido y facturarlo, el
+        # pedido y su factura deben seguir apuntando a la misma ruta — la
+        # que tenían al momento de la venta — no a la ruta actual del
+        # cliente, que ya puede ser otra.
+        route_number = form_data.get('route_number')
+        if route_number in (None, ''):
+            route_number = None
+            if client_id:
+                client_doc = db['clients'].find_one({"_id": ObjectId(client_id)}, {"route_number": 1})
+                route_number = client_doc.get('route_number') if client_doc else None
+        elif not isinstance(route_number, int):
+            try:
+                route_number = int(route_number)
+            except (TypeError, ValueError):
+                route_number = None
+
+        # Si no se eligió vendedor explícitamente, no debe caer en quien está
+        # facturando (a menudo un admin/facturador): se resuelve por el dueño
+        # real de la ruta del cliente, que es la misma fuente de verdad que
+        # usa la cartera de cobros y la app móvil del vendedor. Así una
+        # factura siempre queda atribuida a quien de verdad cobra esa deuda.
+        seller = form_data.get('seller', '').strip()
+        if not seller and route_number is not None:
+            seller = ClientService.get_seller_email_for_route(company_db_name, route_number)
+        seller = seller or user_email
+
         client_name = form_data.get('client_name', '').strip()
         client_rif = form_data.get('client_rif', '').strip() or 'S/RIF'
         client_email = form_data.get('client_email', '').strip()
         warehouse_id = form_data.get('warehouse_id', '').strip()
-        payment_method = form_data.get('payment_method', 'Contado').strip()
+        payment_method = form_data.get('payment_method', '').strip()
         notes = form_data.get('notes', '').strip()
-        seller = form_data.get('seller', '').strip() or user_email
         doc_type = form_data.get('doc_type', 'factura_fiscal').strip()
         currency = (form_data.get('currency', '') or '').strip().upper() or None
         coupon_code = form_data.get('coupon_code', '').strip()
@@ -136,6 +169,12 @@ class InvoicingService:
             return False, "El nombre o razón social del cliente es obligatorio.", None
         if not warehouse_id:
             return False, "Debe seleccionar el almacén de despacho.", None
+        # Antes, si esto llegaba vacío se asumía "Contado" en silencio y la
+        # factura nacía pagada, sin generar nunca una cuenta por cobrar —
+        # ahora se exige una elección explícita para que una venta a crédito
+        # no pueda facturarse por accidente como si ya estuviera cobrada.
+        if payment_method not in PAYMENT_METHODS:
+            return False, "Debe seleccionar una forma de pago válida (Contado, Crédito, Transferencia o Tarjeta).", None
 
         try:
             raw_items = json.loads(form_data.get('items_json', '[]'))
@@ -305,6 +344,7 @@ class InvoicingService:
         invoice_doc = {
             "invoice_number": invoice_number,
             "client_id": ObjectId(client_id) if client_id else None,
+            "route_number": route_number,
             "client_name": client_name,
             "client_rif": client_rif,
             "client_email": client_email,
