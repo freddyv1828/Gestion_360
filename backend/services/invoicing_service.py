@@ -95,6 +95,45 @@ class InvoicingService:
         return invoice
 
     @staticmethod
+    def mark_delivered(company_db_name, invoice_id, actor_email, delivered_at=None):
+        """
+        Sella el momento en que la mercancía de esta factura quedó realmente
+        en manos del cliente — es el dato que faltaba en todo el sistema para
+        poder calcular comisiones por velocidad de cobro (el reloj corre
+        desde AQUÍ, no desde la fecha de la factura). Hoy se dispara de dos
+        formas: automáticamente cuando se completa la hoja de despacho que
+        lleva la factura (ver LogisticsService.update_route_status), o
+        manualmente desde el detalle de la factura para ventas que nunca
+        pasan por una hoja de despacho (venta de mostrador/retiro inmediato).
+
+        Es intencionalmente NO idempotente-silenciosa: si la factura ya tenía
+        `delivered_at`, no lo pisa (devuelve ok=True sin cambiar nada) para
+        que una hoja de despacho completada después no le robe al chofer que
+        ya entregó antes el momento real en que arrancó el reloj de comisión.
+        """
+        db = get_company_db(company_db_name)
+        if db is None:
+            return False, "Base de datos no disponible."
+        try:
+            invoice = db['invoices'].find_one({"_id": ObjectId(invoice_id)}, {"delivered_at": 1, "invoice_number": 1})
+        except Exception:
+            return False, "Factura no encontrada."
+        if not invoice:
+            return False, "Factura no encontrada."
+        if invoice.get('delivered_at'):
+            return True, f"La factura {invoice.get('invoice_number')} ya tenía entrega confirmada."
+
+        db['invoices'].update_one(
+            {"_id": invoice['_id']},
+            {"$set": {
+                "delivered_at": delivered_at or datetime.utcnow(),
+                "delivered_by": actor_email,
+                "updated_at": datetime.utcnow(),
+            }}
+        )
+        return True, f"Entrega de la factura {invoice.get('invoice_number')} confirmada."
+
+    @staticmethod
     def create_invoice(company_db_name, form_data, user_email):
         """
         Registra una factura de venta: valida existencia de stock en el almacén de

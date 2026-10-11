@@ -1,6 +1,7 @@
 from datetime import datetime
 from bson import ObjectId
 from database import get_company_db
+from services.invoicing_service import InvoicingService
 
 VEHICLE_STATUSES = {'available', 'in_route', 'maintenance'}
 ROUTE_STATUSES = {'planificada', 'en_curso', 'completada', 'cancelada'}
@@ -297,18 +298,36 @@ class LogisticsService:
             return False, f"No se puede pasar de '{current_status}' a '{new_status}'."
 
         update_fields = {"status": new_status, "updated_at": datetime.utcnow()}
+        delivered_at = None
         if new_status == 'en_curso':
             update_fields["started_at"] = datetime.utcnow()
             LogisticsService._set_vehicle_status(db, route['vehicle_id'], 'in_route')
         elif new_status in ('completada', 'cancelada'):
-            update_fields["completed_at"] = datetime.utcnow()
+            delivered_at = datetime.utcnow()
+            update_fields["completed_at"] = delivered_at
             LogisticsService._set_vehicle_status(db, route['vehicle_id'], 'available')
 
         db['logistics_routes'].update_one({"_id": route['_id']}, {"$set": update_fields})
+
+        # Completar la hoja de despacho es, hoy, el sustituto de "el chofer
+        # entregó y envió la confirmación en la app" — dispara el reloj de
+        # comisión para todas las facturas que cargaba. Una ruta cancelada NO
+        # cuenta como entrega: la mercancía no llegó al cliente.
+        delivery_warnings = []
+        if new_status == 'completada':
+            for invoice_id in route.get('invoice_ids', []):
+                ok_mark, msg_mark = InvoicingService.mark_delivered(
+                    company_db_name, str(invoice_id), 'sistema:despacho_completado', delivered_at
+                )
+                if not ok_mark:
+                    delivery_warnings.append(msg_mark)
 
         status_labels = {
             'en_curso': 'activada (despacho en curso)',
             'completada': 'completada',
             'cancelada': 'cancelada',
         }
-        return True, f"Ruta '{route.get('route_code')}' {status_labels.get(new_status, new_status)}."
+        message = f"Ruta '{route.get('route_code')}' {status_labels.get(new_status, new_status)}."
+        if delivery_warnings:
+            message += " Advertencia confirmando entregas: " + " | ".join(delivery_warnings)
+        return True, message

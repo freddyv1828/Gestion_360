@@ -79,7 +79,7 @@
         </div>
 
         <!-- Navegación Modular Corporativa: Listas Inteligentes por Módulo / Submódulo -->
-        {% set comercial_active = '/commercial/products' in request.path or '/commercial/purchases' in request.path or '/commercial/invoicing' in request.path or '/commercial/clients' in request.path or '/commercial/orders' in request.path or '/inventory' in request.path %}
+        {% set comercial_active = '/commercial/products' in request.path or '/commercial/purchases' in request.path or '/commercial/invoicing' in request.path or '/commercial/clients' in request.path or '/commercial/orders' in request.path or '/commercial/commissions' in request.path or '/inventory' in request.path %}
         {% set finanzas_active = '/commercial/financial' in request.path or '/commercial/receivables' in request.path or '/commercial/treasury' in request.path %}
         {% set operaciones_active = '/personal' in request.path or '/logistics' in request.path or '/almacen' in request.path %}
         {% set integraciones_active = False %}
@@ -130,6 +130,11 @@
                        class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/commercial/invoicing' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">
                         <i class="fa-solid fa-file-invoice w-5 text-center text-xs shrink-0"></i>
                         <span class="ml-2.5 sidebar-text opacity-0 transition-opacity duration-300 whitespace-nowrap">Facturación</span>
+                    </a>
+                    <a href="{{ url_for('commercial.commissions') }}"
+                       class="flex items-center px-3 py-2.5 rounded-lg transition group {% if '/commercial/commissions' in request.path %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60{% endif %}">
+                        <i class="fa-solid fa-hand-holding-dollar w-5 text-center text-xs shrink-0"></i>
+                        <span class="ml-2.5 sidebar-text opacity-0 transition-opacity duration-300 whitespace-nowrap">Comisiones</span>
                     </a>
                 </div>
             </div>

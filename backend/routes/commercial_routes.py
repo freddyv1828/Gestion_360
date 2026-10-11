@@ -9,6 +9,7 @@ from services.order_service import OrderService
 from services.coupon_service import CouponService
 from services.receivables_service import ReceivablesService
 from services.route_service import RouteService
+from services.commission_service import CommissionService
 from services.reconciliation_service import ReconciliationService
 from services.accounting_categories import INCOME_CATEGORIES, EXPENSE_CATEGORIES
 from services.pdf_service import generate_invoice_pdf, generate_dispatch_guide_pdf, generate_table_pdf
@@ -1215,6 +1216,40 @@ def invoice_detail(invoice_id):
         return redirect(url_for('commercial.invoicing'))
 
     return render_template('commercial/invoice_detail.html', invoice=invoice)
+
+@commercial_bp.route('/invoicing/<invoice_id>/mark-delivered', methods=['POST'])
+def mark_invoice_delivered(invoice_id):
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    actor_email = session.get('user_email', 'admin@gestion360.com')
+    success, message = InvoicingService.mark_delivered(company_db_name, invoice_id, actor_email)
+    flash(message, 'success' if success else 'danger')
+    return redirect(url_for('commercial.invoice_detail', invoice_id=invoice_id))
+
+@commercial_bp.route('/commissions')
+def commissions():
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    filters = {
+        'seller': request.args.get('seller', ''),
+        'route_number': request.args.get('route_number', ''),
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
+    summary = CommissionService.get_commission_summary(company_db_name, filters=filters)
+    sellers, routes, _ = _get_filter_options(company_db_name)
+
+    return render_template(
+        'commercial/commissions.html',
+        summary=summary,
+        filters=filters,
+        sellers=sellers,
+        routes=routes,
+    )
 
 @commercial_bp.route('/coupons/save', methods=['POST'])
 def save_coupon():

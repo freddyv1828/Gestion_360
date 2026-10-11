@@ -39,6 +39,26 @@
             </div>
         </div>
 
+        <div class="flex items-center justify-between gap-3 mb-6 p-3 rounded-xl {% if invoice.delivered_at %}bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900{% else %}bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900{% endif %} print:hidden">
+            {% if invoice.delivered_at %}
+            <div class="text-xs font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
+                <i class="fa-solid fa-circle-check"></i>
+                Entrega confirmada el {{ invoice.delivered_at.strftime('%Y-%m-%d %H:%M') }}
+                {% if invoice.delivered_by %}<span class="text-emerald-600/70 dark:text-emerald-500/70">({{ invoice.delivered_by }})</span>{% endif %}
+            </div>
+            {% else %}
+            <div class="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                Entrega sin confirmar — el reloj de comisión del vendedor todavía no arranca
+            </div>
+            <form action="{{ url_for('commercial.mark_invoice_delivered', invoice_id=invoice._id) }}" method="POST">
+                <button type="submit" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold rounded-lg transition">
+                    Confirmar Entrega Ahora
+                </button>
+            </form>
+            {% endif %}
+        </div>
+
         <div class="grid grid-cols-2 gap-4 mb-6 text-xs">
             <div>
                 <div class="uppercase font-bold text-gray-400 text-[10px] mb-1">Cliente</div>
