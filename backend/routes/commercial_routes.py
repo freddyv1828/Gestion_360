@@ -1219,6 +1219,11 @@ def invoice_detail(invoice_id):
 
 @commercial_bp.route('/invoicing/<invoice_id>/mark-delivered', methods=['POST'])
 def mark_invoice_delivered(invoice_id):
+    """Respaldo manual del sello de entrega: además de llamarse desde el
+    detalle de la factura, la Bandeja de Comisiones la usa directamente sobre
+    cada cobro marcado "sin entrega" para no obligar a ir a buscar la
+    factura — por eso el destino del redirect es configurable (`next`), no
+    fijo al detalle de factura."""
     company_db_name = get_active_company_db()
     if not company_db_name:
         return redirect(url_for('auth_bp.index'))
@@ -1226,6 +1231,10 @@ def mark_invoice_delivered(invoice_id):
     actor_email = session.get('user_email', 'admin@gestion360.com')
     success, message = InvoicingService.mark_delivered(company_db_name, invoice_id, actor_email)
     flash(message, 'success' if success else 'danger')
+
+    next_url = request.form.get('next', '').strip()
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
     return redirect(url_for('commercial.invoice_detail', invoice_id=invoice_id))
 
 @commercial_bp.route('/commissions')

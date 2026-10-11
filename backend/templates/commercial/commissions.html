@@ -106,6 +106,15 @@
         </div>
     </div>
 
+    <!-- AYUDA: QUE SIGNIFICA "SIN ENTREGA" -->
+    <div class="flex items-start gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-2xl text-xs text-amber-800 dark:text-amber-300">
+        <i class="fa-solid fa-circle-info mt-0.5"></i>
+        <div>
+            <b>¿Qué significa "Sin entrega"?</b> El sistema no sabe cuándo se entregó esa factura (nunca pasó por una hoja de despacho completada, ni nadie confirmó la entrega a mano), así que no puede contar los días hasta el cobro — sin esa fecha, no hay tramo de comisión que aplicar.
+            Usa <b>"Confirmar entrega"</b> en la fila de esa factura para destrabarla con la fecha de hoy, o corrígela desde el detalle de la factura si la entrega fue en otro día.
+        </div>
+    </div>
+
     <!-- DETALLE DE COBROS -->
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
         <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
@@ -153,6 +162,12 @@
                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold {% if e.commission_rate == 4.0 %}bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400{% elif e.commission_rate == 2.0 %}bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400{% elif e.commission_rate == 1.0 %}bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400{% else %}bg-gray-100 dark:bg-gray-800 text-gray-500{% endif %}">{{ e.commission_rate }}%</span>
                             {% else %}
                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">Sin entrega</span>
+                                <form action="{{ url_for('commercial.mark_invoice_delivered', invoice_id=e.invoice_id) }}" method="POST" class="mt-1" onsubmit="return confirm('¿Confirmar la entrega de esta factura hoy? Esto arranca el reloj de comisión para este cobro.');">
+                                    <input type="hidden" name="next" value="{{ request.full_path }}">
+                                    <button type="submit" class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                                        Confirmar entrega
+                                    </button>
+                                </form>
                             {% endif %}
                         </td>
                         <td class="py-3 px-4 text-right font-mono">{{ "%.2f"|format(e.amount_usd) if e.amount_usd is not none else '—' }}</td>
