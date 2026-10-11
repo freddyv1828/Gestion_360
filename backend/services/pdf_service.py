@@ -175,6 +175,96 @@ def generate_invoice_pdf(invoice, company_name, company_rif):
     return buffer.getvalue()
 
 
+def generate_commission_receipt_pdf(company_name, company_rif, seller_name, period_label, events, total_commission_usd, total_collected_usd):
+    """
+    Recibo formal de comisión para UN vendedor y un período: detalle de cada
+    cobro que generó comisión (factura, cliente, fecha de entrega, fecha de
+    cobro, días transcurridos, tasa aplicada y monto), con el total al pie y
+    una línea de firma — pensado para imprimir y entregarle al vendedor como
+    constancia de lo que se le está pagando, no solo para uso interno.
+    """
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=1.5 * cm, bottomMargin=1.5 * cm,
+                             leftMargin=1.8 * cm, rightMargin=1.8 * cm)
+    styles = _base_styles()
+    elements = []
+
+    header_table = Table([
+        [Paragraph(f"<b>{company_name}</b><br/>{company_rif}", styles['Normal']),
+         Paragraph("<b>RECIBO DE COMISIÓN</b>", styles['SmallRight'])]
+    ], colWidths=[10 * cm, 7 * cm])
+    header_table.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 0.3 * cm))
+
+    info = (
+        f"<b>Vendedor:</b> {seller_name}<br/>"
+        f"<b>Período:</b> {period_label}<br/>"
+        f"<b>Cobros que generaron comisión:</b> {len(events)}"
+    )
+    elements.append(Paragraph(info, styles['Normal']))
+    elements.append(Spacer(1, 0.5 * cm))
+
+    table_data = [["Factura", "Cliente", "Entregado", "Cobrado", "Días", "Tasa", "Cobrado USD", "Comisión USD"]]
+    for e in events:
+        table_data.append([
+            e.get('invoice_number', ''),
+            (e.get('client_name') or '')[:28],
+            e['delivered_at'].strftime('%Y-%m-%d') if e.get('delivered_at') else '—',
+            e['collected_at'].strftime('%Y-%m-%d') if e.get('collected_at') else '—',
+            str(e['days_elapsed']) if e.get('days_elapsed') is not None else '—',
+            f"{e['commission_rate']}%" if e.get('commission_rate') is not None else '—',
+            f"{e['amount_usd']:.2f}" if e.get('amount_usd') is not None else '—',
+            f"{e['commission_usd']:.2f}" if e.get('commission_usd') is not None else '—',
+        ])
+
+    items_table = Table(table_data, colWidths=[2.3 * cm, 3.8 * cm, 2 * cm, 2 * cm, 1.3 * cm, 1.4 * cm, 2.2 * cm, 2.2 * cm], repeatRows=1)
+    items_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), BRAND_COLOR),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTSIZE', (0, 0), (-1, -1), 7.5),
+        ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(items_table)
+    elements.append(Spacer(1, 0.4 * cm))
+
+    totals_data = [
+        [f"Total Cobrado (USD)", f"{total_collected_usd:.2f}"],
+        [f"TOTAL COMISIÓN (USD)", f"{total_commission_usd:.2f}"],
+    ]
+    totals_table = Table(totals_data, colWidths=[5 * cm, 4 * cm], hAlign='RIGHT')
+    totals_table.setStyle(TableStyle([
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+        ('LINEABOVE', (0, -1), (-1, -1), 1, DARK_COLOR),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    elements.append(totals_table)
+
+    elements.append(Spacer(1, 1.5 * cm))
+    signature_table = Table([
+        ["_" * 35, "_" * 35],
+        ["Firma del vendedor (recibido conforme)", "Firma de administración"],
+    ], colWidths=[8 * cm, 8 * cm])
+    signature_table.setStyle(TableStyle([
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('TEXTCOLOR', (0, 1), (-1, 1), colors.grey),
+    ]))
+    elements.append(signature_table)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 def generate_dispatch_guide_pdf(invoice, company_name, company_rif, route_info=None):
     """Genera la Guía de Despacho (packing list) de una factura: items y cantidades
     SIN precios, orientado a transporte/entrega física. Retorna bytes."""

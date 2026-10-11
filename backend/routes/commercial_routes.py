@@ -12,7 +12,7 @@ from services.route_service import RouteService
 from services.commission_service import CommissionService
 from services.reconciliation_service import ReconciliationService
 from services.accounting_categories import INCOME_CATEGORIES, EXPENSE_CATEGORIES
-from services.pdf_service import generate_invoice_pdf, generate_dispatch_guide_pdf, generate_table_pdf
+from services.pdf_service import generate_invoice_pdf, generate_dispatch_guide_pdf, generate_table_pdf, generate_commission_receipt_pdf
 from services.export_service import rows_to_csv
 from database import get_company_db
 from rbac import is_warehouse_only_role
@@ -1250,6 +1250,70 @@ def commissions():
         sellers=sellers,
         routes=routes,
     )
+
+@commercial_bp.route('/commissions/export')
+def export_commissions():
+    """
+    Sin filtro de vendedor: resumen gerencial por vendedor (PDF) o el detalle
+    crudo de todos los cobros (Excel/CSV). Con un vendedor filtrado: un
+    recibo formal de ESE vendedor y ese período — el documento pensado para
+    imprimir y entregarle como constancia de lo que se le está pagando.
+    """
+    company_db_name = get_active_company_db()
+    if not company_db_name:
+        return redirect(url_for('auth_bp.index'))
+
+    export_format = request.args.get('format', 'excel')
+    filters = {
+        'seller': request.args.get('seller', ''),
+        'route_number': request.args.get('route_number', ''),
+        'date_from': request.args.get('date_from', ''),
+        'date_to': request.args.get('date_to', ''),
+    }
+    summary = CommissionService.get_commission_summary(company_db_name, filters=filters)
+    period_label = f"{filters['date_from'] or 'inicio'} a {filters['date_to'] or 'hoy'}"
+    company_name = session.get('company_name', 'Gestión 360')
+    company_rif = session.get('company_rif', '')
+
+    if export_format == 'pdf':
+        if filters['seller']:
+            seller_name = filters['seller']
+            db = get_company_db(company_db_name)
+            if db is not None:
+                seller_doc = db['users'].find_one({"email": filters['seller']}, {"name": 1})
+                if seller_doc:
+                    seller_name = seller_doc.get('name', filters['seller'])
+            pdf_bytes = generate_commission_receipt_pdf(
+                company_name, company_rif, seller_name, period_label,
+                summary['events'], summary['total_commission_usd'], summary['total_collected_usd']
+            )
+            return Response(pdf_bytes, mimetype='application/pdf',
+                             headers={'Content-Disposition': f'attachment; filename="comision_{seller_name}_{filters["date_from"] or "inicio"}_{filters["date_to"] or "hoy"}.pdf"'})
+
+        headers = ['Vendedor', 'Cobros', 'Pend. Entrega', 'Pend. Tasa', 'Cobrado USD', 'Comisión USD']
+        rows = [[
+            b['seller'], str(b['event_count']), str(b['pending_delivery_count']), str(b['pending_fx_count']),
+            f"{b['total_collected_usd']:.2f}", f"{b['total_commission_usd']:.2f}",
+        ] for b in summary['by_seller']]
+        pdf_bytes = generate_table_pdf("Comisiones por Vendedor", company_name, headers, rows, subtitle=f"Período: {period_label}")
+        return Response(pdf_bytes, mimetype='application/pdf',
+                         headers={'Content-Disposition': 'attachment; filename="comisiones_por_vendedor.pdf"'})
+
+    headers_map = {
+        'invoice_number': 'Factura', 'client_name': 'Cliente', 'seller': 'Vendedor', 'route_number': 'Ruta',
+        'delivered_at_str': 'Entregado', 'collected_at_str': 'Cobrado', 'days_elapsed': 'Días',
+        'commission_rate': 'Tasa %', 'amount_usd': 'Cobrado USD', 'commission_usd': 'Comisión USD',
+    }
+    events = summary['events']
+    for e in events:
+        e['delivered_at_str'] = e['delivered_at'].strftime('%Y-%m-%d') if e.get('delivered_at') else ''
+        e['collected_at_str'] = e['collected_at'].strftime('%Y-%m-%d') if e.get('collected_at') else ''
+        for key in ('days_elapsed', 'commission_rate', 'amount_usd', 'commission_usd', 'route_number'):
+            if e.get(key) is None:
+                e[key] = ''
+    csv_bytes = rows_to_csv(events, headers_map)
+    return Response(csv_bytes, mimetype='text/csv',
+                     headers={'Content-Disposition': 'attachment; filename="comisiones.csv"'})
 
 @commercial_bp.route('/coupons/save', methods=['POST'])
 def save_coupon():
