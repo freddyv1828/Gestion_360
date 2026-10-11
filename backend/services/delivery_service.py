@@ -124,8 +124,12 @@ class DeliveryService:
 
     @staticmethod
     def _upload_evidence(file, kind, invoice_number):
+        """Retorna (object_key, error_message) — nunca los dos a la vez, para
+        que el llamador pueda decirle al chofer EXACTAMENTE cuál de las dos
+        evidencias falló y por qué, en vez de un "no se pudo" genérico que
+        obliga a revisar los logs del servidor cada vez."""
         if not file or not getattr(file, 'filename', ''):
-            return None
+            return None, f"No llegó el archivo de {kind}."
         try:
             s3 = get_r2_client()
             filename = unicodedata.normalize('NFKD', file.filename).encode('ASCII', 'ignore').decode('ASCII')
@@ -134,10 +138,10 @@ class DeliveryService:
             file_bytes = file.read()
             content_type = file.content_type or 'application/octet-stream'
             s3.put_object(Bucket=R2_BUCKET_NAME, Key=object_key, Body=file_bytes, ContentType=content_type)
-            return object_key
+            return object_key, None
         except Exception as e:
             print(f"Error subiendo evidencia de entrega ({kind}) a R2: {e}")
-            return None
+            return None, str(e)
 
     @staticmethod
     def confirm_delivery(company_db_name, invoice_id, driver_email, photo_file, signature_file, notes='', latitude=None, longitude=None):
@@ -173,10 +177,12 @@ class DeliveryService:
         if not signature_file or not getattr(signature_file, 'filename', ''):
             return False, "Debe adjuntar la firma del cliente."
 
-        photo_key = DeliveryService._upload_evidence(photo_file, 'foto', invoice.get('invoice_number'))
-        signature_key = DeliveryService._upload_evidence(signature_file, 'firma', invoice.get('invoice_number'))
-        if not photo_key or not signature_key:
-            return False, "No se pudo subir la evidencia de entrega. Intenta de nuevo."
+        photo_key, photo_err = DeliveryService._upload_evidence(photo_file, 'foto', invoice.get('invoice_number'))
+        signature_key, signature_err = DeliveryService._upload_evidence(signature_file, 'firma', invoice.get('invoice_number'))
+        if not photo_key:
+            return False, f"No se pudo subir la foto de la entrega: {photo_err}. Intenta de nuevo."
+        if not signature_key:
+            return False, f"No se pudo subir la firma del cliente: {signature_err}. Intenta de nuevo."
 
         delivered_at = datetime.utcnow()
         db['deliveries'].insert_one({
