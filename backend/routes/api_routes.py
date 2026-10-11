@@ -13,6 +13,7 @@ from services.budget_service import BudgetService
 from services.financial_service import FinancialService
 from services.receivables_service import ReceivablesService
 from services.invoicing_service import InvoicingService
+from services.delivery_service import DeliveryService
 from services.pdf_service import generate_table_pdf
 from services.export_service import rows_to_csv
 from utils import json_safe
@@ -448,3 +449,84 @@ def seller_export_invoice_payments(invoice_id):
     pdf_bytes = generate_table_pdf(f"Historial de Abonos — Factura {invoice_number}", "Gestión 360", headers, rows)
     return Response(pdf_bytes, mimetype='application/pdf',
                      headers={'Content-Disposition': f'attachment; filename="abonos_{invoice_number}.pdf"'})
+
+
+# ==============================================================================
+# APP DE ENTREGAS DEL CHOFER — /api/v1/driver/* (requieren Authorization: Bearer)
+# Mismo login unificado (/api/v1/auth/login) que el resto de la empresa — el
+# chofer entra con su propio usuario (role chofer/conductor); el acceso a cada
+# ruta/factura se valida por pertenencia (driver_id), no por un chequeo de rol
+# en el decorador, igual que el resto de los endpoints de esta API.
+# ==============================================================================
+
+@api_bp.route('/driver/routes', methods=['GET'])
+@jwt_required
+def driver_routes():
+    """Hojas de despacho asignadas a este chofer, planificadas o en curso."""
+    company_db_name = request.jwt_user['company_db']
+    routes = DeliveryService.get_driver_routes(company_db_name, request.jwt_user['email'])
+    return jsonify({"routes": routes}), 200
+
+
+@api_bp.route('/driver/routes/<route_id>', methods=['GET'])
+@jwt_required
+def driver_route_detail(route_id):
+    """Detalle de una hoja de despacho: cada parada con cliente, dirección y
+    si ya tiene entrega confirmada."""
+    company_db_name = request.jwt_user['company_db']
+    route, err = DeliveryService.get_route_detail(company_db_name, route_id, request.jwt_user['email'])
+    if err:
+        return jsonify({"error": err}), 404
+    return jsonify({"route": route}), 200
+
+
+@api_bp.route('/driver/routes/<route_id>/start', methods=['POST'])
+@jwt_required
+def driver_start_route(route_id):
+    company_db_name = request.jwt_user['company_db']
+    success, message = DeliveryService.start_route(company_db_name, route_id, request.jwt_user['email'])
+    if not success:
+        return jsonify({"error": message}), 400
+    return jsonify({"message": message}), 200
+
+
+@api_bp.route('/driver/routes/<route_id>/complete', methods=['POST'])
+@jwt_required
+def driver_complete_route(route_id):
+    """Cierra la hoja de despacho — cualquier parada que el chofer no haya
+    confirmado individualmente con foto/firma queda entregada en este
+    instante como respaldo (ver LogisticsService.update_route_status)."""
+    company_db_name = request.jwt_user['company_db']
+    success, message = DeliveryService.complete_route(company_db_name, route_id, request.jwt_user['email'])
+    if not success:
+        return jsonify({"error": message}), 400
+    return jsonify({"message": message}), 200
+
+
+@api_bp.route('/driver/invoices/<invoice_id>/deliver', methods=['POST'])
+@jwt_required
+def driver_deliver_invoice(invoice_id):
+    """Confirmación real de entrega de una parada: foto + firma del cliente
+    (multipart/form-data). Es el evento que arranca el reloj de comisión."""
+    company_db_name = request.jwt_user['company_db']
+    data = request.form
+    photo_file = request.files.get('photo')
+    signature_file = request.files.get('signature')
+    notes = data.get('notes', '')
+
+    latitude = longitude = None
+    try:
+        if data.get('latitude'):
+            latitude = float(data.get('latitude'))
+        if data.get('longitude'):
+            longitude = float(data.get('longitude'))
+    except (TypeError, ValueError):
+        latitude = longitude = None
+
+    success, message = DeliveryService.confirm_delivery(
+        company_db_name, invoice_id, request.jwt_user['email'],
+        photo_file, signature_file, notes, latitude, longitude
+    )
+    if not success:
+        return jsonify({"error": message}), 400
+    return jsonify({"message": message}), 201
